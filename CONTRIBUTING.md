@@ -3,12 +3,14 @@
 ## Run the tests first — there is nothing to set up
 
 ```bash
-pip install pytest
+pip install pytest pyyaml
 python -m pytest plugins/research-note/scripts/tests -q
 ```
 
-373 tests, about 30 seconds. No dependencies beyond `pytest` itself: the code
-is standard-library Python, POSIX shell and git. The suite builds its own
+373 tests, about 30 seconds. Two test-only dependencies and nothing else:
+`pytest`, and `pyyaml` for the single test that parses the skills' ```yaml
+examples with a real parser. The shipped code itself is standard-library
+Python, POSIX shell and git — nothing to install to RUN it. The suite builds its own
 repositories and its own fake `HOME`, and it never calls the `claude` or `codex`
 CLIs — every test that needs one stubs it. So it passes on a machine with
 neither agent installed, which is also how CI runs it.

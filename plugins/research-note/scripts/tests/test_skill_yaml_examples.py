@@ -21,7 +21,17 @@ import re
 from pathlib import Path
 
 import pytest
-import yaml
+
+# The ONE third-party import in the suite, and it is not optional to the point
+# of this file: the defect being caught is that `03.014` is a valid YAML FLOAT
+# and loads as 3.014, which only a real YAML parser sees. A hand-rolled reader
+# would pass the very block that broke.
+#
+# importorskip rather than a plain import: a bare `import yaml` turns a missing
+# package into a COLLECTION error, and pytest then abandons the whole run —
+# 372 unrelated tests lost to one absent dependency, which is what CI reported.
+# A skip is loud in the summary and costs nothing else.
+yaml = pytest.importorskip("yaml", reason="PyYAML: pip install pyyaml")
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BLOCK = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
