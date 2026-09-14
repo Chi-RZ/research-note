@@ -1,0 +1,15 @@
+{
+  "name": "markdown-white-preview",
+  "displayName": "Markdown White Preview",
+  "description": "Force the built-in Markdown preview onto a white page while the editor stays on a dark theme.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "contributes": {
+    "markdown.previewStyles": [
+      "./markdown-preview-light.css"
+    ]
+  }
+}

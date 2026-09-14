@@ -1,0 +1,39 @@
+{
+  "name": "research-note",
+  "version": "0.1.0",
+  "description": "Agent-neutral computational research framework with structured records, objectives, HPC provenance, linters, worktree isolation, a fixer and a dashboard.",
+  "author": {
+    "name": "Chi-RZ",
+    "email": "mr.rzchi@gmail.com",
+    "url": "https://github.com/Chi-RZ"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/Chi-RZ/research-note",
+  "homepage": "https://chi-rz.github.io/research-note/",
+  "keywords": [
+    "research",
+    "record-keeping",
+    "hpc",
+    "physics",
+    "lab-notebook"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Research Note",
+    "shortDescription": "Structured computational research for Claude and Codex.",
+    "longDescription": "Plan and record computational research with reproducible node/page/entry records, objective loops, linting, HPC provenance, worktree-safe writes and dashboards.",
+    "developerName": "Chi-RZ",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Interactive"
+    ],
+    "websiteURL": "https://chi-rz.github.io/research-note/",
+    "defaultPrompt": [
+      "Set up this project with the research-note framework.",
+      "Show the current research-note status.",
+      "Create a research objective and plan its first phase."
+    ]
+  }
+}

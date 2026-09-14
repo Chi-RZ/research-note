@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""commit-msg hook: the commit prefix must match the layer(s) staged.
+
+Monorepo layers are told apart by commit prefixes (root CLAUDE.md, Commit
+Rules); this hook is what makes that mechanical. Install (once per clone,
+project-setup does it): git config core.hooksPath .claude/githooks
+Escape hatch: SKIP_PREFIX_CHECK=1 git commit ...
+"""
+import os
+import re
+import subprocess
+import sys
+
+# prefix -> set of top-level dirs it may touch. Root-level files (.gitignore,
+# pyproject.toml, ...) are allowed under any prefix.
+RULES = {
+    "feat": {"src", "tests"},
+    "fix": {"src", "tests"},
+    "refactor": {"src", "tests"},
+    "exp": {"experiments"},
+    "memory": {"project_memory"},
+    "wiki": {"wiki"},
+    # "lift" retired: a lift is a feat: + an exp(<node>):, tied by a `Lift:` trailer
+    "chore": set(),                            # root-level repo plumbing only
+    "agent": {".agent", ".agents", ".claude", ".codex"},
+}
+PASS_RE = re.compile(r"^(Merge|Revert|fixup!|squash!)\b")
+
+def main() -> int:
+    if os.environ.get("SKIP_PREFIX_CHECK"):
+        return 0
+    subject = open(sys.argv[1], encoding="utf-8").readline().strip()
+    if PASS_RE.match(subject):
+        return 0
+    # The INITIAL commit spans every layer by construction — a bootstrap lays
+    # src/, experiments/, project_memory/, wiki/ and .claude/ in one go, and
+    # there is no earlier commit to split it against. One-layer-per-commit is a
+    # rule about ongoing work, so it starts applying with the second commit.
+    if subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"],
+                      capture_output=True).returncode != 0:
+        return 0
+    m = re.match(r"^([a-z]+)(\([^)]*\))?:", subject)
+    if not m or m.group(1) not in RULES:
+        print(f"commit-msg: subject `{subject}` has no legal layer prefix.\n"
+              f"Legal: {', '.join(sorted(RULES))} (see root CLAUDE.md Commit "
+              f"Rules). SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
+        return 1
+    staged = subprocess.run(["git", "diff", "--cached", "--name-only"],
+                            capture_output=True, text=True).stdout.split()
+    if m.group(1) == "exp":
+        node = (m.group(2) or "()")[1:-1].strip()
+        if not node:
+            print("commit-msg: `exp:` must name its node — `exp(<node>): ...`.\n"
+                  "The node is what bounds a code change's blast radius; without it the "
+                  "prefix cannot partition. SKIP_PREFIX_CHECK=1 to override.",
+                  file=sys.stderr)
+            return 1
+        # The scope is the node-history retrieval key: `git log --grep=<node>`
+        # is how the record finds a node's code commits, so a scope naming no
+        # node makes this commit silently invisible to that history. All three
+        # shapes have happened: exp(all), a hyphenated typo, and a literal
+        # glob covering several nodes at once. The node must exist — or be
+        # created by this very commit.
+        if (not os.path.isdir(os.path.join("experiments", node))
+                and not any(f.startswith(f"experiments/{node}/") for f in staged)):
+            print(f"commit-msg: `exp({node}):` names no node — experiments/{node}/ "
+                  f"neither exists nor is created by this commit.\n"
+                  f"The scope is the retrieval key (`git log --grep=<node>` is a "
+                  f"node's whole code history); a wrong name hides this commit from "
+                  f"it silently. One node per commit — split a sweep. "
+                  f"SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
+            return 1
+    allowed = RULES[m.group(1)]
+    dirs = {p.split("/", 1)[0] for p in staged if "/" in p}
+    bad = dirs - allowed
+    if bad:
+        print(f"commit-msg: prefix `{m.group(1)}:` may touch {sorted(allowed)} "
+              f"but the commit stages {sorted(bad)} — one commit = one layer "
+              f"(root CLAUDE.md). Split the commit, fix the prefix, or "
+              f"SKIP_PREFIX_CHECK=1.", file=sys.stderr)
+        return 1
+    # Trailers: record history is keyed by id — `git log --grep` on an id walks
+    # that entry's or objective's whole history (project_memory contract).
+    body = open(sys.argv[1], encoding="utf-8").read()
+    nodes = [p for p in staged if p.startswith("project_memory/nodes/")]
+    objs = [p for p in staged if p.startswith("project_memory/objectives/")]
+    if nodes and objs:
+        print("commit-msg: stages both nodes/ and objectives/ — a route change "
+              "is its own commit. Split it, or SKIP_PREFIX_CHECK=1.",
+              file=sys.stderr)
+        return 1
+    if nodes and not re.search(r"^(Entry|Correct): \d{2}\.\d{3}\b", body, re.M):
+        print("commit-msg: a nodes/ commit carries an `Entry: <nn>.<mmm>` "
+              "trailer (a correction: `Correct: <id>`). SKIP_PREFIX_CHECK=1 "
+              "to override.", file=sys.stderr)
+        return 1
+    if objs and not re.search(r"^Objective: O\d{2}\b", body, re.M):
+        print("commit-msg: an objectives/ commit carries an `Objective: O<nn>` "
+              "trailer. SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
+        return 1
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

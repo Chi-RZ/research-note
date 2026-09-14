@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "tiers": {
+    "format": {
+      "enabled": false,
+      "model": "sonnet",
+      "max_turns": 15,
+      "timeout_min": 15,
+      "max_pages_per_run": 5
+    },
+    "analyze": {
+      "enabled": false,
+      "model": "opus",
+      "max_turns": 40,
+      "timeout_min": 120,
+      "max_pages_per_run": 2
+    }
+  },
+  "skip_pages_modified_within_min": 10,
+  "attention_after_min": 30,
+  "fallback_analyze": {
+    "enabled": false,
+    "after_hours": 24
+  },
+  "stale_objective_days": 2,
+  "park_after_attempts": 3,
+  "_note": "Both agent tiers are OFF by default: the record bus refuses a page that does not lint and commits the ones that do, and every launch venue records at launch, so an unattended agent has nothing left to repair. The cycle still runs \u2014 it scans, stamps `attention:` on an objective whose loop went quiet with work in flight, and refreshes the board. Turn a tier back on only if a real backlog appears that nothing else catches."
+}

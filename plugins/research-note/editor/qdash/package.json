@@ -1,0 +1,31 @@
+{
+  "name": "qdash",
+  "displayName": "Q Dashboard",
+  "description": "Render project_memory/dashboard.html in a VSCode webview; jump links open q-pages in the editor.",
+  "version": "0.0.3",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onCommand:qdash.open",
+    "onCommand:qdash.openWiki"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "qdash.open",
+        "title": "Open Q Dashboard"
+      },
+      {
+        "command": "qdash.refresh",
+        "title": "Q Dashboard: Refresh"
+      },
+      {
+        "command": "qdash.openWiki",
+        "title": "Open Ecosystem Wiki"
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "enabledPlugins": {
+    "research-note@rzchi": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(sbatch:*)",
+      "Bash(squeue:*)",
+      "Bash(sacct:*)",
+      "Bash(scancel:*)",
+      "Bash(srun:*)",
+      "Bash(scontrol:*)",
+      "Bash(awk:*)",
+      "Bash(sed:*)",
+      "Bash(stat:*)",
+      "Bash(sleep:*)",
+      "Bash(sha256sum:*)",
+      "Bash(shasum:*)",
+      "Bash(uv run:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(mkdir:*)",
+      "Bash(bash:*)",
+      "Bash(python3:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)"
+    ]
+  }
+}

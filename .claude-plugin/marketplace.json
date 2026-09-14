@@ -1,0 +1,17 @@
+{
+  "name": "rzchi",
+  "description": "Research-agent plugins by Chi-RZ",
+  "owner": {
+    "name": "Chi-RZ",
+    "email": "mr.rzchi@gmail.com"
+  },
+  "license": "MIT",
+  "plugins": [
+    {
+      "name": "research-note",
+      "description": "Agent research framework: node/page/entry record schema with anchored-motivation chains, linters, objective loop, HPC submission, fixer daemon and dashboard",
+      "version": "0.1.0",
+      "source": "./plugins/research-note"
+    }
+  ]
+}

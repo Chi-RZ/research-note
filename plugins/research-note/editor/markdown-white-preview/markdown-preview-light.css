@@ -1,0 +1,75 @@
+/* Force the VS Code Markdown preview onto a white page while the editor stays
+ * on a dark theme.
+ *
+ * Only the vscode-dark / vscode-high-contrast bodies are touched, so switching
+ * to a light theme still gives the stock light preview rather than a
+ * double-applied one.
+ *
+ * Fenced code blocks deliberately KEEP their dark background: the preview
+ * syntax-highlights them with the active theme's token colours as inline
+ * styles, and those are light. Whitening the block too would leave light
+ * tokens on white. A dark block on a white page keeps the highlighting intact
+ * and readable without overriding every token colour.
+ */
+
+body.vscode-dark,
+body.vscode-high-contrast {
+    background-color: #ffffff;
+    color: #24292f;
+}
+
+body.vscode-dark a,
+body.vscode-high-contrast a {
+    color: #0969da;
+}
+
+body.vscode-dark h1,
+body.vscode-dark h2,
+body.vscode-high-contrast h1,
+body.vscode-high-contrast h2 {
+    border-bottom-color: #d8dee4;
+}
+
+/* Fenced blocks: dark island on the white page, theme token colours untouched. */
+body.vscode-dark pre,
+body.vscode-high-contrast pre {
+    background-color: #1e1e1e;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+/* Inline code is NOT syntax-highlighted — it inherits the theme foreground,
+ * which is light. Pin it to dark-on-grey so it survives the white page. */
+body.vscode-dark :not(pre) > code,
+body.vscode-high-contrast :not(pre) > code {
+    background-color: #f0f1f3;
+    color: #24292f;
+    border-radius: 4px;
+    padding: 0.2em 0.4em;
+}
+
+body.vscode-dark blockquote,
+body.vscode-high-contrast blockquote {
+    color: #57606a;
+    border-left-color: #d0d7de;
+    background-color: transparent;
+}
+
+body.vscode-dark table td,
+body.vscode-dark table th,
+body.vscode-high-contrast table td,
+body.vscode-high-contrast table th {
+    border-color: #d0d7de;
+}
+
+body.vscode-dark table tr:nth-child(2n),
+body.vscode-high-contrast table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+body.vscode-dark hr,
+body.vscode-high-contrast hr {
+    border-color: #d0d7de;
+    background-color: #d0d7de;
+}

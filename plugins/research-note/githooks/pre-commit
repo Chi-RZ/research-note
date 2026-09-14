@@ -1,0 +1,94 @@
+#!/bin/sh
+# pre-commit hook, two gates on the record layer:
+#   1. project_memory/ commits are legal only on the default branch — the
+#      record has ONE live instance (the main checkout); every other
+#      branch/worktree routes record writes through record_sync.sh.
+#      Escape hatch: SKIP_RECORD_BRANCH_CHECK=1
+#   2. a staged record page must lint. Escape hatch: SKIP_RECORD_LINT=1
+#   3. a commit touching src/ must leave src/INDEX.md current. Escape hatch:
+#      SKIP_SRC_INDEX=1
+# Install alongside commit-msg: git config core.hooksPath .claude/githooks
+
+if [ -z "$SKIP_RECORD_BRANCH_CHECK" ]; then
+    branch=$(git symbolic-ref --quiet --short HEAD)
+    default=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD)
+    default=${default#origin/}
+    if [ -z "$default" ]; then
+        for b in main master; do
+            git show-ref --verify --quiet "refs/heads/$b" && { default=$b; break; }
+        done
+    fi
+    # No default determinable — a repo with no commits yet, where refs/heads/<b>
+    # does not exist and there is no origin. The guard exists to stop a record
+    # commit on a KNOWN-other branch; with nothing to compare against it must
+    # let the work through, or a fresh project can never make its first commit.
+    if [ -n "$default" ] && [ "$branch" != "$default" ]; then
+        if git diff --cached --name-only | grep -q '^project_memory/'; then
+            echo "pre-commit: project_memory/ staged on \`${branch:-detached HEAD}\` — records live on \`$default\` only." >&2
+            echo "Write records from the main checkout via record_sync.sh -m \"...\" <files> (SKIP_RECORD_BRANCH_CHECK=1 to override)." >&2
+            exit 1
+        fi
+    fi
+fi
+
+if [ -z "$SKIP_RECORD_LINT" ]; then
+    pages=$(git diff --cached --name-only | grep -E '^project_memory/(nodes|objectives)/.*\.md$')
+    if [ -n "$pages" ]; then
+        PLUGIN="${RESEARCH_NOTE_PLUGIN:-$(git config --get research-note.pluginRoot 2>/dev/null)}"
+        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
+        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
+        if [ -n "$PLUGIN" ] && [ -f "$PLUGIN/scripts/check_node_page.py" ]; then
+            fail=0
+            for f in $pages; do
+                [ -f "$f" ] || continue   # a deleted page has nothing to lint
+                case "$f" in
+                    project_memory/objectives/*) linter=check_objective_page.py ;;
+                    *) linter=check_node_page.py ;;
+                esac
+                RESEARCH_NOTE_PROJECT_DIR="$PWD" CLAUDE_PROJECT_DIR="$PWD" \
+                    python3 "$PLUGIN/scripts/$linter" "$f"
+                # exit 1 = findings; other nonzero (e.g. record-version
+                # mismatch) is doctor's to report, not this gate's to block on
+                [ $? -eq 1 ] && fail=1
+            done
+            if [ "$fail" -eq 1 ]; then
+                echo "pre-commit: a staged record page does not lint (above). SKIP_RECORD_LINT=1 to override." >&2
+                exit 1
+            fi
+        fi
+    fi
+fi
+# --- 3. src/INDEX.md is current whenever src/ moves -------------------------
+# The index is a generated view and the discovery rule reads it before any new
+# code is written ("look in src/INDEX.md, then experiments/"). Regenerating it
+# is a step AFTER a branch lands, in the MAIN checkout — a different place from
+# the work — and skipping it fails nothing, so capabilities sit in src/ unlisted
+# and the next agent writes a duplicate of something already there. Checked on
+# the commit that ADDS the capability, which is where the fix is one command.
+#
+# A linked worktree is sparse here, and generating there produces a short
+# index; the check still runs (it only compares) and its message says where to
+# regenerate.
+if [ -z "$SKIP_SRC_INDEX" ] && git diff --cached --name-only | grep -q '^src/'; then
+    GEN=""
+    root=$(git config --get research-note.pluginRoot 2>/dev/null)
+    [ -n "$root" ] && [ -f "$root/scripts/gen_index.py" ] && GEN="$root/scripts/gen_index.py"
+    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | sort -V | tail -1)
+    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | sort -V | tail -1)
+    if [ -n "$GEN" ]; then
+        # Exit 1 = stale, and only that blocks. Exit 2 is `--check` not being
+        # understood — a gen_index.py older than this hook, which happens on
+        # every machine between the rollout and the repoint of pluginRoot. A
+        # gate that reads "I cannot check" as "it is broken" would refuse every
+        # src/ commit on those machines, with a message naming the wrong cause.
+        python3 "$GEN" --check
+        rc=$?
+        if [ "$rc" -eq 1 ]; then
+            echo "pre-commit: this commit touches src/ but src/INDEX.md is behind it." >&2
+            echo "  Regenerate, stage it, and commit again. SKIP_SRC_INDEX=1 to override." >&2
+            exit 1
+        fi
+    fi
+fi
+
+exit 0

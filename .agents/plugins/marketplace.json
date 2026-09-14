@@ -1,0 +1,20 @@
+{
+  "name": "rzchi",
+  "interface": {
+    "displayName": "Research Note Local"
+  },
+  "plugins": [
+    {
+      "name": "research-note",
+      "source": {
+        "source": "local",
+        "path": "./plugins/research-note"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

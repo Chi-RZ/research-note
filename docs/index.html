@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="open-research-note — a record framework for research a person and an agent run together: every calculation placed the moment it exists, every close a human judgement.">
+<title>open-research-note</title>
+<style>
+  /* ---- tokens: light is the base set, both dark states redefine only these ---- */
+  :root {
+    --paper:      #E8E6E1;
+    --panel:      #F0EEEA;
+    --panel-deep: #DEDBD4;
+    --ink:        #2E2C29;
+    --muted:      #6E6963;
+    --faint:      #938D85;
+    --line:       #CFCBC4;
+    --line-soft:  #DDD9D2;
+    --verified:   #7E8C7A;
+    --attention:  #A9836B;
+    --earth:      #D8D2C7;
+    --earth-dot:  #B9B1A2;
+    --earth-band: #CDC5B7;
+    --earth-pebble:#C3BBAC;
+    --tunnel:     #F2F0EB;
+    --tunnel-edge:#BDB7AC;
+    --gold:       #B5985A;
+    --gold-dim:   #CFC3A2;
+    --gold-edge:  #8C7440;
+
+    --serif: Baskerville, "Hoefler Text", "Iowan Old Style", Charter,
+             Georgia, serif;
+    --sans: "Avenir Next", Avenir, system-ui, -apple-system, "Helvetica Neue",
+            Arial, sans-serif;
+    --mono: ui-monospace, Menlo, "SF Mono", "JetBrains Mono", Consolas,
+            monospace;
+
+    --measure: 34rem;
+    --step: clamp(1.6rem, 3.5vw, 2.6rem);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #22211F;
+      --panel:      #2A2927;
+      --panel-deep: #191817;
+      --ink:        #E3E0DA;
+      --muted:      #9A948C;
+      --faint:      #7A756E;
+      --line:       #3A3835;
+      --line-soft:  #322F2D;
+      --verified:   #9BAA96;
+      --attention:  #C39B78;
+      --earth:      #2A2724;
+      --earth-dot:  #423E38;
+      --earth-band: #322E2A;
+      --earth-pebble:#39352F;
+      --tunnel:     #38352F;
+      --tunnel-edge:#565049;
+      --gold:       #C9AE74;
+      --gold-dim:   #6E6349;
+      --gold-edge:  #E4CA95;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #22211F;
+    --panel:      #2A2927;
+    --panel-deep: #191817;
+    --ink:        #E3E0DA;
+    --muted:      #9A948C;
+    --faint:      #7A756E;
+    --line:       #3A3835;
+    --line-soft:  #322F2D;
+    --verified:   #9BAA96;
+    --attention:  #C39B78;
+    --earth:      #2A2724;
+    --earth-dot:  #423E38;
+    --earth-band: #322E2A;
+    --earth-pebble:#39352F;
+    --tunnel:     #38352F;
+    --tunnel-edge:#565049;
+    --gold:       #C9AE74;
+    --gold-dim:   #6E6349;
+    --gold-edge:  #E4CA95;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 8vw, 6rem) clamp(1.25rem, 5vw, 3rem) 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3.5rem, 9vw, 6.5rem);
+  }
+
+  .col { max-width: var(--measure); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 1.25rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2.6rem, 7.5vw, 4.4rem);
+    line-height: 1.02;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 1.5rem;
+  }
+
+  .deck {
+    font-family: var(--serif);
+    font-size: clamp(1.1rem, 2.2vw, 1.3rem);
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+    max-width: 32rem;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 1.75rem;
+  }
+
+
+  p { margin: 0 0 1rem; }
+  p:last-child { margin-bottom: 0; }
+
+
+
+
+  /* ---- the survey drawing ---- */
+  figure { margin: 0; }
+  .plate { background: var(--panel); border: 1px solid var(--line);
+           padding: clamp(1rem, 3vw, 2rem); overflow-x: auto; }
+  .plate svg { display: block; width: 100%; min-width: 34rem; height: auto; }
+  figcaption { font-size: 0.92rem; line-height: 1.55; color: var(--muted);
+               margin-top: 1.1rem; max-width: var(--measure); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* ---- the seam drawing ---- */
+  .f-earth  { fill: var(--earth); }
+  .f-strata { fill: var(--earth-band); }
+  .f-dot    { fill: var(--earth-dot); }
+  .f-pebble { fill: var(--earth-pebble); }
+  .s-grain  { stroke: var(--earth-dot); fill: none; }
+  .s-dead   { stroke: var(--muted); }
+  .tunnel-void {
+    fill: none; stroke: var(--tunnel); stroke-width: 44;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tunnel-edge {
+    fill: none; stroke: var(--tunnel-edge); stroke-width: 1.5;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .gold-rock  { fill: var(--gold-dim); stroke: var(--gold-edge); stroke-width: 0.9; }
+  .gold-found { fill: var(--gold); stroke: var(--gold-edge); stroke-width: 1.2; }
+  .t { font-family: var(--mono); font-size: 13px; letter-spacing: 0.05em; fill: var(--muted); }
+  .t-ink { fill: var(--ink); }
+
+  .closing {
+    margin-top: 2rem;
+    font-family: var(--serif);
+    font-size: 1.22rem;
+    line-height: 1.45;
+    max-width: 40rem;
+    text-wrap: balance;
+  }
+  .closing b { font-weight: 600; }
+
+
+
+  /* ---- loop ---- */
+  .loop {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .loop span { background: var(--panel); border: 1px solid var(--line); padding: 0.3rem 0.6rem; }
+  .loop i { font-style: normal; color: var(--faint); }
+
+  /* ---- counts ---- */
+  .counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1.5rem clamp(1rem, 4vw, 2.5rem);
+    margin-top: 2.25rem;
+  }
+  .counts div { border-top: 1px solid var(--line); padding-top: 0.75rem; }
+  .counts b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 1.85rem;
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .counts span {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.75rem;
+  }
+  footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+  footer a:hover, footer a:focus-visible { color: var(--ink); border-color: var(--ink); }
+  a:focus-visible { outline: 2px solid var(--verified); outline-offset: 3px; }
+
+  /* ---- numbered chapters ---- */
+  .chap {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    gap: clamp(1rem, 3vw, 2.25rem);
+  }
+  .rail { display: flex; flex-direction: column; gap: 1.15rem; align-items: flex-start; }
+  .rail .n {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    color: var(--faint);
+    border-top: 2px solid var(--ink);
+    padding-top: 0.5rem;
+    width: 100%;
+  }
+  .mk {
+    width: 3.4rem; height: 3.4rem; display: block;
+    color: var(--faint);
+    stroke: currentColor; fill: none; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .slogan {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.8rem, 4.2vw, 2.6rem);
+    line-height: 1.06;
+    letter-spacing: -0.018em;
+    margin: 0 0 1.15rem;
+    text-wrap: balance;
+  }
+  .chap p { max-width: var(--measure); color: var(--muted); }
+  .chap p b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 40rem) {
+    .chap { grid-template-columns: 1fr; }
+    .rail { flex-direction: row; align-items: center; gap: 1rem; }
+    .rail .n { width: auto; border-top: none; padding-top: 0; }
+    .mk { width: 2.6rem; height: 2.6rem; }
+  }
+
+  /* ---- record fragments ---- */
+  .frags {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+    margin-top: 2rem;
+  }
+  .frag {
+    background: var(--panel-deep);
+    border: 1px solid var(--line);
+    padding: 1rem 1.15rem 1.15rem;
+    overflow-x: auto;
+  }
+  .frag h4 {
+    margin: 0 0 0.8rem;
+    font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+  }
+  .frag pre {
+    margin: 0;
+    font-family: var(--mono); font-size: 0.8rem; line-height: 1.8;
+    color: var(--muted);
+  }
+  .frag pre b { color: var(--ink); font-weight: 600; }
+  .frag pre i { font-style: normal; color: var(--attention); }
+  .frag pre u { text-decoration: none; color: var(--verified); }
+
+
+
+  /* ---- leaner prose, two-stage pumps ---- */
+  .chap p:not(.closing) {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    line-height: 1.5;
+  }
+  /* ---- typography overrides: the name is an identifier, not prose ---- */
+  h1 {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: clamp(1.85rem, 4.6vw, 2.9rem);
+    letter-spacing: -0.022em;
+    line-height: 1.06;
+  }
+
+  /* ---- the mine plate bleeds to its own edge ---- */
+  .plate.bleed { padding: 0; line-height: 0; }
+
+  /* ---- the distillation diagram ---- */
+  .d-lbl, .d-key, .d-cap, .d-band, .d-pump, .d-pump-m, .d-pump-a {
+    font-family: var(--mono);
+  }
+  .d-lbl  { fill: var(--muted); }
+  .d-key  { fill: var(--ink); }
+  .d-cap  { fill: var(--faint); }
+  .d-band { fill: var(--faint); letter-spacing: 0.14em; }
+  .d-pump   { fill: var(--muted); }
+  .d-pump-m { fill: var(--verified); }
+  .d-pump-a { fill: var(--attention); }
+  .d-slab      { fill: var(--panel-deep); stroke: var(--line); stroke-width: 1.2; }
+  .d-slab-mine { fill: none; stroke: var(--line); stroke-width: 1.2; }
+  .d-box   { fill: var(--panel); stroke: var(--faint); stroke-width: 1.4; }
+  .d-box-m { fill: var(--panel); stroke: var(--verified); stroke-width: 2; }
+  .d-box-a { fill: var(--panel); stroke: var(--attention); stroke-width: 2; }
+  .d-chip  { fill: var(--paper); stroke: var(--line); stroke-width: 1; }
+  .d-ghost { fill: none; stroke: var(--tunnel-edge); stroke-width: 1.2; }
+  .d-raw   { fill: none; stroke: var(--line); stroke-width: 1.2; }
+  .d-mark  { fill: var(--earth-dot); }
+  .d-arw   { stroke: var(--faint); stroke-width: 1.6; fill: none; }
+  .d-arw-m { stroke: var(--verified); stroke-width: 2; fill: none; }
+  .d-arw-a { stroke: var(--attention); stroke-width: 2; fill: none; }
+  .d-dot    { fill: none; stroke: var(--attention); stroke-width: 1.4; }
+  .d-dot-me { fill: var(--attention); stroke: var(--attention); stroke-width: 1.4; }
+  .d-gate-m { fill: var(--paper); stroke: var(--verified); stroke-width: 1.6; }
+  .d-gate-a { fill: var(--paper); stroke: var(--attention); stroke-width: 1.6; }
+  .d-span   { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 2 5; }
+  .d-dash-a { stroke-dasharray: 4 4; }
+  .d-dash-m { stroke-dasharray: 5 4; stroke-width: 1.4; }
+  .d-view  { fill: none; stroke: var(--verified); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .d-check { fill: none; stroke: var(--faint); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .d-fix   { fill: none; stroke: var(--attention); stroke-width: 1.4; stroke-dasharray: 5 4; }
+
+  /* ---- lifecycle strip ---- */
+  .life {
+    display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+    margin-top: 2rem; font-family: var(--mono); font-size: 0.8rem;
+  }
+  .life span {
+    border: 1px solid var(--line); background: var(--panel);
+    padding: 0.4rem 0.7rem; color: var(--muted);
+  }
+  .life span.stop  { border-color: var(--attention); color: var(--ink); }
+  .life span.human { border-color: var(--verified); color: var(--ink); }
+  .life i { font-style: normal; color: var(--faint); }
+  .life em {
+    font-style: normal; font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 0.15rem;
+  }
+
+  /* ---- a typical run: outside the numbered four ---- */
+  .finale {
+    border-top: 2px solid var(--ink);
+    padding-top: clamp(1.75rem, 4vw, 2.5rem);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="col">
+    <p class="eyebrow">research-note &middot; a record framework</p>
+    <h1>open&#8209;research&#8209;note</h1>
+    <p class="deck">The agent computes and writes the record. You read it and decide.</p>
+  </header>
+
+  <section class="chap">
+    <div class="rail">
+      <p class="n">01</p>
+      <svg class="mk" viewBox="0 0 72 72" role="img" aria-label="A patch of ground with three crossing seams and two finds on them.">
+        <rect x="6" y="6" width="60" height="60" rx="3"/>
+        <path d="M6 22C20 34 30 12 44 26C52 34 58 40 66 38"/>
+        <path d="M22 66C26 48 14 38 28 26C38 18 46 22 52 6"/>
+        <path d="M66 14C54 22 46 36 48 66"/>
+        <circle cx="30" cy="20" r="3" fill="currentColor" stroke="none"/>
+        <circle cx="47" cy="45" r="3" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h2 class="slogan">Every calculation counts.</h2>
+      <p>A paper reports the one tunnel that reached gold. A record keeps them all.</p>
+
+      <figure style="margin-top:2rem">
+        <div class="plate bleed">
+      <svg viewBox="0 0 900 430" role="img" aria-label="Thick curving tunnels crossing through textured rock, with gold along the tunnels and out in the rock.">
+        <rect class="f-earth" x="0" y="0" width="900" height="430"/>
+        <g class="f-strata">
+          <rect x="0" y="22" width="900" height="30"/>
+          <rect x="0" y="96" width="900" height="22"/>
+          <rect x="0" y="158" width="900" height="40"/>
+          <rect x="0" y="238" width="900" height="26"/>
+          <rect x="0" y="300" width="900" height="34"/>
+          <rect x="0" y="378" width="900" height="30"/>
+        </g>
+        <g class="s-grain" stroke-width="1.1" stroke-linecap="round">
+          <line x1="341.5" y1="104.6" x2="352.6" y2="106.1"/>
+          <line x1="343.7" y1="310.0" x2="360.2" y2="311.5"/>
+          <line x1="689.7" y1="281.2" x2="709.6" y2="282.7"/>
+          <line x1="392.3" y1="73.6" x2="403.2" y2="75.1"/>
+          <line x1="61.8" y1="331.6" x2="71.2" y2="333.1"/>
+          <line x1="764.2" y1="354.8" x2="776.0" y2="356.3"/>
+          <line x1="641.8" y1="310.3" x2="652.5" y2="311.8"/>
+          <line x1="804.5" y1="292.4" x2="826.2" y2="293.9"/>
+          <line x1="56.6" y1="140.3" x2="73.6" y2="141.8"/>
+          <line x1="782.4" y1="357.1" x2="795.3" y2="358.6"/>
+          <line x1="136.9" y1="283.7" x2="151.2" y2="285.2"/>
+          <line x1="353.5" y1="18.9" x2="364.3" y2="20.4"/>
+          <line x1="408.8" y1="308.6" x2="423.4" y2="310.1"/>
+          <line x1="775.9" y1="278.6" x2="789.1" y2="280.1"/>
+          <line x1="130.8" y1="36.9" x2="140.3" y2="38.4"/>
+          <line x1="760.4" y1="368.6" x2="779.1" y2="370.1"/>
+          <line x1="121.1" y1="374.5" x2="138.6" y2="376.0"/>
+          <line x1="374.0" y1="357.8" x2="395.5" y2="359.3"/>
+          <line x1="220.3" y1="189.3" x2="238.9" y2="190.8"/>
+          <line x1="601.6" y1="178.4" x2="616.4" y2="179.9"/>
+          <line x1="851.8" y1="123.1" x2="863.6" y2="124.6"/>
+          <line x1="790.8" y1="143.6" x2="811.8" y2="145.1"/>
+          <line x1="340.4" y1="372.9" x2="359.2" y2="374.4"/>
+          <line x1="167.1" y1="283.3" x2="177.0" y2="284.8"/>
+          <line x1="145.0" y1="144.9" x2="156.9" y2="146.4"/>
+          <line x1="443.1" y1="408.0" x2="463.7" y2="409.5"/>
+          <line x1="725.1" y1="22.2" x2="741.8" y2="23.7"/>
+          <line x1="829.3" y1="271.7" x2="845.0" y2="273.2"/>
+          <line x1="72.4" y1="219.0" x2="89.1" y2="220.5"/>
+          <line x1="277.8" y1="72.2" x2="297.9" y2="73.7"/>
+          <line x1="542.4" y1="350.1" x2="562.7" y2="351.6"/>
+          <line x1="273.8" y1="337.0" x2="291.8" y2="338.5"/>
+          <line x1="218.0" y1="215.1" x2="234.7" y2="216.6"/>
+          <line x1="422.6" y1="39.6" x2="438.0" y2="41.1"/>
+          <line x1="827.8" y1="348.7" x2="837.5" y2="350.2"/>
+          <line x1="728.4" y1="303.7" x2="746.6" y2="305.2"/>
+          <line x1="33.3" y1="321.6" x2="44.9" y2="323.1"/>
+          <line x1="708.6" y1="142.2" x2="722.4" y2="143.7"/>
+          <line x1="159.9" y1="365.7" x2="171.7" y2="367.2"/>
+          <line x1="471.8" y1="21.1" x2="491.5" y2="22.6"/>
+          <line x1="245.7" y1="19.8" x2="264.7" y2="21.3"/>
+          <line x1="642.5" y1="168.2" x2="654.0" y2="169.7"/>
+          <line x1="504.0" y1="305.5" x2="515.5" y2="307.0"/>
+          <line x1="167.1" y1="208.6" x2="185.9" y2="210.1"/>
+          <line x1="708.4" y1="359.9" x2="723.1" y2="361.4"/>
+          <line x1="348.2" y1="37.4" x2="368.0" y2="38.9"/>
+          <line x1="879.8" y1="284.6" x2="898.6" y2="286.1"/>
+          <line x1="333.8" y1="335.9" x2="343.9" y2="337.4"/>
+          <line x1="743.3" y1="139.3" x2="764.0" y2="140.8"/>
+          <line x1="282.3" y1="353.1" x2="293.8" y2="354.6"/>
+          <line x1="774.2" y1="293.7" x2="794.8" y2="295.2"/>
+          <line x1="249.6" y1="358.5" x2="268.8" y2="360.0"/>
+          <line x1="310.9" y1="79.0" x2="331.6" y2="80.5"/>
+          <line x1="421.0" y1="227.3" x2="441.5" y2="228.8"/>
+          <line x1="717.1" y1="319.0" x2="732.9" y2="320.5"/>
+          <line x1="178.2" y1="282.6" x2="190.8" y2="284.1"/>
+          <line x1="245.4" y1="47.9" x2="265.4" y2="49.4"/>
+          <line x1="875.5" y1="135.2" x2="889.8" y2="136.7"/>
+          <line x1="483.7" y1="318.7" x2="492.9" y2="320.2"/>
+          <line x1="818.3" y1="180.0" x2="839.6" y2="181.5"/>
+          <line x1="43.0" y1="93.1" x2="55.8" y2="94.6"/>
+          <line x1="331.3" y1="81.0" x2="345.8" y2="82.5"/>
+          <line x1="847.8" y1="361.4" x2="864.8" y2="362.9"/>
+          <line x1="864.1" y1="308.7" x2="881.4" y2="310.2"/>
+          <line x1="407.9" y1="43.8" x2="428.5" y2="45.3"/>
+          <line x1="789.7" y1="340.0" x2="807.6" y2="341.5"/>
+          <line x1="855.6" y1="325.6" x2="864.8" y2="327.1"/>
+          <line x1="403.4" y1="186.7" x2="415.9" y2="188.2"/>
+          <line x1="547.3" y1="45.4" x2="568.2" y2="46.9"/>
+          <line x1="796.0" y1="364.5" x2="812.0" y2="366.0"/>
+        </g>
+        <g class="f-pebble">
+          <ellipse cx="18.9" cy="54.5" rx="3.5" ry="3.0" transform="rotate(25 18.9 54.5)"/>
+          <ellipse cx="107.4" cy="104.0" rx="4.5" ry="2.1" transform="rotate(133 107.4 104.0)"/>
+          <ellipse cx="90.3" cy="16.4" rx="5.0" ry="2.5" transform="rotate(36 90.3 16.4)"/>
+          <ellipse cx="852.3" cy="95.1" rx="3.0" ry="2.9" transform="rotate(99 852.3 95.1)"/>
+          <ellipse cx="851.1" cy="355.2" rx="3.4" ry="2.2" transform="rotate(151 851.1 355.2)"/>
+          <ellipse cx="882.3" cy="20.6" rx="4.5" ry="3.4" transform="rotate(117 882.3 20.6)"/>
+          <ellipse cx="44.6" cy="147.1" rx="3.3" ry="2.5" transform="rotate(116 44.6 147.1)"/>
+          <ellipse cx="871.2" cy="419.3" rx="4.6" ry="2.4" transform="rotate(32 871.2 419.3)"/>
+          <ellipse cx="178.4" cy="389.3" rx="4.1" ry="3.1" transform="rotate(17 178.4 389.3)"/>
+          <ellipse cx="360.9" cy="384.8" rx="4.2" ry="3.6" transform="rotate(35 360.9 384.8)"/>
+          <ellipse cx="410.0" cy="339.4" rx="3.6" ry="3.2" transform="rotate(101 410.0 339.4)"/>
+          <ellipse cx="112.3" cy="48.9" rx="5.2" ry="2.0" transform="rotate(35 112.3 48.9)"/>
+          <ellipse cx="304.3" cy="303.4" rx="4.8" ry="2.7" transform="rotate(90 304.3 303.4)"/>
+          <ellipse cx="570.4" cy="23.8" rx="2.7" ry="2.0" transform="rotate(131 570.4 23.8)"/>
+          <ellipse cx="620.5" cy="410.9" rx="4.5" ry="2.3" transform="rotate(138 620.5 410.9)"/>
+          <ellipse cx="878.8" cy="152.4" rx="2.4" ry="2.5" transform="rotate(51 878.8 152.4)"/>
+          <ellipse cx="118.4" cy="366.2" rx="2.5" ry="2.9" transform="rotate(37 118.4 366.2)"/>
+          <ellipse cx="272.1" cy="84.1" rx="3.7" ry="3.1" transform="rotate(94 272.1 84.1)"/>
+          <ellipse cx="768.0" cy="174.2" rx="3.9" ry="3.1" transform="rotate(83 768.0 174.2)"/>
+          <ellipse cx="641.8" cy="201.3" rx="2.8" ry="2.0" transform="rotate(141 641.8 201.3)"/>
+          <ellipse cx="154.9" cy="361.2" rx="2.7" ry="2.6" transform="rotate(25 154.9 361.2)"/>
+          <ellipse cx="384.2" cy="302.4" rx="3.9" ry="2.2" transform="rotate(140 384.2 302.4)"/>
+          <ellipse cx="730.8" cy="167.0" rx="3.0" ry="2.2" transform="rotate(62 730.8 167.0)"/>
+          <ellipse cx="624.9" cy="160.5" rx="4.6" ry="1.9" transform="rotate(45 624.9 160.5)"/>
+          <ellipse cx="449.9" cy="395.3" rx="3.2" ry="2.1" transform="rotate(6 449.9 395.3)"/>
+          <ellipse cx="426.8" cy="10.3" rx="2.4" ry="2.5" transform="rotate(136 426.8 10.3)"/>
+          <ellipse cx="543.0" cy="358.5" rx="3.9" ry="2.4" transform="rotate(17 543.0 358.5)"/>
+          <ellipse cx="839.9" cy="286.8" rx="3.9" ry="3.3" transform="rotate(56 839.9 286.8)"/>
+          <ellipse cx="371.1" cy="348.9" rx="3.1" ry="3.1" transform="rotate(9 371.1 348.9)"/>
+          <ellipse cx="851.9" cy="291.2" rx="3.3" ry="3.6" transform="rotate(143 851.9 291.2)"/>
+          <ellipse cx="62.5" cy="110.8" rx="3.8" ry="3.6" transform="rotate(25 62.5 110.8)"/>
+          <ellipse cx="50.1" cy="137.4" rx="2.5" ry="2.5" transform="rotate(97 50.1 137.4)"/>
+          <ellipse cx="397.3" cy="66.5" rx="2.5" ry="3.2" transform="rotate(79 397.3 66.5)"/>
+          <ellipse cx="432.4" cy="205.9" rx="4.3" ry="3.4" transform="rotate(149 432.4 205.9)"/>
+          <ellipse cx="650.8" cy="148.3" rx="2.9" ry="2.0" transform="rotate(155 650.8 148.3)"/>
+          <ellipse cx="812.2" cy="141.4" rx="3.5" ry="2.6" transform="rotate(170 812.2 141.4)"/>
+          <ellipse cx="42.3" cy="310.4" rx="3.7" ry="2.5" transform="rotate(147 42.3 310.4)"/>
+          <ellipse cx="701.7" cy="195.8" rx="2.8" ry="2.9" transform="rotate(157 701.7 195.8)"/>
+          <ellipse cx="777.6" cy="59.8" rx="3.5" ry="2.2" transform="rotate(61 777.6 59.8)"/>
+          <ellipse cx="856.2" cy="182.3" rx="3.3" ry="2.3" transform="rotate(79 856.2 182.3)"/>
+          <ellipse cx="600.0" cy="149.8" rx="2.9" ry="2.2" transform="rotate(47 600.0 149.8)"/>
+          <ellipse cx="809.1" cy="78.1" rx="4.5" ry="2.0" transform="rotate(141 809.1 78.1)"/>
+          <ellipse cx="243.1" cy="330.7" rx="3.6" ry="1.9" transform="rotate(17 243.1 330.7)"/>
+          <ellipse cx="437.6" cy="153.8" rx="4.3" ry="2.7" transform="rotate(11 437.6 153.8)"/>
+          <ellipse cx="692.0" cy="57.8" rx="4.4" ry="2.9" transform="rotate(153 692.0 57.8)"/>
+          <ellipse cx="531.4" cy="325.6" rx="3.1" ry="2.8" transform="rotate(142 531.4 325.6)"/>
+        </g>
+        <g class="f-dot">
+          <circle cx="798.5" cy="40.9" r="1.60"/>
+          <circle cx="324.0" cy="309.4" r="1.20"/>
+          <circle cx="400.8" cy="98.4" r="1.20"/>
+          <circle cx="806.7" cy="50.3" r="1.60"/>
+          <circle cx="448.4" cy="14.2" r="1.60"/>
+          <circle cx="658.0" cy="156.1" r="0.90"/>
+          <circle cx="333.8" cy="77.9" r="0.90"/>
+          <circle cx="868.0" cy="157.6" r="1.20"/>
+          <circle cx="866.1" cy="123.6" r="1.20"/>
+          <circle cx="514.8" cy="346.4" r="0.90"/>
+          <circle cx="167.6" cy="80.6" r="1.20"/>
+          <circle cx="523.1" cy="40.4" r="1.20"/>
+          <circle cx="40.6" cy="121.2" r="1.60"/>
+          <circle cx="102.8" cy="382.3" r="1.60"/>
+          <circle cx="276.7" cy="331.0" r="1.60"/>
+          <circle cx="712.0" cy="212.1" r="1.20"/>
+          <circle cx="490.4" cy="390.0" r="1.60"/>
+          <circle cx="95.1" cy="166.1" r="1.20"/>
+          <circle cx="871.8" cy="29.4" r="1.20"/>
+          <circle cx="355.3" cy="74.0" r="0.90"/>
+          <circle cx="616.2" cy="413.0" r="1.60"/>
+          <circle cx="883.5" cy="319.1" r="1.20"/>
+          <circle cx="20.2" cy="335.5" r="1.20"/>
+          <circle cx="419.8" cy="88.2" r="1.20"/>
+          <circle cx="850.0" cy="96.3" r="0.90"/>
+          <circle cx="500.0" cy="277.5" r="1.60"/>
+          <circle cx="488.8" cy="345.8" r="1.20"/>
+          <circle cx="94.8" cy="74.9" r="0.90"/>
+          <circle cx="798.4" cy="346.1" r="1.60"/>
+          <circle cx="616.7" cy="178.5" r="1.60"/>
+          <circle cx="859.0" cy="381.2" r="1.60"/>
+          <circle cx="217.7" cy="129.4" r="1.20"/>
+          <circle cx="271.4" cy="365.7" r="1.60"/>
+          <circle cx="494.3" cy="351.5" r="0.90"/>
+          <circle cx="28.5" cy="64.2" r="1.60"/>
+          <circle cx="653.1" cy="185.9" r="0.90"/>
+          <circle cx="850.9" cy="38.8" r="1.60"/>
+          <circle cx="27.0" cy="405.9" r="1.60"/>
+          <circle cx="405.0" cy="182.6" r="0.90"/>
+          <circle cx="536.4" cy="420.7" r="1.60"/>
+          <circle cx="82.7" cy="372.4" r="1.20"/>
+          <circle cx="341.1" cy="13.5" r="1.20"/>
+          <circle cx="378.6" cy="347.3" r="1.20"/>
+          <circle cx="484.5" cy="294.8" r="1.20"/>
+          <circle cx="198.9" cy="116.3" r="0.90"/>
+          <circle cx="452.2" cy="52.1" r="1.20"/>
+          <circle cx="884.9" cy="122.0" r="1.20"/>
+          <circle cx="12.7" cy="21.5" r="0.90"/>
+          <circle cx="225.9" cy="416.7" r="1.60"/>
+          <circle cx="422.9" cy="176.1" r="0.90"/>
+          <circle cx="136.2" cy="356.0" r="0.90"/>
+          <circle cx="166.1" cy="218.8" r="1.60"/>
+          <circle cx="75.5" cy="388.5" r="1.60"/>
+          <circle cx="543.2" cy="23.1" r="0.90"/>
+          <circle cx="815.7" cy="82.3" r="0.90"/>
+          <circle cx="126.8" cy="291.5" r="1.60"/>
+          <circle cx="268.0" cy="338.3" r="0.90"/>
+          <circle cx="125.1" cy="44.7" r="0.90"/>
+          <circle cx="189.0" cy="184.3" r="1.20"/>
+          <circle cx="527.2" cy="398.4" r="1.60"/>
+          <circle cx="282.9" cy="376.5" r="1.60"/>
+          <circle cx="120.7" cy="164.9" r="1.20"/>
+          <circle cx="744.0" cy="22.5" r="1.20"/>
+          <circle cx="317.0" cy="93.9" r="1.60"/>
+          <circle cx="367.2" cy="30.5" r="1.20"/>
+          <circle cx="659.5" cy="203.5" r="0.90"/>
+          <circle cx="529.3" cy="179.2" r="0.90"/>
+          <circle cx="854.2" cy="20.7" r="1.20"/>
+          <circle cx="401.6" cy="78.4" r="1.20"/>
+          <circle cx="517.1" cy="410.4" r="1.60"/>
+          <circle cx="803.9" cy="269.9" r="1.60"/>
+          <circle cx="167.3" cy="190.0" r="0.90"/>
+          <circle cx="592.9" cy="185.8" r="0.90"/>
+          <circle cx="411.3" cy="7.3" r="1.60"/>
+          <circle cx="345.6" cy="29.9" r="0.90"/>
+          <circle cx="843.4" cy="286.8" r="1.60"/>
+          <circle cx="782.0" cy="306.6" r="0.90"/>
+          <circle cx="540.9" cy="32.6" r="1.60"/>
+          <circle cx="726.7" cy="200.0" r="0.90"/>
+          <circle cx="829.9" cy="183.0" r="1.60"/>
+          <circle cx="861.0" cy="15.3" r="1.60"/>
+          <circle cx="511.9" cy="382.7" r="0.90"/>
+          <circle cx="62.2" cy="332.3" r="0.90"/>
+          <circle cx="104.4" cy="351.8" r="0.90"/>
+          <circle cx="36.0" cy="205.3" r="1.60"/>
+          <circle cx="37.3" cy="116.5" r="1.60"/>
+          <circle cx="514.7" cy="420.8" r="1.60"/>
+          <circle cx="12.1" cy="390.5" r="1.60"/>
+          <circle cx="747.8" cy="210.3" r="1.60"/>
+          <circle cx="872.4" cy="6.0" r="1.20"/>
+          <circle cx="513.9" cy="339.6" r="1.60"/>
+          <circle cx="21.9" cy="66.8" r="0.90"/>
+          <circle cx="461.0" cy="383.9" r="1.20"/>
+          <circle cx="13.4" cy="213.6" r="1.20"/>
+          <circle cx="295.6" cy="286.3" r="1.60"/>
+          <circle cx="36.6" cy="75.6" r="1.20"/>
+          <circle cx="720.1" cy="338.6" r="0.90"/>
+          <circle cx="145.8" cy="348.8" r="1.60"/>
+          <circle cx="386.0" cy="217.9" r="0.90"/>
+          <circle cx="532.8" cy="395.6" r="0.90"/>
+          <circle cx="538.9" cy="350.0" r="1.60"/>
+          <circle cx="723.4" cy="356.0" r="0.90"/>
+          <circle cx="108.2" cy="185.9" r="0.90"/>
+          <circle cx="188.2" cy="215.3" r="1.20"/>
+          <circle cx="688.2" cy="47.4" r="0.90"/>
+          <circle cx="383.5" cy="96.7" r="1.60"/>
+          <circle cx="885.9" cy="330.3" r="1.60"/>
+          <circle cx="773.4" cy="35.4" r="1.20"/>
+          <circle cx="571.6" cy="323.3" r="1.20"/>
+          <circle cx="731.4" cy="74.1" r="1.20"/>
+          <circle cx="316.1" cy="92.2" r="1.60"/>
+          <circle cx="697.9" cy="147.2" r="0.90"/>
+          <circle cx="707.2" cy="49.6" r="1.60"/>
+          <circle cx="597.8" cy="163.3" r="1.60"/>
+          <circle cx="37.9" cy="393.5" r="1.20"/>
+          <circle cx="656.8" cy="328.6" r="1.60"/>
+          <circle cx="760.2" cy="146.3" r="1.20"/>
+          <circle cx="568.6" cy="392.7" r="0.90"/>
+          <circle cx="369.6" cy="59.3" r="1.20"/>
+          <circle cx="470.1" cy="404.3" r="1.60"/>
+          <circle cx="244.7" cy="309.1" r="1.60"/>
+          <circle cx="304.4" cy="131.5" r="0.90"/>
+          <circle cx="786.9" cy="206.5" r="1.60"/>
+          <circle cx="828.3" cy="332.3" r="1.60"/>
+          <circle cx="678.1" cy="39.0" r="0.90"/>
+          <circle cx="208.0" cy="417.8" r="1.20"/>
+          <circle cx="800.8" cy="353.9" r="1.60"/>
+          <circle cx="616.3" cy="416.2" r="0.90"/>
+          <circle cx="691.1" cy="176.7" r="1.20"/>
+          <circle cx="760.8" cy="27.5" r="1.20"/>
+          <circle cx="659.1" cy="33.2" r="0.90"/>
+          <circle cx="108.5" cy="54.5" r="1.20"/>
+          <circle cx="258.3" cy="58.6" r="0.90"/>
+          <circle cx="95.8" cy="286.0" r="1.20"/>
+          <circle cx="267.7" cy="368.7" r="1.20"/>
+          <circle cx="538.1" cy="420.2" r="0.90"/>
+          <circle cx="691.8" cy="334.0" r="1.60"/>
+          <circle cx="574.8" cy="21.9" r="1.20"/>
+          <circle cx="44.9" cy="205.6" r="1.60"/>
+          <circle cx="326.9" cy="332.9" r="1.60"/>
+          <circle cx="396.1" cy="102.0" r="0.90"/>
+          <circle cx="39.5" cy="373.0" r="1.60"/>
+          <circle cx="178.3" cy="134.8" r="1.20"/>
+          <circle cx="527.5" cy="323.1" r="1.20"/>
+          <circle cx="391.9" cy="336.2" r="0.90"/>
+          <circle cx="870.6" cy="369.2" r="0.90"/>
+          <circle cx="860.8" cy="367.9" r="0.90"/>
+          <circle cx="242.5" cy="347.1" r="0.90"/>
+          <circle cx="267.2" cy="90.1" r="0.90"/>
+          <circle cx="861.9" cy="178.1" r="0.90"/>
+          <circle cx="815.7" cy="23.5" r="1.60"/>
+          <circle cx="804.9" cy="35.8" r="0.90"/>
+          <circle cx="8.7" cy="161.3" r="1.60"/>
+          <circle cx="784.0" cy="326.1" r="0.90"/>
+          <circle cx="245.8" cy="328.7" r="0.90"/>
+          <circle cx="9.5" cy="31.3" r="0.90"/>
+          <circle cx="80.5" cy="109.6" r="0.90"/>
+          <circle cx="760.4" cy="296.3" r="1.20"/>
+          <circle cx="475.3" cy="213.6" r="1.60"/>
+          <circle cx="157.9" cy="140.0" r="1.60"/>
+          <circle cx="428.3" cy="349.3" r="1.60"/>
+          <circle cx="521.2" cy="19.8" r="1.60"/>
+          <circle cx="493.2" cy="284.5" r="1.60"/>
+          <circle cx="755.3" cy="348.5" r="1.20"/>
+          <circle cx="330.4" cy="91.3" r="1.20"/>
+          <circle cx="755.2" cy="299.0" r="1.20"/>
+          <circle cx="675.7" cy="181.9" r="1.60"/>
+          <circle cx="809.9" cy="29.1" r="1.20"/>
+          <circle cx="382.6" cy="52.1" r="0.90"/>
+          <circle cx="432.4" cy="37.7" r="0.90"/>
+          <circle cx="472.1" cy="368.3" r="0.90"/>
+          <circle cx="34.5" cy="343.3" r="0.90"/>
+          <circle cx="632.9" cy="415.3" r="1.60"/>
+          <circle cx="308.3" cy="365.4" r="1.60"/>
+          <circle cx="145.2" cy="383.0" r="1.60"/>
+          <circle cx="431.1" cy="332.5" r="1.20"/>
+          <circle cx="27.7" cy="86.2" r="1.60"/>
+          <circle cx="815.1" cy="67.5" r="0.90"/>
+          <circle cx="719.3" cy="324.8" r="1.20"/>
+          <circle cx="683.9" cy="194.3" r="0.90"/>
+          <circle cx="849.5" cy="380.6" r="1.20"/>
+          <circle cx="82.2" cy="101.6" r="1.20"/>
+          <circle cx="859.6" cy="290.5" r="1.20"/>
+          <circle cx="320.1" cy="286.4" r="1.20"/>
+          <circle cx="789.9" cy="265.6" r="0.90"/>
+          <circle cx="861.0" cy="27.1" r="1.20"/>
+          <circle cx="76.0" cy="36.0" r="0.90"/>
+          <circle cx="842.4" cy="68.8" r="1.20"/>
+          <circle cx="674.4" cy="50.5" r="1.60"/>
+          <circle cx="439.1" cy="348.9" r="0.90"/>
+          <circle cx="531.4" cy="307.1" r="1.60"/>
+          <circle cx="553.1" cy="174.1" r="1.20"/>
+          <circle cx="535.0" cy="176.5" r="0.90"/>
+          <circle cx="354.4" cy="204.1" r="1.60"/>
+          <circle cx="659.0" cy="42.9" r="1.20"/>
+          <circle cx="779.7" cy="59.3" r="1.20"/>
+          <circle cx="652.4" cy="168.7" r="1.60"/>
+          <circle cx="511.5" cy="345.0" r="1.20"/>
+          <circle cx="317.7" cy="93.8" r="1.20"/>
+          <circle cx="139.5" cy="182.1" r="1.20"/>
+          <circle cx="347.8" cy="61.3" r="1.60"/>
+          <circle cx="670.4" cy="65.2" r="1.20"/>
+          <circle cx="821.0" cy="166.8" r="1.20"/>
+          <circle cx="561.3" cy="38.6" r="1.60"/>
+          <circle cx="889.6" cy="319.5" r="0.90"/>
+          <circle cx="531.0" cy="157.4" r="1.60"/>
+          <circle cx="764.9" cy="213.5" r="1.20"/>
+          <circle cx="441.1" cy="313.9" r="0.90"/>
+          <circle cx="597.8" cy="157.0" r="0.90"/>
+          <circle cx="77.1" cy="178.7" r="0.90"/>
+          <circle cx="611.8" cy="153.8" r="0.90"/>
+          <circle cx="679.0" cy="308.4" r="1.20"/>
+          <circle cx="850.0" cy="301.7" r="0.90"/>
+          <circle cx="831.2" cy="307.0" r="0.90"/>
+          <circle cx="834.2" cy="153.7" r="1.20"/>
+          <circle cx="554.3" cy="142.1" r="1.20"/>
+          <circle cx="117.2" cy="98.5" r="1.60"/>
+          <circle cx="212.7" cy="162.9" r="1.20"/>
+          <circle cx="859.0" cy="341.5" r="0.90"/>
+          <circle cx="464.3" cy="225.5" r="1.20"/>
+          <circle cx="752.9" cy="60.3" r="1.20"/>
+          <circle cx="114.2" cy="218.7" r="0.90"/>
+          <circle cx="184.6" cy="103.4" r="1.20"/>
+          <circle cx="97.9" cy="216.5" r="1.20"/>
+          <circle cx="442.5" cy="325.2" r="0.90"/>
+          <circle cx="95.4" cy="350.3" r="1.20"/>
+          <circle cx="800.1" cy="270.2" r="1.20"/>
+          <circle cx="202.2" cy="152.5" r="0.90"/>
+          <circle cx="892.7" cy="187.5" r="0.90"/>
+          <circle cx="414.0" cy="83.0" r="1.60"/>
+          <circle cx="135.9" cy="131.5" r="0.90"/>
+          <circle cx="11.8" cy="138.8" r="0.90"/>
+          <circle cx="443.1" cy="154.9" r="0.90"/>
+          <circle cx="527.7" cy="380.5" r="1.20"/>
+          <circle cx="69.8" cy="312.1" r="0.90"/>
+          <circle cx="868.8" cy="105.0" r="1.60"/>
+          <circle cx="889.5" cy="413.8" r="1.60"/>
+          <circle cx="46.0" cy="102.1" r="0.90"/>
+          <circle cx="689.9" cy="144.6" r="1.20"/>
+          <circle cx="298.0" cy="361.8" r="1.20"/>
+          <circle cx="287.8" cy="378.9" r="0.90"/>
+          <circle cx="780.2" cy="63.2" r="1.20"/>
+          <circle cx="536.4" cy="306.5" r="1.60"/>
+          <circle cx="774.5" cy="62.7" r="1.20"/>
+          <circle cx="704.2" cy="176.0" r="1.20"/>
+          <circle cx="220.9" cy="218.1" r="1.20"/>
+          <circle cx="371.9" cy="103.3" r="0.90"/>
+          <circle cx="734.1" cy="375.5" r="0.90"/>
+          <circle cx="443.7" cy="76.6" r="1.60"/>
+          <circle cx="537.8" cy="334.0" r="0.90"/>
+          <circle cx="133.4" cy="377.6" r="0.90"/>
+          <circle cx="174.5" cy="126.6" r="1.60"/>
+          <circle cx="790.9" cy="367.8" r="1.20"/>
+          <circle cx="372.5" cy="323.4" r="1.20"/>
+          <circle cx="764.9" cy="134.7" r="1.60"/>
+          <circle cx="237.3" cy="52.5" r="1.20"/>
+          <circle cx="647.5" cy="71.0" r="1.60"/>
+          <circle cx="673.4" cy="195.2" r="1.60"/>
+          <circle cx="495.1" cy="295.1" r="1.20"/>
+          <circle cx="164.9" cy="333.3" r="1.20"/>
+        </g>
+        <path class="tunnel-void" d="M-30.0,252.0 C90.0,274.0 182.0,230.0 302.0,256.0 C432.0,288.0 522.0,214.0 662.0,236.0 C762.0,252.0 824.0,226.0 930.0,242.0"/>
+        <path class="tunnel-void" d="M272.0,172.0 C362.0,138.0 424.0,118.0 522.0,104.0 C618.0,92.0 700.0,124.0 782.0,102.0"/>
+        <path class="tunnel-void" d="M150.0,-30.0 C150.0,70.0 262.0,92.0 272.0,172.0 C282.0,252.0 180.0,282.0 216.0,362.0 C242.0,414.0 322.0,432.0 396.0,420.0"/>
+        <path class="tunnel-void" d="M648.0,-30.0 C648.0,58.0 520.0,78.0 500.0,162.0 C480.0,244.0 602.0,272.0 622.0,342.0 C638.0,398.0 722.0,416.0 806.0,404.0"/>
+        <path class="tunnel-edge" d="M-30.0,252.0 C90.0,274.0 182.0,230.0 302.0,256.0 C432.0,288.0 522.0,214.0 662.0,236.0 C762.0,252.0 824.0,226.0 930.0,242.0"/>
+        <path class="tunnel-edge" d="M272.0,172.0 C362.0,138.0 424.0,118.0 522.0,104.0 C618.0,92.0 700.0,124.0 782.0,102.0"/>
+        <path class="tunnel-edge" d="M150.0,-30.0 C150.0,70.0 262.0,92.0 272.0,172.0 C282.0,252.0 180.0,282.0 216.0,362.0 C242.0,414.0 322.0,432.0 396.0,420.0"/>
+        <path class="tunnel-edge" d="M648.0,-30.0 C648.0,58.0 520.0,78.0 500.0,162.0 C480.0,244.0 602.0,272.0 622.0,342.0 C638.0,398.0 722.0,416.0 806.0,404.0"/>
+        <g class="s-dead" stroke-width="3.5" stroke-linecap="round"><line x1="776.0" y1="80.0" x2="798.0" y2="120.0"/><line x1="774.0" y1="122.0" x2="798.0" y2="82.0"/></g>
+        <g class="gold-rock">
+          <polygon points="159.4,163.2 153.5,172.4 143.5,170.8 141.0,160.9 151.1,154.7"/>
+          <polygon points="417.1,339.1 408.8,348.9 396.9,346.1 397.2,333.9 410.7,332.3"/>
+          <polygon points="801.8,311.6 799.5,323.2 786.9,321.6 783.7,311.4 789.0,302.5 797.3,302.3"/>
+          <polygon points="165.6,390.1 157.1,397.2 144.6,395.5 145.6,383.6 159.5,379.0"/>
+          <polygon points="543.7,367.6 539.3,374.2 529.6,372.7 523.3,368.3 531.7,356.6 539.1,354.8"/>
+          <polygon points="308.2,70.9 304.5,79.5 292.0,79.8 289.4,71.4 294.4,60.6 305.1,60.3"/>
+          <polygon points="575.9,165.6 569.3,178.3 558.7,172.0 559.4,158.0 572.4,155.7"/>
+          <polygon points="284.6,326.1 276.1,334.6 266.6,333.5 267.4,320.6 277.0,316.7"/>
+        </g>
+        <g class="gold-found">
+          <polygon points="244.7,101.9 230.9,116.2 213.0,107.1 213.6,90.3 232.9,85.3"/>
+          <polygon points="251.7,270.1 239.1,278.6 228.1,282.2 219.9,264.2 228.3,256.3 243.9,251.9"/>
+          <polygon points="310.1,416.8 307.3,431.6 290.6,431.3 283.5,419.8 290.8,406.8 303.0,406.0"/>
+          <polygon points="588.9,76.0 579.5,87.5 563.0,89.5 555.4,78.7 562.0,63.4 576.5,59.1"/>
+          <polygon points="574.0,269.8 565.6,280.6 554.8,281.0 544.2,271.6 554.2,254.7 572.0,255.5"/>
+          <polygon points="703.0,396.1 695.5,414.8 675.1,406.9 675.4,390.0 693.9,385.4"/>
+          <polygon points="168.5,253.4 156.1,263.7 137.9,261.1 139.4,243.8 159.6,237.2"/>
+          <polygon points="477.3,252.4 471.5,263.3 454.0,265.5 452.1,253.0 459.1,241.2 470.5,240.4"/>
+          <polygon points="790.2,242.3 781.8,252.8 766.2,252.8 757.1,240.7 768.3,229.3 778.9,228.8"/>
+          <polygon points="426.5,123.9 422.1,137.7 405.3,135.5 395.1,125.0 402.0,111.5 420.2,115.6"/>
+          <polygon points="683.2,107.5 675.5,120.9 662.6,118.5 657.2,106.2 663.1,95.7 676.1,96.6"/>
+        </g>
+      </svg>
+        </div>
+        <figcaption><b>Tunnels are objectives, gold is a fact.</b> The gold was
+          always in the rock — the tunnel only reached it. A dead end is a result,
+          and it stays on the map.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="chap">
+    <div class="rail">
+      <p class="n">02</p>
+      <svg class="mk" viewBox="0 0 72 72" role="img" aria-label="A filled form with its last field left blank, beside a stamp.">
+        <rect x="5" y="9" width="36" height="50" rx="2"/>
+        <path d="M12 21h22M12 29h22M12 37h15"/>
+        <rect x="12" y="44" width="22" height="9" stroke-dasharray="3 3.5"/>
+        <circle cx="55" cy="47" r="11"/>
+        <path d="M55 36V27M48 25h14"/>
+      </svg>
+    </div>
+    <div>
+      <h2 class="slogan">You judge. It does the rest.</h2>
+      <p>It runs, watches, collects, concludes — then stops one step short.</p>
+
+      <div class="loop" style="margin-top:1.9rem">
+        <span>has this been run?</span><i>&#8594;</i>
+        <span>run it</span><i>&#8594;</i>
+        <span>write it back</span><i>&#8594;</i>
+        <span>re-read the page</span>
+      </div>
+
+      <div class="frags">
+        <div class="frag">
+          <h4>an entry</h4>
+<pre>### Entry: chi sweep at p = 0.05
+- Id:          <i>02.014</i>
+- Status:      <u>analyzed</u>
+- Jobs:        41827@t6
+- Code:        a9f3c1e
+- Motivation:  which costs more accuracy,
+               truncation or a mis-set p?
+- Recipe:      d=7, chi in {4,8,...,64}
+- Facts:       chi=4 -&gt; <b>1.83e-3</b> ...
+- Conclusion:  <b>truncation is free
+               below p_c</b></pre>
+        </div>
+        <div class="frag">
+          <h4>the objective that asked for it</h4>
+<pre>## Plan
+- [x] <b>P1 - does exact MLD reproduce?</b>
+      <i>01.001</i> gate - agrees to 1e-12
+      <u>&#9654;</u> the node may be believed
+- [ ] <b>P2 - where is the truncation wall?</b>
+      <i>02.014</i> chi sweep - analyzed
+      <i>02.015</i> bias scan  - running
+
+## Verdict
+Truncation is not the binding
+constraint. <u>2 entries await review.</u></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chap">
+    <div class="rail">
+      <p class="n">03</p>
+      <svg class="mk" viewBox="0 0 72 72" role="img" aria-label="Three tiers with an arrow rising through them and out into a dashed layer above.">
+        <rect x="8" y="54" width="56" height="8" rx="1.5"/>
+        <rect x="16" y="40" width="40" height="8" rx="1.5"/>
+        <rect x="24" y="26" width="24" height="8" rx="1.5"/>
+        <path d="M36 54V48M36 40V34"/>
+        <path d="M36 26V16M31 20.5L36 15.5L41 20.5"/>
+        <path d="M18 8h36" stroke-dasharray="3 4"/>
+      </svg>
+    </div>
+    <div>
+      <h2 class="slogan">Distilled for reuse. Lossless for history.</h2>
+      <p>It settles inside your own project first. Then it crosses into
+        the commons.</p>
+
+      <figure style="margin-top:2rem">
+        <div class="plate">
+        <svg viewBox="0 0 900 486" role="img" aria-label="Two floors. Downstairs, your project: what actually ran, feeding your library, wiki and skills. Upstairs, the commons, holding two destinations of equal size — what a person abstracted, the knowledge and the tools distilled into one merged copy, and the motivation, fact and verdict kept whole — log, exact code and all, one lane per lane passes through a gate cut into the floor between them.">
+          <rect class="d-slab" x="18" y="12" width="864" height="198" rx="3"/>
+          <text class="d-band" x="864" y="38" text-anchor="end" style="font-size:11px">THE COMMONS</text>
+          <text class="d-cap" x="742" y="38" text-anchor="end" style="font-size:11.5px">where it goes next</text>
+          <rect class="d-ghost" x="28" y="32" width="396" height="140" rx="2"/>
+          <rect class="d-ghost" x="38" y="42" width="396" height="140" rx="2"/>
+          <rect class="d-box-m" x="48" y="52" width="396" height="140" rx="2"/>
+          <text class="d-key" x="246" y="90" text-anchor="middle" style="font-size:17px">knowledge and tools</text>
+          <text class="d-cap" x="246" y="112" text-anchor="middle" style="font-size:12.5px">distilled — one merged copy, travels far</text>
+          <rect class="d-chip" x="72" y="139" width="108" height="32" rx="1.5"/>
+          <text class="d-lbl" x="126" y="160" text-anchor="middle" style="font-size:12.5px">src/</text>
+          <rect class="d-chip" x="192" y="139" width="108" height="32" rx="1.5"/>
+          <text class="d-lbl" x="246" y="160" text-anchor="middle" style="font-size:12.5px">wiki/</text>
+          <rect class="d-chip" x="312" y="139" width="108" height="32" rx="1.5"/>
+          <text class="d-lbl" x="366" y="160" text-anchor="middle" style="font-size:12.5px">skills/</text>
+          <rect class="d-box-a" x="458" y="52" width="396" height="140" rx="2"/>
+          <text class="d-key" x="656" y="90" text-anchor="middle" style="font-size:17px">motivation, fact and verdict</text>
+          <text class="d-cap" x="656" y="112" text-anchor="middle" style="font-size:12.5px">kept whole — one lane each, context attached</text>
+          <circle class="d-dot-me" cx="474" cy="139" r="4"/>
+          <rect class="d-chip" x="488" y="128" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="543" y="144" text-anchor="middle" style="font-size:12.5px">entry</text>
+          <rect class="d-chip" x="606" y="128" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="661" y="144" text-anchor="middle" style="font-size:12.5px">log</text>
+          <rect class="d-chip" x="724" y="128" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="779" y="144" text-anchor="middle" style="font-size:12.5px">code@sha</text>
+          <circle class="d-dot" cx="474" cy="171" r="4"/>
+          <rect class="d-chip" x="488" y="160" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="543" y="176" text-anchor="middle" style="font-size:12.5px">entry</text>
+          <rect class="d-chip" x="606" y="160" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="661" y="176" text-anchor="middle" style="font-size:12.5px">log</text>
+          <rect class="d-chip" x="724" y="160" width="110" height="22" rx="1.5"/>
+          <text class="d-lbl" x="779" y="176" text-anchor="middle" style="font-size:12.5px">code@sha</text>
+          <rect class="d-slab-mine" x="18" y="250" width="864" height="228" rx="3"/>
+          <text class="d-band" x="864" y="276" text-anchor="end" style="font-size:11px">YOUR PROJECT</text>
+          <text class="d-cap" x="604" y="276" text-anchor="end" style="font-size:11.5px">where it settles first</text>
+          <line class="d-arw" x1="124" y1="294" x2="476" y2="294"/>
+          <rect class="d-box" x="48" y="312" width="152" height="44" rx="2"/>
+          <text class="d-key" x="124" y="340" text-anchor="middle" style="font-size:15px">src/</text>
+          <line class="d-arw" x1="124" y1="312" x2="124" y2="294"/>
+          <line class="d-arw" x1="124.0" y1="386.0" x2="124.0" y2="358.0"/>
+          <line class="d-arw" x1="124.0" y1="358.0" x2="128.5" y2="364.6"/>
+          <line class="d-arw" x1="124.0" y1="358.0" x2="119.5" y2="364.6"/>
+          <text class="d-pump" x="132" y="378" text-anchor="start" style="font-size:11.5px">lift</text>
+          <rect class="d-box" x="224" y="312" width="152" height="44" rx="2"/>
+          <text class="d-key" x="300" y="340" text-anchor="middle" style="font-size:15px">wiki/</text>
+          <line class="d-arw" x1="300" y1="312" x2="300" y2="294"/>
+          <line class="d-arw" x1="300.0" y1="386.0" x2="300.0" y2="358.0"/>
+          <line class="d-arw" x1="300.0" y1="358.0" x2="304.5" y2="364.6"/>
+          <line class="d-arw" x1="300.0" y1="358.0" x2="295.5" y2="364.6"/>
+          <text class="d-pump" x="308" y="378" text-anchor="start" style="font-size:11.5px">wiki-compile</text>
+          <rect class="d-box" x="400" y="312" width="152" height="44" rx="2"/>
+          <text class="d-key" x="476" y="340" text-anchor="middle" style="font-size:15px">skills/</text>
+          <line class="d-arw" x1="476" y1="312" x2="476" y2="294"/>
+          <line class="d-arw" x1="476.0" y1="386.0" x2="476.0" y2="358.0"/>
+          <line class="d-arw" x1="476.0" y1="358.0" x2="480.5" y2="364.6"/>
+          <line class="d-arw" x1="476.0" y1="358.0" x2="471.5" y2="364.6"/>
+          <text class="d-pump" x="484" y="378" text-anchor="start" style="font-size:11.5px">memory-lift</text>
+          <rect class="d-raw" x="48" y="386" width="806" height="48" rx="2"/>
+          <rect class="d-mark" x="68.0" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="90.9" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="110.5" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="128.1" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="147.9" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="170.2" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="189.8" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="206.5" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="227.6" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="251.4" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="272.7" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="293.9" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="310.0" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="326.5" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="344.0" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="364.8" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="383.4" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="406.2" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="424.0" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="444.0" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="460.7" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="478.9" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="502.9" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="524.6" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="546.6" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="564.9" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="585.4" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="604.7" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="623.7" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="646.5" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="664.2" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="684.0" y="401.5" width="4" height="17" rx="1"/>
+          <rect class="d-mark" x="703.2" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="723.7" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="745.9" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="764.6" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="783.3" y="403.0" width="4" height="14" rx="1"/>
+          <rect class="d-mark" x="805.3" y="404.5" width="4" height="11" rx="1"/>
+          <rect class="d-mark" x="822.4" y="401.5" width="4" height="17" rx="1"/>
+          <text class="d-cap" x="48" y="454" text-anchor="start" style="font-size:12.5px">what actually ran — entries, objectives, and the code that produced them</text>
+          <line class="d-arw-m" x1="300.0" y1="294.0" x2="300.0" y2="196.0"/>
+          <line class="d-arw-m" x1="300.0" y1="196.0" x2="304.5" y2="202.6"/>
+          <line class="d-arw-m" x1="300.0" y1="196.0" x2="295.5" y2="202.6"/>
+          <line class="d-arw-a" x1="656.0" y1="386.0" x2="656.0" y2="196.0"/>
+          <line class="d-arw-a" x1="656.0" y1="196.0" x2="660.5" y2="202.6"/>
+          <line class="d-arw-a" x1="656.0" y1="196.0" x2="651.5" y2="202.6"/>
+          <rect class="d-gate-m" x="174" y="214" width="252" height="28" rx="1.5"/>
+          <text class="d-pump-m" x="300" y="232" text-anchor="middle" style="font-size:12.5px">merge — lifted by a person</text>
+          <rect class="d-gate-a" x="519" y="214" width="274" height="28" rx="1.5"/>
+          <text class="d-pump-a" x="656" y="232" text-anchor="middle" style="font-size:12.5px">append — reviewed by a person</text>
+        </svg>
+        </div>
+        <figcaption><b>Knowledge and tools</b> — built in common, for the next
+          investigation. <b>Motivation, fact and verdict</b> — kept whole, for the next
+          analysis, and a seed for questions nobody has asked yet.</figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <section class="chap">
+    <div class="rail">
+      <p class="n">04</p>
+      <svg class="mk" viewBox="0 0 72 72" role="img" aria-label="Two checked records feeding into a small agent.">
+        <rect x="4" y="17" width="16" height="16" rx="2"/>
+        <path d="M8.5 25.5l3 3 5-6"/>
+        <rect x="4" y="39" width="16" height="16" rx="2"/>
+        <path d="M8.5 47.5l3 3 5-6"/>
+        <path d="M25 36h11M32 32l4 4-4 4"/>
+        <rect x="43" y="24" width="25" height="25" rx="4"/>
+        <circle cx="50.5" cy="34.5" r="1.7" fill="currentColor" stroke="none"/>
+        <circle cx="60.5" cy="34.5" r="1.7" fill="currentColor" stroke="none"/>
+        <path d="M50.5 42h10M55.5 24v-6"/>
+      </svg>
+    </div>
+    <div>
+      <h2 class="slogan">Every close is a label.</h2>
+      <p>Question, procedure, evidence, verdict — and a person's acceptance of it.</p>
+
+      <div class="life">
+        <span>open</span><i>&#8594;</i>
+        <span>running</span><i>&#8594;</i>
+        <span class="stop">analyzed</span><em>agent stops</em><i>&#8594;</i>
+        <span class="human">closed</span><em>you</em>
+      </div>
+
+      <p style="margin-top:1.9rem">A paper produces one reviewed judgement a year.
+        A record produces one per calculation.</p>
+
+      <p class="closing">A reviewed entry is finished work — hand it over, cite it,
+        or train on it.</p>
+
+      <div class="counts">
+        <div><b>143</b><span>entries recorded</span></div>
+        <div><b>121</b><span>closed by a person</span></div>
+        <div><b>8</b><span>nodes</span></div>
+        <div><b>45</b><span>machine checks</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="finale">
+    <p class="eyebrow">a typical run</p>
+    <h2>One run, end to end.</h2>
+    <figure>
+      <div class="plate">
+        <svg viewBox="0 0 900 390" role="img" aria-label="A typical run in three lanes. Top, what only you do: hand over a goal, close it, ask for a lift. Bottom, what the agent does: plan, run, analyze, distil, each naming the skills it drives — objective &#8212; objective and plan, hpc-submit and remote-sync, analyze and correct, and the three lifts. You start a correction and you close an entry. An arc returns from analyze to plan, where the page decides what runs next. Beneath it the time. Beneath it the fixer, which scans on a timer and raises a hand without repairing anything, and the linters, whose checks run on every page write.">
+          <text class="d-band" x="64" y="24" text-anchor="start" style="font-size:11px">YOU</text>
+          <rect class="d-box-m" x="64" y="32" width="181" height="52" rx="2"/>
+          <text class="d-key" x="154" y="63" text-anchor="middle" style="font-size:15px">hand over a goal</text>
+          <rect class="d-box-m" x="275" y="32" width="181" height="52" rx="2"/>
+          <text class="d-key" x="366" y="56" text-anchor="middle" style="font-size:15px">correct it</text>
+          <text class="d-pump-m" x="366" y="73" text-anchor="middle" style="font-size:10px">by hand, or ask the agent</text>
+          <rect class="d-box-m" x="486" y="32" width="181" height="52" rx="2"/>
+          <text class="d-key" x="576" y="63" text-anchor="middle" style="font-size:15px">close it</text>
+          <rect class="d-box-m" x="697" y="32" width="181" height="52" rx="2"/>
+          <text class="d-key" x="788" y="56" text-anchor="middle" style="font-size:15px">ask for a lift</text>
+          <text class="d-pump-m" x="788" y="73" text-anchor="middle" style="font-size:10px">any step, not just the end</text>
+          <text class="d-band" x="64" y="110" text-anchor="start" style="font-size:11px">THE AGENT</text>
+          <rect class="d-box" x="64" y="118" width="181" height="60" rx="2"/>
+          <text class="d-key" x="154" y="145" text-anchor="middle" style="font-size:16px">plan</text>
+          <text class="d-pump" x="154" y="164" text-anchor="middle" style="font-size:11.5px">objective &#183; plan</text>
+          <rect class="d-box" x="275" y="118" width="181" height="60" rx="2"/>
+          <text class="d-key" x="366" y="145" text-anchor="middle" style="font-size:16px">run</text>
+          <text class="d-pump" x="366" y="164" text-anchor="middle" style="font-size:11.5px">hpc-submit &#183; remote-sync</text>
+          <rect class="d-box" x="486" y="118" width="181" height="60" rx="2"/>
+          <text class="d-key" x="576" y="145" text-anchor="middle" style="font-size:16px">analyze</text>
+          <text class="d-pump" x="576" y="164" text-anchor="middle" style="font-size:11.5px">analyze &#183; correct</text>
+          <rect class="d-box" x="697" y="118" width="181" height="60" rx="2"/>
+          <text class="d-key" x="788" y="145" text-anchor="middle" style="font-size:16px">distil</text>
+          <text class="d-pump" x="788" y="164" text-anchor="middle" style="font-size:11.5px">lift &#183; wiki-compile &#183; memory</text>
+          <line class="d-arw" x1="154.5" y1="84.0" x2="154.5" y2="113.0"/>
+          <line class="d-arw" x1="154.5" y1="113.0" x2="150.3" y2="106.8"/>
+          <line class="d-arw" x1="154.5" y1="113.0" x2="158.7" y2="106.8"/>
+          <line class="d-arw" x1="616.3" y1="118.0" x2="616.3" y2="89.0"/>
+          <line class="d-arw" x1="616.3" y1="89.0" x2="620.5" y2="95.2"/>
+          <line class="d-arw" x1="616.3" y1="89.0" x2="612.1" y2="95.2"/>
+          <line class="d-arw-m d-dash-m" x1="365.5" y1="84.0" x2="520.4" y2="113.0"/>
+          <line class="d-arw-m d-dash-m" x1="520.4" y1="113.0" x2="513.5" y2="116.0"/>
+          <line class="d-arw-m d-dash-m" x1="520.4" y1="113.0" x2="515.0" y2="107.7"/>
+          <line class="d-arw-m d-dash-m" x1="365.5" y1="84.0" x2="210.6" y2="113.0"/>
+          <line class="d-arw-m d-dash-m" x1="210.6" y1="113.0" x2="216.0" y2="107.7"/>
+          <line class="d-arw-m d-dash-m" x1="210.6" y1="113.0" x2="217.5" y2="116.0"/>
+          <line class="d-arw-m d-dash-m" x1="787.5" y1="84.0" x2="787.5" y2="113.0"/>
+          <line class="d-arw-m d-dash-m" x1="787.5" y1="113.0" x2="783.3" y2="106.8"/>
+          <line class="d-arw-m d-dash-m" x1="787.5" y1="113.0" x2="791.7" y2="106.8"/>
+          <line class="d-arw" x1="245.0" y1="148.0" x2="270.0" y2="148.0"/>
+          <line class="d-arw" x1="270.0" y1="148.0" x2="265.0" y2="151.3"/>
+          <line class="d-arw" x1="270.0" y1="148.0" x2="265.0" y2="144.7"/>
+          <line class="d-arw" x1="456.0" y1="148.0" x2="481.0" y2="148.0"/>
+          <line class="d-arw" x1="481.0" y1="148.0" x2="476.0" y2="151.3"/>
+          <line class="d-arw" x1="481.0" y1="148.0" x2="476.0" y2="144.7"/>
+          <line class="d-arw" x1="667.0" y1="148.0" x2="692.0" y2="148.0"/>
+          <line class="d-arw" x1="692.0" y1="148.0" x2="687.0" y2="151.3"/>
+          <line class="d-arw" x1="692.0" y1="148.0" x2="687.0" y2="144.7"/>
+          <path class="d-arw-m" d="M576.5,178 C576.5,212 154.5,212 154.5,178"/>
+          <line class="d-arw-m" x1="154.5" y1="178.0" x2="158.4" y2="183.8"/>
+          <line class="d-arw-m" x1="154.5" y1="178.0" x2="150.6" y2="183.8"/>
+          <text class="d-pump-m" x="366" y="230" text-anchor="middle" style="font-size:12px">the page decides what runs next</text>
+          <rect class="d-view" x="14" y="250" width="864" height="36" rx="2"/>
+          <text class="d-lbl" x="32" y="273" text-anchor="start" style="font-size:12.5px">what is open, what is running, what is unclosed, what needs attention</text>
+          <text class="d-band" x="862" y="273" text-anchor="end" style="font-size:11px">status &#8212; THE DASHBOARD</text>
+          <line class="d-arw-m d-dash-m" x1="34" y1="250" x2="34" y2="92"/>
+          <line class="d-arw-m" x1="34.0" y1="88.0" x2="37.3" y2="93.0"/>
+          <line class="d-arw-m" x1="34.0" y1="88.0" x2="30.7" y2="93.0"/>
+          <text class="d-pump-m" x="-170" y="28" text-anchor="middle" style="font-size:11.5px" transform="rotate(-90 0 0)">look any time</text>
+          <rect class="d-fix" x="14" y="298" width="864" height="34" rx="2"/>
+          <text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">scans on a timer, raises a hand, and repairs nothing</text>
+          <text class="d-band" x="862" y="320" text-anchor="end" style="font-size:11px">THE FIXER</text>
+          <rect class="d-check" x="14" y="344" width="864" height="34" rx="2"/>
+          <text class="d-lbl" x="32" y="366" text-anchor="start" style="font-size:12.5px">45 checks &#8212; on every page write, and again at commit</text>
+          <text class="d-band" x="862" y="366" text-anchor="end" style="font-size:11px">THE LINTERS</text>
+        </svg>
+      </div>
+      <figcaption><b>Three lanes, and three things always running.</b> What only you
+        do, what the agent does, and the window you can look through at any time. You
+        hand over the goal, correct the plan or a result, close an entry, ask for a
+        lift — the agent does the rest, and every skill it drives is named under the step
+        where it fires.</figcaption>
+    </figure>
+  </section>
+
+  <footer>
+    <span>research-note 0.20.0</span>
+    <span>record format v3</span>
+    <a href="../DESIGN.md">DESIGN.md &mdash; the full argument</a>
+    <a href="../README.md">README</a>
+  </footer>
+
+</div>
+</body>
+</html>

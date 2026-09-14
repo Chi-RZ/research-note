@@ -1,0 +1,301 @@
+# research-note
+
+[![tests](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml/badge.svg)](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A record framework for agent-driven computational research, for **Claude Code**
+and **Codex**. It gives an agent a place to put every number it produces, and
+refuses the ones that cannot be traced back.
+
+## The problem
+
+An agent runs for three days and reports a number. Two weeks later nobody can
+say which commit produced it, at which parameters, on which machine, or what
+question it was meant to answer. The session that knew has been compacted,
+closed, thrown away.
+
+The answer is not a better memory. It is that the number gets a **place** at the
+moment it is produced — by the agent that produced it, with no extra human step
+— and that the place is machine-checked.
+
+## What that looks like
+
+Every result lands as an **entry**. A linter refuses the page if any of this is
+missing or malformed:
+
+```markdown
+### Entry: sampled compile cost on the 3x3 torus
+- **Id:** 03.062
+- **Status:** analyzed
+- **Date:** 2026-09-13 22:41
+- **Jobs:** 623961@gpu-a100
+    Job 623961 — [log](../../../experiments/vmc/torus3/logs/slurm-623961.out)
+- **Code:** `myproject@a7fcdd1` · `quimb@e63756`
+- **Motivation:** `03.045` found "compilation dominates at batch 512"; does
+  rounding every data-dependent shape onto a coarser grid cut compile time
+  without changing the energy?
+- **Recipe:** {lattice: 3x3, U: 4, batch: 512, shape_grid: 64, seed: 7}
+- **Facts:** We ran one job per grid size with [run.py](...); evidence [log](...).
+
+  | grid | compile (s) | energy |
+  |---|---|---|
+  | none | 412 | -8.9931 |
+  | 64   |  71 | -8.9931 |
+
+- **Conclusion:** The result shows rounding to a 64-wide grid cuts compile time
+  5.8x with the energy unchanged to 1e-9, because every shape the scan meets
+  collapses onto 4 variants — answers the motivation.
+```
+
+Three fields are what make it re-derivable: **`Code`** names the commits,
+**`Recipe`** names every knob, **`Jobs`** names the runs and links their logs.
+The linter checks they are present, well-formed, and that the SHA still resolves
+on the default branch. It does not check whether the number is right — it cannot,
+and the design says so out loud.
+
+A campaign spanning weeks gets an **objective page**: one question per phase,
+the entries that answered it, and a verdict the user reads instead of the
+session transcript.
+
+## What it gives you
+
+| | |
+|---|---|
+| **A record with a shape** | node / page / entry — one implementation, one question, one set of runs |
+| **Linters that refuse** | ~40 checks over the record and the objective pages; a page that fails does not land |
+| **HPC submission** | Slurm or bare, local or over ssh, with the repo SHA, the dirty diff and every pinned fork in the log header |
+| **An objective loop** | the agent launches phases, analyzes its own runs, and rewrites the plan from the page rather than from memory |
+| **A scanner** | headless, flags and never repairs — the record has one writer |
+| **Two agents, one core** | Claude and Codex install the same plugin; the project's contracts are one file under two names |
+
+The framework carries **no domain ontology**. How pages group under a node is
+your project's taxonomy, not ours.
+
+## Requirements and platform
+
+**Linux and macOS.** Zero third-party runtime dependencies — standard-library
+Python, POSIX shell and git. (Every lock is `fcntl.flock` through `python3`,
+never `flock(1)`, which macOS does not ship.) Slurm clusters are driven **from
+your machine over ssh**; nothing is installed on the cluster. GPU launching
+needs a CUDA host; everything else runs anywhere.
+
+To run the plugin: **Claude Code, Codex, or both**, plus `git` and `python3`.
+To run the projects it scaffolds you will also want [`uv`](https://docs.astral.sh/uv/),
+and — only if you submit to a cluster — a Slurm host reachable by passwordless
+ssh. The background scanner installs as a detached daemon; nothing touches your
+crontab.
+
+## 1. Install
+
+Both marketplaces point to the same physical plugin directory. Installing for
+two agents does not create two maintained copies of the skills or scripts.
+
+Claude Code:
+
+```bash
+claude plugin marketplace add https://github.com/Chi-RZ/research-note.git
+claude plugin install research-note@rzchi
+```
+
+Restart Claude Code once after installing. (`git@github.com:...` works too if
+you prefer ssh.)
+
+Codex:
+
+```bash
+codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
+codex plugin add research-note@rzchi
+```
+
+Each agent reads its own manifest — Claude `.claude-plugin/marketplace.json`,
+Codex `.agents/plugins/marketplace.json` — and both declare the same marketplace
+name, `rzchi`, so one selector works on either side. Step 2 registers the second
+agent for you either way, reading the name back from whichever side it just
+added rather than assuming it: the name belongs to whoever ran
+`marketplace add`, not to this repo.
+
+No npm package and no build step is involved — the marketplace source is a git
+repository, and it can equally be a plain directory: `marketplace add
+/path/to/<a checkout>` installs the same `research-note@rzchi` with no network
+and no GitHub account. That is also how you run a fork, or a branch you are
+working on.
+
+## 2. Configure a project (one command)
+
+From the directory you want to become (or already is) your research project:
+
+```bash
+PLUGIN=$(ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \
+             2>/dev/null | sort -V | tail -1)
+uv run python "$PLUGIN/scripts/bootstrap_project.py" .
+```
+
+Either agent's cache works — it is the same plugin core. After this runs,
+everything else resolves the plugin with `git config --get
+research-note.pluginRoot`.
+
+Idempotent — existing files are kept, never overwritten; re-run it after every
+plugin update. It sets up, in order:
+
+| step | what you get |
+|---|---|
+| `git init` | only if the directory is not a repo yet |
+| layout | `src/ tests/ experiments/ project_memory/ wiki/ .claude/` |
+| contracts | root + per-layer `CLAUDE.md` and `AGENTS.md` views of the same project-owned templates |
+| `.claude/hpc.env` | machine/domain profile — **the only file you must edit** (see below) |
+| `.claude/hpc-submit/` | `cpu_batch.slurm` / `gpu_batch.slurm` templates (fill partition/gres for *your* cluster) |
+| githooks | commit-prefix ↔ layer check (`core.hooksPath`) |
+| shared memory | `memory/claude` and `memory/codex` both point to `project_memory/memory/shared/` |
+| shared skills | `.claude/skills` and `.agents/skills` both point to `.agent/skills/` |
+| fixer | a detached daemon — **no crontab entry** — scanning the record and refreshing the board every 10 min. It runs python only: no LLM is invoked, both agent tiers ship disabled. `kill` is the whole uninstall; `--no-fixer` skips it |
+| dashboard | `project_memory/dashboard.html` + the qdash VS Code viewer |
+| editor | VS Code extensions copied in: qdash, markdown white preview (`--no-qdash` skips both) |
+| the other agent | `research-note` registered with whichever of Claude / Codex is installed and does not have it yet, from the same marketplace source this side was installed from (`--no-cross-agent` opts out) |
+| acceptance gate | framework self-tests + both linters must pass before it reports success |
+
+Or tell either agent: *"set up this project with the research-note framework"*
+— the `project-setup` skill runs the same script and then handles the
+judgment calls (root-node mission, migrating existing code, pinning the env).
+
+### `.claude/hpc.env` — the one file to edit
+
+```sh
+# forks the project pins by git commit (tool.uv.sources {git, rev}): where each
+# is CHECKED OUT locally, so bump_lib.sh can re-point the pin from its HEAD
+LIB_CHECKOUTS="mylib=/home/you/pyenv/mylib otherlib=/home/you/pyenv/otherlib"
+
+# remote Slurm cluster (omit to work purely locally)
+REMOTE_HOST=hpc                    # ssh alias; `ssh -o BatchMode=yes hpc` must work
+REMOTE_DIR=/path/to/clone/on/cluster
+REMOTE_DATA_MAX_MB=50
+REMOTE_PARTITION=...               # queue placement, applied by the submit step
+REMOTE_RESERVATION=...             #   (leave unset to take the cluster default)
+REMOTE_ACCOUNT=...
+
+# several clusters? declare them ALL — every host is monitored equally
+# (queue + pull loop over the list); REMOTE_HOST above is only the default
+# used when a host is unstated. One REMOTE_DIR_<host> per host.
+REMOTE_HOSTS="hpc other"
+REMOTE_DIR_hpc=/path/to/clone/on/hpc
+REMOTE_DIR_other=/path/to/clone/on/other
+```
+
+(The shipped `templates/hpc.env` documents every key, including the legacy
+editable-path spellings it still honours.)
+
+### Python environment
+
+The project is a normal `uv` project: `pyproject.toml` + `uv sync`. Forks are
+**pinned by git commit** (`tool.uv.sources: mylib = {git = "...", rev = "<sha>"}`)
+— every machine builds the identical library from the pin, no checkout layout
+to replicate, and the log header records the rev. Advance a pin with
+`scripts/bump_lib.sh` (it refuses a dirty or unpushed fork). `remote.sh push`
+gates on pin freshness and environment-fingerprint parity before anything
+queues.
+
+## 3. Wire the remote (optional, one command)
+
+The cluster syncs **from GitHub**, so the project needs an `origin` first:
+
+```bash
+gh repo create my-project --private --source=. --push   # or git remote add origin ...
+uv run python "$PLUGIN/scripts/bootstrap_project.py" . \
+    --remote hpc:/path/to/clone/on/cluster \
+    --remote other:/path/on/other/cluster      # repeatable; first = default host
+```
+
+This clones (or ff-pulls) the project on each cluster and verifies the SHAs
+match. A fresh clone is SPARSE (cone: `src/ tests/ experiments/` + root files
+— the cluster runs jobs, it never needs `project_memory/`, `wiki/` or
+`.claude/`; old cluster git without cone mode gets the pattern-file fallback
+automatically). From then on every remote submission goes: local commit → push
+→ cluster ff-pull → SHA check → `sbatch` → job id auto-recorded on the local
+task page — one command, refused if anything is dirty or diverged. With
+several hosts, `REMOTE=<host> submit_slurm.sh ...` (or
+`remote.sh <cmd> --host <h>`) targets one; jobs on a non-default host are
+recorded as `<jobid>@<host>`.
+
+Build the venv on the cluster once (`uv sync --frozen`; `remote.sh push` runs
+it and discards the `uv.lock` rewrite). Pinned forks need **nothing** on the
+cluster — the pin is a URL + rev, and uv builds it wherever it lands.
+
+## 4. Verify
+
+```bash
+# linters green on the freshly scaffolded record?
+uv run python "$PLUGIN/scripts/check_node_page.py" project_memory/nodes/root/node.md
+
+# fixer alive? (the daemon; state in .fixer/)
+crontab -l | grep fixer || cat .fixer/cron.log
+
+# remote wired? (only if you did step 3)
+bash "$PLUGIN/scripts/remote.sh" status
+```
+
+Then open `project_memory/dashboard.html` (or the qdash panel in VS Code) and
+start with `research-note:plan` — your first node, its gate page, and its first entry.
+
+## Updating
+
+```bash
+claude plugin update research-note@rzchi
+uv run python "$PLUGIN/scripts/bootstrap_project.py" .   # re-resolve PLUGIN first
+```
+
+`update_projects.sh` repoints each project's `research-note.pluginRoot` at the
+new version directory — without that the pins move and every `$PLUGIN` script
+(both linters, the record bus, the submit launchers) keeps executing the
+superseded one.
+
+It then holds BOTH agents against **origin**, and prints what each one resolves
+to:
+
+```
+agents vs origin:
+   claude: 0.17.0    rzchi@main 1a2b3c4  == origin
+   codex : 0.16.0    rzchi@main     9f8e7d6  != origin 1a2b3c4
+      updating codex ...
+   codex : 0.17.0    rzchi@main     1a2b3c4  == origin
+```
+
+The two store the plugin in their own trees (`~/.claude/plugins/` vs
+`~/.codex/plugins/`, with the Codex marketplace snapshot under
+`~/.codex/.tmp/marketplaces/`) and that cannot be shared — what is held equal is
+the **commit** each resolves to. Codex is brought across automatically, because
+its marketplace is a disposable snapshot the CLI re-creates. The Claude side is
+not: there, `marketplace update` deletes and re-clones, and on a machine that
+maintains this plugin that clone is the working checkout — so the refresh
+command is printed for you to run. `--no-cross-agent` skips the whole check.
+
+The fixer stub re-resolves the newest installed version at every tick, so
+cron/daemon pick the update up automatically. Project-owned contract copies
+are **kept** on purpose — diff them against `templates/` when a release notes
+a schema change (`framework.json`'s `record:` version is linted against the
+installed linter, so drift is caught, not silent).
+
+## Layout of this repo
+
+```text
+.claude-plugin/               Claude marketplace
+.agents/plugins/              Codex marketplace
+plugins/research-note/
+  .claude-plugin/             Claude package manifest
+  .codex-plugin/              Codex package manifest
+  skills/                     plan · objective · analyze · correct ·
+                  hpc-submit · update · project-setup · lift · reorg ·
+                  wiki-compile · memory-lift
+  scripts/                    the framework's programs — both linters, the record
+                  bus, the launchers' record step, the cluster bridge, the
+                  landing transaction, setup / update / doctor. DESIGN §10
+                  lists what each is for; `scripts/tests/` is the suite
+  fixer/                      headless scanner loop (a detached daemon)
+  hooks/                      shared command hooks + Claude/Codex payload adapter
+                  reminders, commit-prefix guard
+  templates/                  shared project-side agent bindings
+  editor/                     VS Code extensions — qdash (dashboard viewer),
+                  markdown-white-preview (white Markdown preview on a dark theme)
+```
+
+`DESIGN.md` is the long form: what a node, a page and an entry are, why each
+gate sits where it does, and why there are two agents. `CONTRIBUTING.md` is how
+to change any of it. Licensed MIT.
