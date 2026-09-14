@@ -26,11 +26,34 @@ points at. Stop only if the entry is already `analyzed` or `closed`.
 
 ## 2. Write the Facts
 
-`We ran <the instance and how the jobs were laid out> [script]; evidence
-<links>.` The sentence never announces what the table holds — the table is
-required and speaks for itself. Then the table, at the aggregation the
-Conclusion will cite; then the figure where the shape carries what the numbers
-do not (a scan's curve IS its result — run the folder's `plot_*.py`).
+**First answer one question, out loud, before writing anything: is the result a
+NUMBER or a SHAPE?**
+
+- **A number** — a value met a threshold, two routes agreed to 1e-9, a bound
+  held. The table carries it whole. No figure is owed.
+- **A shape** — how something moves along an axis: a convergence order, a
+  scaling exponent, a saturation, a crossover, a growth with L. **Then the
+  entry owes a figure, and you make it NOW** — run the folder's `plot_*.py`,
+  or write one. A scan's curve IS its result.
+
+Answer it before the table, because the answer decides what you are producing;
+answered afterwards it is always "a number", since the table is already there.
+
+Measured on the project this was written against: **71 entries, 71 tables,
+ZERO figures** — while 46% of the Conclusions said "converges", "exponent",
+"scales", "grows with L". Every one of those is a shape, argued in one
+sentence, with nothing a reader can check. The guidance to add a figure was
+already here, as a clause at the end of this paragraph, and it lost 71 times to
+a table that was required. That is why this is a question now and not a clause.
+
+**Now the Facts.** `We ran <the instance and how the jobs were laid out>
+[script]; evidence <links>.` The sentence never announces what the table holds
+— the table is required and speaks for itself. Then the table, at the
+aggregation the Conclusion will cite; then the figure, if you owed one.
+
+**Why now and not later:** `data/` is not committed. A rerun regenerates it,
+and the numbers that made this shape are gone. The plot is cheap while the run
+is on disk and impossible a month after.
 
 **Every number matches its log — check it now, before `analyzed`.** This is
 the writer's check; the linter can only verify the log is linked. A quoted
