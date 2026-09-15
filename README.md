@@ -237,29 +237,13 @@ resolves to.
 Nothing moves silently — read the output; it names whatever it refuses to
 touch, and why.
 
-## Layout of this repo
+## Where to read next
 
-```text
-.claude-plugin/               Claude marketplace
-.agents/plugins/              Codex marketplace
-plugins/research-note/
-  .claude-plugin/             Claude package manifest
-  .codex-plugin/              Codex package manifest
-  skills/                     plan · objective · analyze · correct ·
-                  hpc-submit · update · project-setup · lift · reorg ·
-                  wiki-compile · memory-lift
-  scripts/                    the framework's programs — both linters, the record
-                  bus, the launchers' record step, the cluster bridge, the
-                  landing transaction, setup / update / doctor. DESIGN §10
-                  lists what each is for; `scripts/tests/` is the suite
-  fixer/                      headless scanner loop (a detached daemon)
-  hooks/                      shared command hooks + Claude/Codex payload adapter
-                  reminders, commit-prefix guard
-  templates/                  shared project-side agent bindings
-  editor/                     VS Code extensions — qdash (dashboard viewer),
-                  markdown-white-preview (white Markdown preview on a dark theme)
-```
+| | |
+|---|---|
+| **Why it has this shape** | [`DESIGN.md`](DESIGN.md) — what a node, a page and an entry are, why each gate sits where it does, why there are two agents |
+| **The skills** | [`plugins/research-note/skills/`](plugins/research-note/skills/) — eleven, one per moment: `plan` `objective` `analyze` `correct` `hpc-submit` `lift` `wiki-compile` `memory-lift` `reorg` `project-setup` `update` |
+| **The record's exact format** | [`templates/project_memory-CLAUDE.md`](plugins/research-note/templates/project_memory-CLAUDE.md) — every field, and the linters are the final word |
+| **Changing any of it** | [`CONTRIBUTING.md`](CONTRIBUTING.md) — 373 tests, `pip install pytest pyyaml`, about 30 seconds |
 
-`DESIGN.md` is the long form: what a node, a page and an entry are, why each
-gate sits where it does, and why there are two agents. `CONTRIBUTING.md` is how
-to change any of it. Licensed MIT.
+MIT licensed.
