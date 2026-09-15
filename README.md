@@ -28,6 +28,28 @@ None of that is advice. A record page that cannot say which commit, which
 knobs, which machine, and which question is refused by a linter before it
 lands.
 
+## A typical run
+
+You hand over a goal. The agent works the loop and writes everything down. You
+step in at the two moments that are yours — and at any other moment you like.
+
+| | **you** | **the agent** |
+|---|---|---|
+| **plan** | hand over a goal | opens the objective page, decides the first phase — [`objective`](plugins/research-note/skills/objective/SKILL.md) · [`plan`](plugins/research-note/skills/plan/SKILL.md) |
+| **run** | | launches it, records the job id and the log on the entry the same turn — [`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md) |
+| **analyze** | | collects the results, writes the conclusion, stops at `analyzed` — [`analyze`](plugins/research-note/skills/analyze/SKILL.md) |
+| | **close it** | never the agent's: writing a conclusion is "I measured, I judge"; closing is "I accept" |
+| **distil** | ask for a lift | code into `src/`, a finding into the wiki, a habit into a skill — [`lift`](plugins/research-note/skills/lift/SKILL.md) · [`wiki-compile`](plugins/research-note/skills/wiki-compile/SKILL.md) · [`memory-lift`](plugins/research-note/skills/memory-lift/SKILL.md) |
+| | **correct it** | any step, not just the end — by hand or by asking; the cascade is walked for you — [`correct`](plugins/research-note/skills/correct/SKILL.md) |
+
+After each phase the agent re-reads the page and takes the next one from what
+is written there, not from what it remembers.
+
+Three things watch, and none of them repairs: a **dashboard** showing what is
+running, what is unclosed and what needs attention; a **fixer** that scans on a
+timer and raises a hand; and the **linters**, 47 checks that run on every
+write, every commit and every scan.
+
 ## Requirements and platform
 
 **Linux and macOS.** Zero third-party runtime dependencies — standard-library
