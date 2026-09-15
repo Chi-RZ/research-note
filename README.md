@@ -87,42 +87,54 @@ crontab.
 
 ## 1. Install
 
-Both marketplaces point to the same physical plugin directory. Installing for
-two agents does not create two maintained copies of the skills or scripts.
+You need one of the two agents. Installing for both is the same two commands
+twice — they share one copy of the plugin, not two.
 
-Claude Code:
+**Claude Code**
 
 ```bash
 claude plugin marketplace add https://github.com/Chi-RZ/research-note.git
 claude plugin install research-note@rzchi
 ```
 
-Restart Claude Code once after installing. (`git@github.com:...` works too if
-you prefer ssh.)
-
-Codex:
+**Codex**
 
 ```bash
 codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
 codex plugin add research-note@rzchi
 ```
 
-Each agent reads its own manifest — Claude `.claude-plugin/marketplace.json`,
-Codex `.agents/plugins/marketplace.json` — and both declare the same marketplace
-name, `rzchi`, so one selector works on either side. Step 2 registers the second
-agent for you either way, reading the name back from whichever side it just
-added rather than assuming it: the name belongs to whoever ran
+Restart the agent once. That is the whole install — no npm package, no build
+step, nothing compiled.
+
+<details>
+<summary>Other ways to point at it</summary>
+
+The marketplace source can be a **local directory**, which is how you run a
+fork or a branch you are working on:
+
+```bash
+claude plugin marketplace add /path/to/your/checkout
+```
+
+No network and no GitHub account needed — the "marketplace" is the
+`marketplace.json` at the top of this repo, nothing more.
+
+`git@github.com:Chi-RZ/research-note.git` works if you prefer ssh, and both
+agents also accept the `Chi-RZ/research-note` shorthand.
+
+Both agents read their own manifest — Claude `.claude-plugin/marketplace.json`,
+Codex `.agents/plugins/marketplace.json` — and both declare the marketplace
+`rzchi`, so one selector works on either side. Step 2 registers the second
+agent for you if it finds one, reading that name back from whichever side it
+just added rather than assuming it: the name belongs to whoever ran
 `marketplace add`, not to this repo.
 
-No npm package and no build step is involved — the marketplace source is a git
-repository, and it can equally be a plain directory: `marketplace add
-/path/to/<a checkout>` installs the same `research-note@rzchi` with no network
-and no GitHub account. That is also how you run a fork, or a branch you are
-working on.
+</details>
 
-## 2. Configure a project (one command)
+## 2. Configure a project
 
-From the directory you want to become (or already is) your research project:
+From the directory you want to become your research project — new or existing:
 
 ```bash
 PLUGIN=$(ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \
@@ -130,68 +142,73 @@ PLUGIN=$(ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/
 uv run python "$PLUGIN/scripts/bootstrap_project.py" .
 ```
 
-Either agent's cache works — it is the same plugin core. After this runs,
-everything else resolves the plugin with `git config --get
+Or just tell the agent: *"set up this project with the research-note
+framework"* — same script, and the `project-setup` skill then walks the
+judgment calls with you (the project's mission, migrating existing code,
+pinning the environment).
+
+It is idempotent: existing files are kept, never overwritten. Re-run it after
+every plugin update.
+
+Then **edit one file**, `.claude/hpc.env` — it is the only thing the script
+cannot know. Purely local work needs nothing in it.
+
+<details>
+<summary>What bootstrap lays down</summary>
+
+| | |
+|---|---|
+| layout | `src/ tests/ experiments/ project_memory/ wiki/ .claude/` — and `git init` if needed |
+| contracts | root and per-layer `CLAUDE.md`, with `AGENTS.md` as a second view of the same files |
+| githooks | the commit-prefix ↔ layer check, with `core.hooksPath` set |
+| shared memory | `memory/claude` and `memory/codex` both point at `project_memory/memory/shared/` |
+| shared skills | `.claude/skills` and `.agents/skills` both point at `.agent/skills/` |
+| fixer | a detached daemon — **no crontab entry** — scanning the record and refreshing the board every 10 min. Python only: no LLM is invoked, both agent tiers ship disabled. `kill` is the whole uninstall; `--no-fixer` skips it |
+| dashboard | `project_memory/dashboard.html` plus the qdash VS Code viewer (`--no-qdash` skips the editor step) |
+| submit templates | `.claude/hpc-submit/*.slurm`, to fill in for your cluster |
+| the other agent | registers the plugin with whichever of Claude / Codex lacks it, from the same source this side came from (`--no-cross-agent` opts out) |
+| acceptance gate | self-tests and both linters must pass before it reports success |
+
+Either agent's plugin cache works in the command above — it is one plugin core.
+Afterwards everything resolves it through `git config --get
 research-note.pluginRoot`.
 
-Idempotent — existing files are kept, never overwritten; re-run it after every
-plugin update. It sets up, in order:
+</details>
 
-| step | what you get |
-|---|---|
-| `git init` | only if the directory is not a repo yet |
-| layout | `src/ tests/ experiments/ project_memory/ wiki/ .claude/` |
-| contracts | root + per-layer `CLAUDE.md` and `AGENTS.md` views of the same project-owned templates |
-| `.claude/hpc.env` | machine/domain profile — **the only file you must edit** (see below) |
-| `.claude/hpc-submit/` | `cpu_batch.slurm` / `gpu_batch.slurm` templates (fill partition/gres for *your* cluster) |
-| githooks | commit-prefix ↔ layer check (`core.hooksPath`) |
-| shared memory | `memory/claude` and `memory/codex` both point to `project_memory/memory/shared/` |
-| shared skills | `.claude/skills` and `.agents/skills` both point to `.agent/skills/` |
-| fixer | a detached daemon — **no crontab entry** — scanning the record and refreshing the board every 10 min. It runs python only: no LLM is invoked, both agent tiers ship disabled. `kill` is the whole uninstall; `--no-fixer` skips it |
-| dashboard | `project_memory/dashboard.html` + the qdash VS Code viewer |
-| editor | VS Code extensions copied in: qdash, markdown white preview (`--no-qdash` skips both) |
-| the other agent | `research-note` registered with whichever of Claude / Codex is installed and does not have it yet, from the same marketplace source this side was installed from (`--no-cross-agent` opts out) |
-| acceptance gate | framework self-tests + both linters must pass before it reports success |
+<details>
+<summary><code>.claude/hpc.env</code> — what goes in it</summary>
 
-Or tell either agent: *"set up this project with the research-note framework"*
-— the `project-setup` skill runs the same script and then handles the
-judgment calls (root-node mission, migrating existing code, pinning the env).
-
-### `.claude/hpc.env` — the one file to edit
+The file bootstrap writes documents every key in its own comments; this is the
+shape:
 
 ```sh
-# forks the project pins by git commit (tool.uv.sources {git, rev}): where each
-# is CHECKED OUT locally, so bump_lib.sh can re-point the pin from its HEAD
-LIB_CHECKOUTS="mylib=/home/you/pyenv/mylib otherlib=/home/you/pyenv/otherlib"
-
-# remote Slurm cluster (omit to work purely locally)
-REMOTE_HOST=hpc                    # ssh alias; `ssh -o BatchMode=yes hpc` must work
+# a remote Slurm cluster (omit the whole block to work purely locally)
+REMOTE_HOST=hpc                 # ssh alias; `ssh -o BatchMode=yes hpc` must work
 REMOTE_DIR=/path/to/clone/on/cluster
-REMOTE_DATA_MAX_MB=50
-REMOTE_PARTITION=...               # queue placement, applied by the submit step
-REMOTE_RESERVATION=...             #   (leave unset to take the cluster default)
-REMOTE_ACCOUNT=...
+REMOTE_PARTITION=...            # queue placement, applied by the submit step
+REMOTE_ACCOUNT=...              #   so no submit file has to carry it
 
-# several clusters? declare them ALL — every host is monitored equally
-# (queue + pull loop over the list); REMOTE_HOST above is only the default
-# used when a host is unstated. One REMOTE_DIR_<host> per host.
-REMOTE_HOSTS="hpc other"
-REMOTE_DIR_hpc=/path/to/clone/on/hpc
-REMOTE_DIR_other=/path/to/clone/on/other
+# a library you are DEVELOPING, so its checkout can be found on each side
+LIB_mylib_LOCAL=/home/you/pyenv/mylib
 ```
 
-(The shipped `templates/hpc.env` documents every key, including the legacy
-editable-path spellings it still honours.)
+Several clusters: list them in `REMOTE_HOSTS` and give each a
+`REMOTE_DIR_<host>`. All of them are watched equally; `REMOTE_HOST` is only the
+default when a command does not name one.
 
-### Python environment
+</details>
 
-The project is a normal `uv` project: `pyproject.toml` + `uv sync`. Forks are
-**pinned by git commit** (`tool.uv.sources: mylib = {git = "...", rev = "<sha>"}`)
-— every machine builds the identical library from the pin, no checkout layout
-to replicate, and the log header records the rev. Advance a pin with
-`scripts/bump_lib.sh` (it refuses a dirty or unpushed fork). `remote.sh push`
-gates on pin freshness and environment-fingerprint parity before anything
-queues.
+<details>
+<summary>The Python environment</summary>
+
+A normal `uv` project: `pyproject.toml` + `uv sync`. Forks are **pinned by git
+commit** (`tool.uv.sources: mylib = {git = "...", rev = "<sha>"}`), so every
+machine builds the identical library from the pin — no checkout layout to
+replicate — and the log header records the rev. `scripts/bump_lib.sh` advances
+a pin and refuses a dirty or unpushed fork. `remote.sh push` checks pin
+freshness and environment parity before anything queues.
+
+</details>
 
 ## 3. Wire the remote (optional, one command)
 
