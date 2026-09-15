@@ -154,23 +154,6 @@ after any plugin update.
 nothing can infer. Working purely locally needs nothing in it.
 
 <details>
-<summary>Without an agent in the loop</summary>
-
-The mechanical half is a plain script, and the skill only adds judgment on top:
-
-```bash
-PLUGIN=$(git config --get research-note.pluginRoot 2>/dev/null \
-         || ls -d ~/.claude/plugins/cache/*/research-note/* \
-                  ~/.codex/plugins/cache/*/research-note/* | sort -V | tail -1)
-uv run python "$PLUGIN/scripts/bootstrap_project.py" .    # --dry-run to preview
-```
-
-Either agent's cache works — one plugin core. Afterwards everything resolves it
-through `git config --get research-note.pluginRoot`.
-
-</details>
-
-<details>
 <summary><code>.claude/hpc.env</code> — what goes in it</summary>
 
 The file bootstrap writes documents every key in its own comments; this is the
@@ -222,16 +205,6 @@ logs and data come back, and every judgement is made on this side.
 
 Details: [`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md).
 
-<details>
-<summary>Without an agent in the loop</summary>
-
-```bash
-uv run python "$PLUGIN/scripts/bootstrap_project.py" . \
-    --remote hpc:/path/to/clone/on/cluster     # repeatable; first = default host
-```
-
-</details>
-
 ## 4. Verify
 
 ```bash
@@ -263,19 +236,6 @@ resolves to.
 
 Nothing moves silently — read the output; it names whatever it refuses to
 touch, and why.
-
-<details>
-<summary>Without an agent in the loop</summary>
-
-```bash
-PLUGIN=$(git config --get research-note.pluginRoot)
-bash "$PLUGIN/scripts/update_projects.sh"        # --dry-run to preview
-```
-
-Run it from the cache of the version you are moving TO: it repoints
-`research-note.pluginRoot`, and a copy can only point at what it can see.
-
-</details>
 
 ## Layout of this repo
 
