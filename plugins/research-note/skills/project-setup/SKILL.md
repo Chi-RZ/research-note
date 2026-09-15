@@ -15,8 +15,8 @@ MACHINERY (skills, hooks, linters, fixer, dashboard generator) ships as the
 **The mechanical half is a script** — `scripts/bootstrap_project.py` (Step 2)
 does the layout, bindings, hooks, fixer, viewer and gate in one idempotent run.
 This skill owns what needs judgment: the roles declaration, the project's
-mission, the env pinning, and (organize mode) how existing code maps onto
-`src/` + `experiments/`.
+the env pinning, and (organize mode) how existing code maps onto `src/` +
+`experiments/`.
 
 **Two modes** (auto-detected in Step 0, or force with an arg):
 - `new` — greenfield directory (empty or just a git remote).
@@ -177,9 +177,13 @@ after the first page is written.
 
 ## Step 3 — The judgment calls the script deliberately leaves to you
 
-**Write the project's mission** — a paragraph in the project appendix of the
-root agent contract (below the template's contract): the goal every future node
-is an attempt at, plus this project's own bindings.
+**The root contract is FRAMEWORK text and is overwritten on every update.** A
+project may append below it, and the updater then leaves the whole file alone —
+but that turns an automatic sync into a permanent hand-merge, so append only
+what has nowhere else to live: an extra commit prefix, which the `commit-msg`
+hook reads from there. Prose about what this project is FOR belongs in
+`project_memory/note/`, or in the `Goal` of its first objective, where nothing
+overwrites it and the record can cite it.
 
 **`.claude/hpc.env`** — declare every editable-install library the project
 develops, one pair of lines per lib (multiple libs = multiple pairs):
@@ -529,7 +533,6 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 
 - [ ] plugin is installed and enabled in each CLI present — `claude plugin list` / `codex plugin list`
 - [ ] project marker in place — `test -f .claude/framework.json`
-- [ ] the root CLAUDE.md appendix states THIS project's mission
 - [ ] four contracts resolve — the `DANGLING` loop in Step 7 prints four `OK`
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
 - [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)

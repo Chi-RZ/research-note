@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 390" role="img" aria-label="A typical run in three lanes. Top, what only you do: hand over a goal, close it, ask for a lift. Bottom, what the agent does: plan, run, analyze, distil, each naming the skills it drives — objective &#8212; objective and plan, hpc-submit, analyze and correct, and the three lifts. You start a correction and you close an entry. An arc returns from analyze to plan, where the page decides what runs next. Beneath it the time. Beneath it the fixer, which scans on a timer and raises a hand without repairing anything, and the linters, whose forty-seven checks run on every write, every commit and every scan.">
+<style>
+  :root {
+    --ink: #2E2C29; --faint: #938D85; --muted: #6E6862;
+    --panel: #FBFAF8; --verified: #2F6F5E; --attention: #A8642A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #E3E0DA; --faint: #7A756E; --muted: #9A948C;
+      --panel: #201F1D; --verified: #6FB39C; --attention: #D99A5B;
+    }
+  }
+  .d-lbl, .d-key, .d-cap, .d-band, .d-pump, .d-pump-m, .d-pump-a {
+  font-family: var(--mono);
+  }
+  .d-key  { fill: var(--ink); }
+  .d-band { fill: var(--faint); letter-spacing: 0.14em; }
+  .d-pump   { fill: var(--muted); }
+  .d-pump-m { fill: var(--verified); }
+  .d-box   { fill: var(--panel); stroke: var(--faint); stroke-width: 1.4; }
+  .d-box-m { fill: var(--panel); stroke: var(--verified); stroke-width: 2; }
+  .d-arw   { stroke: var(--faint); stroke-width: 1.6; fill: none; }
+  .d-arw-m { stroke: var(--verified); stroke-width: 2; fill: none; }
+  .d-dash-m { stroke-dasharray: 5 4; stroke-width: 1.4; }
+  .d-check { fill: none; stroke: var(--faint); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .d-view  { fill: none; stroke: var(--verified); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .d-fix   { fill: none; stroke: var(--attention); stroke-width: 1.4; stroke-dasharray: 5 4; }
+</style>
+
+<text class="d-band" x="64" y="24" text-anchor="start" style="font-size:11px">YOU</text>
+<rect class="d-box-m" x="64" y="32" width="181" height="52" rx="2"/>
+<text class="d-key" x="154" y="63" text-anchor="middle" style="font-size:15px">hand over a goal</text>
+<rect class="d-box-m" x="275" y="32" width="181" height="52" rx="2"/>
+<text class="d-key" x="366" y="56" text-anchor="middle" style="font-size:15px">correct it</text>
+<text class="d-pump-m" x="366" y="73" text-anchor="middle" style="font-size:10px">by hand, or ask the agent</text>
+<rect class="d-box-m" x="486" y="32" width="181" height="52" rx="2"/>
+<text class="d-key" x="576" y="63" text-anchor="middle" style="font-size:15px">close it</text>
+<rect class="d-box-m" x="697" y="32" width="181" height="52" rx="2"/>
+<text class="d-key" x="788" y="56" text-anchor="middle" style="font-size:15px">ask for a lift</text>
+<text class="d-pump-m" x="788" y="73" text-anchor="middle" style="font-size:10px">any step, not just the end</text>
+<text class="d-band" x="64" y="110" text-anchor="start" style="font-size:11px">THE AGENT</text>
+<rect class="d-box" x="64" y="118" width="181" height="60" rx="2"/>
+<text class="d-key" x="154" y="145" text-anchor="middle" style="font-size:16px">plan</text>
+<text class="d-pump" x="154" y="164" text-anchor="middle" style="font-size:11.5px">objective &#183; plan</text>
+<rect class="d-box" x="275" y="118" width="181" height="60" rx="2"/>
+<text class="d-key" x="366" y="145" text-anchor="middle" style="font-size:16px">run</text>
+<text class="d-pump" x="366" y="164" text-anchor="middle" style="font-size:11.5px">hpc-submit</text>
+<rect class="d-box" x="486" y="118" width="181" height="60" rx="2"/>
+<text class="d-key" x="576" y="145" text-anchor="middle" style="font-size:16px">analyze</text>
+<text class="d-pump" x="576" y="164" text-anchor="middle" style="font-size:11.5px">analyze &#183; correct</text>
+<rect class="d-box" x="697" y="118" width="181" height="60" rx="2"/>
+<text class="d-key" x="788" y="145" text-anchor="middle" style="font-size:16px">distil</text>
+<text class="d-pump" x="788" y="164" text-anchor="middle" style="font-size:11.5px">lift &#183; wiki-compile &#183; memory-lift</text>
+<line class="d-arw" x1="154.5" y1="84.0" x2="154.5" y2="113.0"/>
+<line class="d-arw" x1="154.5" y1="113.0" x2="150.3" y2="106.8"/>
+<line class="d-arw" x1="154.5" y1="113.0" x2="158.7" y2="106.8"/>
+<line class="d-arw" x1="616.3" y1="118.0" x2="616.3" y2="89.0"/>
+<line class="d-arw" x1="616.3" y1="89.0" x2="620.5" y2="95.2"/>
+<line class="d-arw" x1="616.3" y1="89.0" x2="612.1" y2="95.2"/>
+<line class="d-arw-m d-dash-m" x1="365.5" y1="84.0" x2="520.4" y2="113.0"/>
+<line class="d-arw-m d-dash-m" x1="520.4" y1="113.0" x2="513.5" y2="116.0"/>
+<line class="d-arw-m d-dash-m" x1="520.4" y1="113.0" x2="515.0" y2="107.7"/>
+<line class="d-arw-m d-dash-m" x1="365.5" y1="84.0" x2="210.6" y2="113.0"/>
+<line class="d-arw-m d-dash-m" x1="210.6" y1="113.0" x2="216.0" y2="107.7"/>
+<line class="d-arw-m d-dash-m" x1="210.6" y1="113.0" x2="217.5" y2="116.0"/>
+<line class="d-arw-m d-dash-m" x1="787.5" y1="84.0" x2="787.5" y2="113.0"/>
+<line class="d-arw-m d-dash-m" x1="787.5" y1="113.0" x2="783.3" y2="106.8"/>
+<line class="d-arw-m d-dash-m" x1="787.5" y1="113.0" x2="791.7" y2="106.8"/>
+<line class="d-arw" x1="245.0" y1="148.0" x2="270.0" y2="148.0"/>
+<line class="d-arw" x1="270.0" y1="148.0" x2="265.0" y2="151.3"/>
+<line class="d-arw" x1="270.0" y1="148.0" x2="265.0" y2="144.7"/>
+<line class="d-arw" x1="456.0" y1="148.0" x2="481.0" y2="148.0"/>
+<line class="d-arw" x1="481.0" y1="148.0" x2="476.0" y2="151.3"/>
+<line class="d-arw" x1="481.0" y1="148.0" x2="476.0" y2="144.7"/>
+<line class="d-arw" x1="667.0" y1="148.0" x2="692.0" y2="148.0"/>
+<line class="d-arw" x1="692.0" y1="148.0" x2="687.0" y2="151.3"/>
+<line class="d-arw" x1="692.0" y1="148.0" x2="687.0" y2="144.7"/>
+<path class="d-arw-m" d="M576.5,178 C576.5,212 154.5,212 154.5,178"/>
+<line class="d-arw-m" x1="154.5" y1="178.0" x2="158.4" y2="183.8"/>
+<line class="d-arw-m" x1="154.5" y1="178.0" x2="150.6" y2="183.8"/>
+<text class="d-pump-m" x="366" y="230" text-anchor="middle" style="font-size:12px">the page decides what runs next</text>
+<rect class="d-view" x="14" y="250" width="864" height="36" rx="2"/>
+<text class="d-lbl" x="32" y="273" text-anchor="start" style="font-size:12.5px">what is running, what is unclosed, what needs attention</text>
+<text class="d-band" x="862" y="273" text-anchor="end" style="font-size:11px">status &#8212; THE DASHBOARD</text>
+<line class="d-arw-m d-dash-m" x1="34" y1="250" x2="34" y2="92"/>
+<line class="d-arw-m" x1="34.0" y1="88.0" x2="37.3" y2="93.0"/>
+<line class="d-arw-m" x1="34.0" y1="88.0" x2="30.7" y2="93.0"/>
+<text class="d-pump-m" x="-170" y="28" text-anchor="middle" style="font-size:11.5px" transform="rotate(-90 0 0)">look any time</text>
+<rect class="d-fix" x="14" y="298" width="864" height="34" rx="2"/>
+<text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">scans on a timer, raises a hand, repairs nothing</text>
+<text class="d-band" x="862" y="320" text-anchor="end" style="font-size:11px">THE FIXER</text>
+<rect class="d-check" x="14" y="344" width="864" height="34" rx="2"/>
+<text class="d-lbl" x="32" y="366" text-anchor="start" style="font-size:12.5px">47 checks &#8212; on every write, every commit, every scan</text>
+<text class="d-band" x="862" y="366" text-anchor="end" style="font-size:11px">THE LINTERS</text>
+</svg>
