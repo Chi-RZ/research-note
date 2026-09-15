@@ -153,27 +153,13 @@ every plugin update.
 Then **edit one file**, `.claude/hpc.env` — it is the only thing the script
 cannot know. Purely local work needs nothing in it.
 
-<details>
-<summary>What bootstrap lays down</summary>
+What you get: the layout, both agents' contracts and skill directories pointed
+at one copy each, the commit-prefix githook, a dashboard, and a background
+scanner that watches the record and repairs nothing. It finishes by running the
+self-tests and both linters, and refuses to report success until they pass.
 
-| | |
-|---|---|
-| layout | `src/ tests/ experiments/ project_memory/ wiki/ .claude/` — and `git init` if needed |
-| contracts | root and per-layer `CLAUDE.md`, with `AGENTS.md` as a second view of the same files |
-| githooks | the commit-prefix ↔ layer check, with `core.hooksPath` set |
-| shared memory | `memory/claude` and `memory/codex` both point at `project_memory/memory/shared/` |
-| shared skills | `.claude/skills` and `.agents/skills` both point at `.agent/skills/` |
-| fixer | a detached daemon — **no crontab entry** — scanning the record and refreshing the board every 10 min. Python only: no LLM is invoked, both agent tiers ship disabled. `kill` is the whole uninstall; `--no-fixer` skips it |
-| dashboard | `project_memory/dashboard.html` plus the qdash VS Code viewer (`--no-qdash` skips the editor step) |
-| submit templates | `.claude/hpc-submit/*.slurm`, to fill in for your cluster |
-| the other agent | registers the plugin with whichever of Claude / Codex lacks it, from the same source this side came from (`--no-cross-agent` opts out) |
-| acceptance gate | self-tests and both linters must pass before it reports success |
-
-Either agent's plugin cache works in the command above — it is one plugin core.
-Afterwards everything resolves it through `git config --get
-research-note.pluginRoot`.
-
-</details>
+Details, flags and the judgment calls it leaves to you:
+[`project-setup`](plugins/research-note/skills/project-setup/SKILL.md).
 
 <details>
 <summary><code>.claude/hpc.env</code> — what goes in it</summary>
@@ -210,31 +196,24 @@ freshness and environment parity before anything queues.
 
 </details>
 
-## 3. Wire the remote (optional, one command)
+## 3. Wire a cluster (optional)
 
-The cluster syncs **from GitHub**, so the project needs an `origin` first:
+The cluster syncs from GitHub, so give the project an `origin` first, then name
+the hosts:
 
 ```bash
-gh repo create my-project --private --source=. --push   # or git remote add origin ...
 uv run python "$PLUGIN/scripts/bootstrap_project.py" . \
-    --remote hpc:/path/to/clone/on/cluster \
-    --remote other:/path/on/other/cluster      # repeatable; first = default host
+    --remote hpc:/path/to/clone/on/cluster        # repeatable; first = default
 ```
 
-This clones (or ff-pulls) the project on each cluster and verifies the SHAs
-match. A fresh clone is SPARSE (cone: `src/ tests/ experiments/` + root files
-— the cluster runs jobs, it never needs `project_memory/`, `wiki/` or
-`.claude/`; old cluster git without cone mode gets the pattern-file fallback
-automatically). From then on every remote submission goes: local commit → push
-→ cluster ff-pull → SHA check → `sbatch` → job id auto-recorded on the local
-task page — one command, refused if anything is dirty or diverged. With
-several hosts, `REMOTE=<host> submit_slurm.sh ...` (or
-`remote.sh <cmd> --host <h>`) targets one; jobs on a non-default host are
-recorded as `<jobid>@<host>`.
+Each cluster gets a sparse clone — it runs jobs, so it never needs the record,
+the wiki or the contracts. From then on a remote launch is one command: commit,
+push, ff-pull, SHA check, `sbatch`, and the job id lands on its entry here. It
+refuses if anything is dirty or diverged.
 
-Build the venv on the cluster once (`uv sync --frozen`; `remote.sh push` runs
-it and discards the `uv.lock` rewrite). Pinned forks need **nothing** on the
-cluster — the pin is a URL + rev, and uv builds it wherever it lands.
+Nothing is installed on the cluster and no agent runs there.
+
+Details: [`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md).
 
 ## 4. Verify
 
@@ -255,40 +234,21 @@ start with `research-note:plan` — your first node, its gate page, and its firs
 ## Updating
 
 ```bash
-claude plugin update research-note@rzchi
-uv run python "$PLUGIN/scripts/bootstrap_project.py" .   # re-resolve PLUGIN first
+PLUGIN=$(git config --get research-note.pluginRoot)
+bash "$PLUGIN/scripts/update_projects.sh"
 ```
 
-`update_projects.sh` repoints each project's `research-note.pluginRoot` at the
-new version directory — without that the pins move and every `$PLUGIN` script
-(both linters, the record bus, the submit launchers) keeps executing the
-superseded one.
+One command carries a new version into **both** agents and **every** registered
+project: it moves each agent's own install, repoints every project at the new
+plugin directory, syncs the framework's own files while leaving yours alone,
+and finishes with doctor and both linters. It prints what each agent resolves
+to, and holds the two to the same source commit.
 
-It then holds BOTH agents against **origin**, and prints what each one resolves
-to:
+Nothing is updated silently — read its output; it names anything it refuses to
+touch.
 
-```
-agents vs origin:
-   claude: 0.17.0    rzchi@main 1a2b3c4  == origin
-   codex : 0.16.0    rzchi@main     9f8e7d6  != origin 1a2b3c4
-      updating codex ...
-   codex : 0.17.0    rzchi@main     1a2b3c4  == origin
-```
-
-The two store the plugin in their own trees (`~/.claude/plugins/` vs
-`~/.codex/plugins/`, with the Codex marketplace snapshot under
-`~/.codex/.tmp/marketplaces/`) and that cannot be shared — what is held equal is
-the **commit** each resolves to. Codex is brought across automatically, because
-its marketplace is a disposable snapshot the CLI re-creates. The Claude side is
-not: there, `marketplace update` deletes and re-clones, and on a machine that
-maintains this plugin that clone is the working checkout — so the refresh
-command is printed for you to run. `--no-cross-agent` skips the whole check.
-
-The fixer stub re-resolves the newest installed version at every tick, so
-cron/daemon pick the update up automatically. Project-owned contract copies
-are **kept** on purpose — diff them against `templates/` when a release notes
-a schema change (`framework.json`'s `record:` version is linted against the
-installed linter, so drift is caught, not silent).
+Details, flags and what it deliberately leaves to you:
+[`update`](plugins/research-note/skills/update/SKILL.md).
 
 ## Layout of this repo
 
