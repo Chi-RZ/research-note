@@ -3,9 +3,9 @@
 [![tests](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml/badge.svg)](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A record framework for agent-driven computational research, for **Claude Code**
-and **Codex**. It gives an agent a place to put every number it produces, and
-refuses the ones that cannot be traced back.
+A record framework for agent-assisted computational research, for **Claude
+Code** and **Codex**. It records numerical results faithfully, and distils
+source code and knowledge as the work proceeds.
 
 ## What it is for
 

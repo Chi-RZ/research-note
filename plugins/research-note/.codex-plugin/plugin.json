@@ -1,7 +1,7 @@
 {
   "name": "research-note",
-  "version": "0.1.2",
-  "description": "Agent-neutral computational research framework with structured records, objectives, HPC provenance, linters, worktree isolation, a fixer and a dashboard.",
+  "version": "0.1.3",
+  "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds — for agent-assisted computational research.",
   "author": {
     "name": "Chi-RZ",
     "email": "mr.rzchi@gmail.com",
@@ -20,7 +20,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Research Note",
-    "shortDescription": "Structured computational research for Claude and Codex.",
+    "shortDescription": "Faithful records for agent-assisted computational research.",
     "longDescription": "Plan and record computational research with reproducible node/page/entry records, objective loops, linting, HPC provenance, worktree-safe writes and dashboards.",
     "developerName": "Chi-RZ",
     "category": "Productivity",
