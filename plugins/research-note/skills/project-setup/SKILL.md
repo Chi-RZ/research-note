@@ -460,22 +460,7 @@ genuine anomaly, not a habit — used routinely it turns the partition off.
 
 ---
 
-## Step 6 — External plugins (pull, don't vendor)
-
-Some capabilities come from open-source Claude Code plugins, **not** vendored
-into the marketplace. Install/refresh them each time you set up (they auto-cache):
-
-- **superpowers** (provides `brainstorming` and more):
-  `/plugin install superpowers@claude-plugins-official`
-  (marketplace add first if missing: `/plugin marketplace add anthropics/claude-plugins`)
-
-Plugin install is an interactive built-in — tell the user the exact command;
-the agent cannot run `/plugin` itself. Record installed plugins as a memory
-in `project_memory/memory/shared/`.
-
----
-
-## Step 7 — Board + fixer (already done by Step 2 — verify, don't redo)
+## Step 6 — Board + fixer (already done by Step 2 — verify, don't redo)
 
 `bootstrap_project.py` started the fixer and installed the editor extensions.
 Verify and hand over:
@@ -511,7 +496,7 @@ Two prerequisites the fixer is silently useless without:
 Tune models / cadence / caps with a `.fixer/config.json` override of the
 plugin's defaults; all runtime state lives in `<project>/.fixer/` (gitignored).
 
-## Step 8 — The gate (bootstrap runs it; re-run after your Step 3 edits)
+## Step 7 — The gate (bootstrap runs it; re-run after your Step 3 edits)
 
 ```bash
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"   # idempotent: re-runs the gate
@@ -529,7 +514,7 @@ done
 Bare `python3` on purpose: the linters and generators must run with no venv, so
 the fixer can call them headless.
 
-## Step 9 — Wrap up
+## Step 8 — Wrap up
 
 - Commit the monorepo per layer prefix (one commit per layer touched);
   `.claude/` is a LAYER of the monorepo — its changes are their own commit
@@ -545,7 +530,7 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] plugin is installed and enabled in each CLI present — `claude plugin list` / `codex plugin list`
 - [ ] project marker in place — `test -f .claude/framework.json`
 - [ ] the root CLAUDE.md appendix states THIS project's mission
-- [ ] four contracts resolve — the `DANGLING` loop in Step 8 prints four `OK`
+- [ ] four contracts resolve — the `DANGLING` loop in Step 7 prints four `OK`
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
 - [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)
 - [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
@@ -553,9 +538,8 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` (src-layout; forks pinned by `git`+`rev`, path-editable only where chosen) + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
-- [ ] superpowers plugin install line given to user
 - [ ] editor extensions installed as real copies (not symlinks); user asked to reload window
 - [ ] lint-fixer up — SLURM: `crontab -l` shows the `*/10` line; BARE host: re-running `start_fixer_daemon.sh` prints `already running` + `hasTrustDialogAccepted: true` in `~/.claude.json`
-- [ ] **the gate (Step 8): bootstrap reports zero `FAIL`, and the four contract symlinks print `OK`**
+- [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and the four contract symlinks print `OK`**
 - [ ] `uv run python -c "import <pkg>"` succeeds
 - [ ] layered commits (`memory:` / `wiki:` / `chore:` …, `agent:` separately); summary printed; `research-note:plan` suggested

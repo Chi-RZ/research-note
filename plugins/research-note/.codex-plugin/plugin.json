@@ -1,6 +1,6 @@
 {
   "name": "research-note",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agent-neutral computational research framework with structured records, objectives, HPC provenance, linters, worktree isolation, a fixer and a dashboard.",
   "author": {
     "name": "Chi-RZ",

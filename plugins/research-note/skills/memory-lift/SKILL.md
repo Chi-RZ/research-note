@@ -31,8 +31,11 @@ research project under the same framework?**
 2. Check `.agent/skills/` for an existing skill that should ABSORB this
    knowledge instead of a new skill being created — extending an existing
    skill is the default; a new skill needs a distinct trigger.
-3. Write the skill per `superpowers:writing-skills` conventions
-   (`.agent/skills/<name>/SKILL.md`, or an edit to an existing SKILL.md).
+3. Write the skill: `.agent/skills/<name>/SKILL.md`, or an edit to an existing
+   one. The whole convention is the frontmatter — `name`, and a `description`
+   that says WHEN to reach for it, since that sentence is the only part always
+   in context and the only thing that decides whether the skill ever fires.
+   Then the procedure. The plugin's own eleven skills are the worked examples.
    Bootstrap exposes that one directory to both agents through
    `.claude/skills` and `.agents/skills` symlinks; never write a second copy.
    The skill text must carry ZERO references to this project.

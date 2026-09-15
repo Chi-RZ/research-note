@@ -10,7 +10,7 @@
     {
       "name": "research-note",
       "description": "Agent research framework: node/page/entry record schema with anchored-motivation chains, linters, objective loop, HPC submission, fixer daemon and dashboard",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "source": "./plugins/research-note"
     }
   ]
