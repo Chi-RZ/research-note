@@ -7,69 +7,26 @@ A record framework for agent-driven computational research, for **Claude Code**
 and **Codex**. It gives an agent a place to put every number it produces, and
 refuses the ones that cannot be traced back.
 
-## The problem
+## What it is for
 
-An agent runs for three days and reports a number. Two weeks later nobody can
-say which commit produced it, at which parameters, on which machine, or what
-question it was meant to answer. The session that knew has been compacted,
-closed, thrown away.
+**Every number the code produces is placeable the moment it is produced — by
+the agent that produced it, with no extra human step.** Placeable means four
+things resolve from the record alone: the code (a commit), the knobs (a
+recipe), the machine (an environment), and the description — what was asked and
+what was found.
 
-The answer is not a better memory. It is that the number gets a **place** at the
-moment it is produced — by the agent that produced it, with no extra human step
-— and that the place is machine-checked.
+**An autonomous run is legible from a page, not from a transcript.** Sessions
+end, get compacted, get thrown away. The objective page is what survives them,
+and it is what you read to know where a campaign stands.
 
-## What that looks like
+**The code and the understanding are distilled as the work proceeds, not
+after.** A project that only accumulates entries ends with a thousand true
+facts and nothing reusable, so condensation is an explicit step with its own
+trigger — never a tidy-up at the end.
 
-Every result lands as an **entry**. A linter refuses the page if any of this is
-missing or malformed:
-
-```markdown
-### Entry: sampled compile cost on the 3x3 torus
-- **Id:** 03.062
-- **Status:** analyzed
-- **Date:** 2026-09-13 22:41
-- **Jobs:** 623961@gpu-a100
-    Job 623961 — [log](../../../experiments/vmc/torus3/logs/slurm-623961.out)
-- **Code:** `myproject@a7fcdd1` · `quimb@e63756`
-- **Motivation:** `03.045` found "compilation dominates at batch 512"; does
-  rounding every data-dependent shape onto a coarser grid cut compile time
-  without changing the energy?
-- **Recipe:** {lattice: 3x3, U: 4, batch: 512, shape_grid: 64, seed: 7}
-- **Facts:** We ran one job per grid size with [run.py](...); evidence [log](...).
-
-  | grid | compile (s) | energy |
-  |---|---|---|
-  | none | 412 | -8.9931 |
-  | 64   |  71 | -8.9931 |
-
-- **Conclusion:** The result shows rounding to a 64-wide grid cuts compile time
-  5.8x with the energy unchanged to 1e-9, because every shape the scan meets
-  collapses onto 4 variants — answers the motivation.
-```
-
-Three fields are what make it re-derivable: **`Code`** names the commits,
-**`Recipe`** names every knob, **`Jobs`** names the runs and links their logs.
-The linter checks they are present, well-formed, and that the SHA still resolves
-on the default branch. It does not check whether the number is right — it cannot,
-and the design says so out loud.
-
-A campaign spanning weeks gets an **objective page**: one question per phase,
-the entries that answered it, and a verdict the user reads instead of the
-session transcript.
-
-## What it gives you
-
-| | |
-|---|---|
-| **A record with a shape** | node / page / entry — one implementation, one question, one set of runs |
-| **Linters that refuse** | ~40 checks over the record and the objective pages; a page that fails does not land |
-| **HPC submission** | Slurm or bare, local or over ssh, with the repo SHA, the dirty diff and every pinned fork in the log header |
-| **An objective loop** | the agent launches phases, analyzes its own runs, and rewrites the plan from the page rather than from memory |
-| **A scanner** | headless, flags and never repairs — the record has one writer |
-| **Two agents, one core** | Claude and Codex install the same plugin; the project's contracts are one file under two names |
-
-The framework carries **no domain ontology**. How pages group under a node is
-your project's taxonomy, not ours.
+None of that is advice. A record page that cannot say which commit, which
+knobs, which machine, and which question is refused by a linter before it
+lands.
 
 ## Requirements and platform
 
