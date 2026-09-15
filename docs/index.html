@@ -206,29 +206,6 @@
   .loop span { background: var(--panel); border: 1px solid var(--line); padding: 0.3rem 0.6rem; }
   .loop i { font-style: normal; color: var(--faint); }
 
-  /* ---- counts ---- */
-  .counts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 1.5rem clamp(1rem, 4vw, 2.5rem);
-    margin-top: 2.25rem;
-  }
-  .counts div { border-top: 1px solid var(--line); padding-top: 0.75rem; }
-  .counts b {
-    display: block;
-    font-family: var(--mono);
-    font-size: 1.85rem;
-    font-weight: 500;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .counts span {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--faint);
-  }
 
   footer {
     border-top: 1px solid var(--line);
@@ -1074,12 +1051,6 @@ constraint. <u>2 entries await review.</u></pre>
       <p class="closing">A reviewed entry is finished work — hand it over, cite it,
         or train on it.</p>
 
-      <div class="counts">
-        <div><b>143</b><span>entries recorded</span></div>
-        <div><b>121</b><span>closed by a person</span></div>
-        <div><b>8</b><span>nodes</span></div>
-        <div><b>45</b><span>machine checks</span></div>
-      </div>
     </div>
   </section>
 
@@ -1088,7 +1059,7 @@ constraint. <u>2 entries await review.</u></pre>
     <h2>One run, end to end.</h2>
     <figure>
       <div class="plate">
-        <svg viewBox="0 0 900 390" role="img" aria-label="A typical run in three lanes. Top, what only you do: hand over a goal, close it, ask for a lift. Bottom, what the agent does: plan, run, analyze, distil, each naming the skills it drives — objective &#8212; objective and plan, hpc-submit and remote-sync, analyze and correct, and the three lifts. You start a correction and you close an entry. An arc returns from analyze to plan, where the page decides what runs next. Beneath it the time. Beneath it the fixer, which scans on a timer and raises a hand without repairing anything, and the linters, whose checks run on every page write.">
+        <svg viewBox="0 0 900 390" role="img" aria-label="A typical run in three lanes. Top, what only you do: hand over a goal, close it, ask for a lift. Bottom, what the agent does: plan, run, analyze, distil, each naming the skills it drives — objective &#8212; objective and plan, hpc-submit, analyze and correct, and the three lifts. You start a correction and you close an entry. An arc returns from analyze to plan, where the page decides what runs next. Beneath it the time. Beneath it the fixer, which scans on a timer and raises a hand without repairing anything, and the linters, whose forty-seven checks run on every write, every commit and every scan.">
           <text class="d-band" x="64" y="24" text-anchor="start" style="font-size:11px">YOU</text>
           <rect class="d-box-m" x="64" y="32" width="181" height="52" rx="2"/>
           <text class="d-key" x="154" y="63" text-anchor="middle" style="font-size:15px">hand over a goal</text>
@@ -1106,13 +1077,13 @@ constraint. <u>2 entries await review.</u></pre>
           <text class="d-pump" x="154" y="164" text-anchor="middle" style="font-size:11.5px">objective &#183; plan</text>
           <rect class="d-box" x="275" y="118" width="181" height="60" rx="2"/>
           <text class="d-key" x="366" y="145" text-anchor="middle" style="font-size:16px">run</text>
-          <text class="d-pump" x="366" y="164" text-anchor="middle" style="font-size:11.5px">hpc-submit &#183; remote-sync</text>
+          <text class="d-pump" x="366" y="164" text-anchor="middle" style="font-size:11.5px">hpc-submit</text>
           <rect class="d-box" x="486" y="118" width="181" height="60" rx="2"/>
           <text class="d-key" x="576" y="145" text-anchor="middle" style="font-size:16px">analyze</text>
           <text class="d-pump" x="576" y="164" text-anchor="middle" style="font-size:11.5px">analyze &#183; correct</text>
           <rect class="d-box" x="697" y="118" width="181" height="60" rx="2"/>
           <text class="d-key" x="788" y="145" text-anchor="middle" style="font-size:16px">distil</text>
-          <text class="d-pump" x="788" y="164" text-anchor="middle" style="font-size:11.5px">lift &#183; wiki-compile &#183; memory</text>
+          <text class="d-pump" x="788" y="164" text-anchor="middle" style="font-size:11.5px">lift &#183; wiki-compile &#183; memory-lift</text>
           <line class="d-arw" x1="154.5" y1="84.0" x2="154.5" y2="113.0"/>
           <line class="d-arw" x1="154.5" y1="113.0" x2="150.3" y2="106.8"/>
           <line class="d-arw" x1="154.5" y1="113.0" x2="158.7" y2="106.8"/>
@@ -1142,17 +1113,17 @@ constraint. <u>2 entries await review.</u></pre>
           <line class="d-arw-m" x1="154.5" y1="178.0" x2="150.6" y2="183.8"/>
           <text class="d-pump-m" x="366" y="230" text-anchor="middle" style="font-size:12px">the page decides what runs next</text>
           <rect class="d-view" x="14" y="250" width="864" height="36" rx="2"/>
-          <text class="d-lbl" x="32" y="273" text-anchor="start" style="font-size:12.5px">what is open, what is running, what is unclosed, what needs attention</text>
+          <text class="d-lbl" x="32" y="273" text-anchor="start" style="font-size:12.5px">what is running, what is unclosed, what needs attention</text>
           <text class="d-band" x="862" y="273" text-anchor="end" style="font-size:11px">status &#8212; THE DASHBOARD</text>
           <line class="d-arw-m d-dash-m" x1="34" y1="250" x2="34" y2="92"/>
           <line class="d-arw-m" x1="34.0" y1="88.0" x2="37.3" y2="93.0"/>
           <line class="d-arw-m" x1="34.0" y1="88.0" x2="30.7" y2="93.0"/>
           <text class="d-pump-m" x="-170" y="28" text-anchor="middle" style="font-size:11.5px" transform="rotate(-90 0 0)">look any time</text>
           <rect class="d-fix" x="14" y="298" width="864" height="34" rx="2"/>
-          <text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">scans on a timer, raises a hand, and repairs nothing</text>
+          <text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">scans on a timer, raises a hand, repairs nothing</text>
           <text class="d-band" x="862" y="320" text-anchor="end" style="font-size:11px">THE FIXER</text>
           <rect class="d-check" x="14" y="344" width="864" height="34" rx="2"/>
-          <text class="d-lbl" x="32" y="366" text-anchor="start" style="font-size:12.5px">45 checks &#8212; on every page write, and again at commit</text>
+          <text class="d-lbl" x="32" y="366" text-anchor="start" style="font-size:12.5px">47 checks &#8212; on every write, every commit, every scan</text>
           <text class="d-band" x="862" y="366" text-anchor="end" style="font-size:11px">THE LINTERS</text>
         </svg>
       </div>
