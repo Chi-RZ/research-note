@@ -134,32 +134,41 @@ just added rather than assuming it: the name belongs to whoever ran
 
 ## 2. Configure a project
 
-From the directory you want to become your research project — new or existing:
+Open the directory you want to become your research project — new or existing
+— and tell the agent:
+
+> set up this project with research-note
+
+That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md) skill: it lays the
+layout down, wires both agents' contracts and skills to one copy each, installs
+the commit-prefix githook, starts a background scanner that watches the record
+and repairs nothing, and refuses to report success until the self-tests and
+both linters pass. Then it walks you through the parts no script can decide —
+the project's mission, what to do with code that is already there, pinning the
+environment.
+
+It is idempotent. Existing files are kept, never overwritten; run it again
+after any plugin update.
+
+**The one thing you must supply** is `.claude/hpc.env` — the machine facts
+nothing can infer. Working purely locally needs nothing in it.
+
+<details>
+<summary>Without an agent in the loop</summary>
+
+The mechanical half is a plain script, and the skill only adds judgment on top:
 
 ```bash
-PLUGIN=$(ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \
-             2>/dev/null | sort -V | tail -1)
-uv run python "$PLUGIN/scripts/bootstrap_project.py" .
+PLUGIN=$(git config --get research-note.pluginRoot 2>/dev/null \
+         || ls -d ~/.claude/plugins/cache/*/research-note/* \
+                  ~/.codex/plugins/cache/*/research-note/* | sort -V | tail -1)
+uv run python "$PLUGIN/scripts/bootstrap_project.py" .    # --dry-run to preview
 ```
 
-Or just tell the agent: *"set up this project with the research-note
-framework"* — same script, and the `project-setup` skill then walks the
-judgment calls with you (the project's mission, migrating existing code,
-pinning the environment).
+Either agent's cache works — one plugin core. Afterwards everything resolves it
+through `git config --get research-note.pluginRoot`.
 
-It is idempotent: existing files are kept, never overwritten. Re-run it after
-every plugin update.
-
-Then **edit one file**, `.claude/hpc.env` — it is the only thing the script
-cannot know. Purely local work needs nothing in it.
-
-What you get: the layout, both agents' contracts and skill directories pointed
-at one copy each, the commit-prefix githook, a dashboard, and a background
-scanner that watches the record and repairs nothing. It finishes by running the
-self-tests and both linters, and refuses to report success until they pass.
-
-Details, flags and the judgment calls it leaves to you:
-[`project-setup`](plugins/research-note/skills/project-setup/SKILL.md).
+</details>
 
 <details>
 <summary><code>.claude/hpc.env</code> — what goes in it</summary>
@@ -198,22 +207,30 @@ freshness and environment parity before anything queues.
 
 ## 3. Wire a cluster (optional)
 
-The cluster syncs from GitHub, so give the project an `origin` first, then name
-the hosts:
+The cluster syncs from GitHub, so the project needs an `origin` first. Then
+tell the agent:
 
-```bash
-uv run python "$PLUGIN/scripts/bootstrap_project.py" . \
-    --remote hpc:/path/to/clone/on/cluster        # repeatable; first = default
-```
+> wire this project to the cluster at hpc:/path/to/clone
 
 Each cluster gets a sparse clone — it runs jobs, so it never needs the record,
-the wiki or the contracts. From then on a remote launch is one command: commit,
+the wiki or the contracts. From then on a remote launch is one action: commit,
 push, ff-pull, SHA check, `sbatch`, and the job id lands on its entry here. It
 refuses if anything is dirty or diverged.
 
-Nothing is installed on the cluster and no agent runs there.
+**Nothing is installed on the cluster and no agent runs there.** Code goes out,
+logs and data come back, and every judgement is made on this side.
 
 Details: [`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md).
+
+<details>
+<summary>Without an agent in the loop</summary>
+
+```bash
+uv run python "$PLUGIN/scripts/bootstrap_project.py" . \
+    --remote hpc:/path/to/clone/on/cluster     # repeatable; first = default host
+```
+
+</details>
 
 ## 4. Verify
 
@@ -233,22 +250,32 @@ start with `research-note:plan` — your first node, its gate page, and its firs
 
 ## Updating
 
+Tell the agent:
+
+> update research-note
+
+That runs the [`update`](plugins/research-note/skills/update/SKILL.md) skill. One pass carries the new
+version into **both** agents and **every** registered project: it moves each
+agent's install, repoints every project at the new plugin directory, syncs the
+framework's own files while leaving yours alone, and ends on doctor and both
+linters. It holds the two agents to the same source commit and prints what each
+resolves to.
+
+Nothing moves silently — read the output; it names whatever it refuses to
+touch, and why.
+
+<details>
+<summary>Without an agent in the loop</summary>
+
 ```bash
 PLUGIN=$(git config --get research-note.pluginRoot)
-bash "$PLUGIN/scripts/update_projects.sh"
+bash "$PLUGIN/scripts/update_projects.sh"        # --dry-run to preview
 ```
 
-One command carries a new version into **both** agents and **every** registered
-project: it moves each agent's own install, repoints every project at the new
-plugin directory, syncs the framework's own files while leaving yours alone,
-and finishes with doctor and both linters. It prints what each agent resolves
-to, and holds the two to the same source commit.
+Run it from the cache of the version you are moving TO: it repoints
+`research-note.pluginRoot`, and a copy can only point at what it can see.
 
-Nothing is updated silently — read its output; it names anything it refuses to
-touch.
-
-Details, flags and what it deliberately leaves to you:
-[`update`](plugins/research-note/skills/update/SKILL.md).
+</details>
 
 ## Layout of this repo
 
