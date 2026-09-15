@@ -185,20 +185,9 @@ hook reads from there. Prose about what this project is FOR belongs in
 `project_memory/note/`, or in the `Goal` of its first objective, where nothing
 overwrites it and the record can cite it.
 
-**`.claude/hpc.env`** — declare every editable-install library the project
-develops, one pair of lines per lib (multiple libs = multiple pairs):
-
-```
-LIB_<name>_LOCAL=<its checkout on this machine>
-LIB_<name>_<HOSTKEY>=<its checkout on that remote host>   # per declared host
-```
-
-One declaration buys both halves of the discipline at once: the SHA in every
-log header (the record) and the `remote.sh push` gate that refuses a launch
-until both sides sit on one clean, pushed commit (the alignment). There is no
-way to get the record without the gate — the half-open state is what once
-recorded runs against a commit no remote held. `<HOSTKEY>` is the REMOTE_HOST
-name, alphanumerics only; the full contract is in the template's comments.
+**`.claude/hpc.env`** — the machine facts nothing can infer: where a cluster
+is, and which queue to land in. Purely local work needs none of it; the file
+bootstrap writes documents every key in its own comments.
 
 **Seed `project_memory/memory/shared/`** with anything learned in Step 0 (env
 quirks, data locations, dependency versions) as one-fact-per-file memories +
@@ -303,21 +292,16 @@ Two checks, and only two:
 
 - **Each machine matches its own spec**, checked where the job runs. This is
   what makes a recorded result re-derivable, and it needs no second machine.
-- **A library you are developing is pinned by its commit.** Its identity is the
-  commit, never the version — a version string stays put across a fortnight of
-  edits. Pin it IN the spec (`{ git = "…", rev = "<sha>", subdirectory = "…" }`
-  for uv; a registry version for Julia) so both sides instantiate the same code
-  and alignment becomes a property of the file instead of a check that can fail.
-  A path-editable dep is still legitimate — for a lib no other machine runs, or
-  for day-to-day iteration where edits must take effect immediately — but then
-  its `LIB_<name>_*` declaration in `.claude/hpc.env` is what holds the sides
-  together: the push gate does per launch what the pin does once. Know the
-  path dep's further cost before choosing it: the committed path couples the
-  manifest to one machine's directory layout, so `uv` cannot build a venv in
-  any checkout where the path does not resolve — every linked worktree, every
-  CI box, every differently-laid-out machine. Either way the
-  lib's git discipline equals the project repo's, and everything else in the
-  environment is aligned by the spec (`uv.lock` rides the project-repo gate).
+- **If you are DEVELOPING a library the project uses**, its identity is a
+  commit, not a version string — a version stays put across a fortnight of
+  edits. Two ways to hold that, and neither is the default: pin it in the spec
+  (`{ git = "…", rev = "<sha>" }`, moved by `scripts/bump_lib.sh`), which any
+  machine can rebuild from; or keep it path-editable so edits take effect at
+  once, and declare `LIB_<name>_LOCAL` / `LIB_<name>_<HOSTKEY>` in
+  `.claude/hpc.env` so `remote.sh push` holds both sides to one commit per
+  launch. A path dep ties the manifest to one machine's layout, so a pin is
+  what a second machine or a CI box needs. Most projects develop no library and
+  need none of this.
 
 **A SECOND environment is allowed, and it must strictly contain the first.** One
 dependency that exists on only one platform is enough to make a single file
@@ -363,17 +347,10 @@ dependencies = [
   "jax-cuda12-pjrt==<jax pin>",  # adapt from the reference env
 ]
 
-[tool.uv.sources]
-# A fork the cluster also runs: pinned by commit, so both sides instantiate the
-# same code and nothing has to be compared afterwards. `bump_lib.sh` moves the
-# rev after you push a change to the fork.
-mylib = { git = "ssh://git@github.com/user/mylib.git", rev = "<sha>" }
-# A fork may instead stay path-editable (immediate local iteration; also fine
-# for a lib no other machine runs) — then declare LIB_<name>_LOCAL and
-# LIB_<name>_<HOSTKEY> in .claude/hpc.env, and remote.sh push holds both sides
-# to one commit per launch:
-# mylab = { path = "../mylab", editable = true }   # relative, so one committed
-#                                                  # pyproject serves every host
+# Only if you DEVELOP a library this project uses — see the environment
+# contract above for the two ways to hold it, and skip this block otherwise.
+# [tool.uv.sources]
+# mylib = { git = "ssh://git@github.com/user/mylib.git", rev = "<sha>" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -539,7 +516,7 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
 - [ ] every top-level directory is owned by exactly one commit prefix (a RULES row + a root layer-table row for each beyond the standard six)
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
-- [ ] `pyproject.toml` (src-layout; forks pinned by `git`+`rev`, path-editable only where chosen) + `.gitignore`; `uv sync` done
+- [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
 - [ ] editor extensions installed as real copies (not symlinks); user asked to reload window
 - [ ] lint-fixer up — SLURM: `crontab -l` shows the `*/10` line; BARE host: re-running `start_fixer_daemon.sh` prints `already running` + `hasTrustDialogAccepted: true` in `~/.claude.json`
