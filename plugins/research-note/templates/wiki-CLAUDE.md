@@ -5,11 +5,6 @@ is the publishable artifact: a future release snapshots `src + tests + wiki`
 into a public repo — users get the functions AND the exploration logic behind
 them.
 
-On this branch the wiki is a **knowledge base only**: the node-organized
-results view (`gen_wiki`, `wiki/data`, `wiki/pages`, `/wiki-lift`, `/paper`)
-is deliberately parked — it lives on the `qec-dev` branch and can be
-resurrected when a results view is wanted again.
-
 ## The self-containment contract (hard)
 
 - Nothing under `wiki/` links outside `wiki/` — no `file://`, no relative
@@ -60,7 +55,7 @@ Invariants the wiki holds, whoever writes it:
   (c) every page ends with `## Related`, 2-4 links each naming WHY related.
   Standard markdown links, never wikilinks.
 
-English-only. Commit prefix: `wiki:`.
+English-only.
 
 ---
 

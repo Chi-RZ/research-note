@@ -7,13 +7,13 @@ pip install pytest pyyaml
 python -m pytest plugins/research-note/scripts/tests -q
 ```
 
-375 tests, about 30 seconds. Two test-only dependencies and nothing else:
+457 tests, about 75 seconds. Two test-only dependencies and nothing else:
 `pytest`, and `pyyaml` for the single test that parses the skills' ```yaml
 examples with a real parser. The shipped code itself is standard-library
-Python, POSIX shell and git — nothing to install to RUN it. The suite builds its own
-repositories and its own fake `HOME`, and it never calls the `claude` or `codex`
-CLIs — every test that needs one stubs it. So it passes on a machine with
-neither agent installed, which is also how CI runs it.
+Python, POSIX shell and git — nothing to install to RUN it. The suite builds its
+own repositories and its own fake `HOME`, and it never calls the `claude` or
+`codex` CLIs — every test that needs one stubs it. So it passes on a machine
+with neither agent installed, which is also how CI runs it.
 
 If that command is green on your machine, you can change anything here and know
 whether you broke it.
@@ -55,9 +55,9 @@ would make the document worse.
 `<type>(<scope>): <what changed and why it mattered> (<version>)`
 
 ```
-fix(hpc): remote.sh forwards the phase binding, so a remote launch can record (0.29.1)
-feat(lint): a commit touching src/ must leave src/INDEX.md current (0.29.0)
-docs(design): DESIGN catches up to the machine, and is put under test (0.29.3)
+feat(githooks): a dispatcher keeps every hook the project already had (0.2.2)
+feat(contracts): the four contracts are generated; a project's rules live in their own file (0.2.4)
+test(compat): the public compatibility matrix, run against real repositories (0.2.6)
 ```
 
 The body is where this repo keeps its memory. Say what broke, how it was found,

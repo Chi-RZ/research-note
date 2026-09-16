@@ -1,20 +1,18 @@
 ---
 name: objective
-description: Use when the user hands over a large multi-task research goal spanning sessions. Creates a durable objective page, executes and watches phases, records results, and replans under the same goal. Not for a single probe; use research-note:plan directly.
+description: Use when the user hands over a multi-task research goal spanning sessions — intake onto a durable objective page, run the phase loop, or report status. A single probe is research-note:plan.
 ---
 
 # research-note:objective
 
-The user states a goal once and the loop does the decomposing, classifying,
-launching, reviewing and re-planning. **All durable state lives on the
-objective page** (`project_memory/objectives/<slug>.md`, format contract in
-`project_memory/CLAUDE.md`): sessions are stateless workers — a fresh session
-resumes exactly from the page, and the user watches the page, not the
-conversation.
+The user states a goal once and the loop does the decomposing, launching,
+reviewing and re-planning. **All durable state lives on the objective page**
+(`project_memory/objectives/<slug>.md`, format in `project_memory/CLAUDE.md`):
+sessions are stateless workers — a fresh session resumes exactly from the
+page, and the user watches the page, not the conversation.
 
 Three modes: `new` (guided intake), `run` (the loop), `status` (report only).
-Continuing an objective is not a further mode — re-planning is a step INSIDE
-the loop.
+Re-planning is a step INSIDE the loop, not a further mode.
 
 ## research-note:objective new — guided intake
 
@@ -31,25 +29,23 @@ The user writes nothing; they answer. Ask, at most, and one round only:
 
 Their answers become `## Goal` (byte-immutable after intake, O4). Frontmatter:
 `id: O<nn>` first — the next free number, READ OFF `_index.md`'s Objectives
-section (regenerate with gen_index.py if stale; a project's FIRST objective finds
-no section and takes O01; O12 refuses a duplicate) —
-then `status: active`, `created`, `budget`,
-`wake-me-if`. Read-first (root contract), then draft the initial `## Plan` as
-phase blocks — at intake a phase is its header only:
+section (regenerate with gen_index.py if stale; a project's FIRST objective
+finds no section and takes O01; O12 refuses a duplicate) — then
+`status: active`, `created`, `budget`, `wake-me-if`. Read-first (root
+contract), then draft the initial `## Plan` as phase blocks — at intake a
+phase is its header only:
 
 ```
 - [ ] **P<n> — <the question this phase asks>** (<cost>[ · needs: P<i>])
 ```
 
-`## Verdict` starts empty but present. Write the page through the record bus
-(`scripts/record_sync.sh -m "memory: …
+`## Verdict` starts empty but present. Write the page through the record bus:
+`scripts/record_sync.sh -m "memory: …
 
-Objective: O<nn>" <files>`; from a session that cannot edit the checkout
-(background isolation): edit a SCRATCH COPY under /tmp or the job dir —
-NEVER via a worktree, whose record copy is stale or absent — then
-`record_sync.sh put -m "…" -b <sha256|new> <page> <scratch-copy>`; the bus
-places it onto main itself, `-b` naming the version you started from). Execution
-starts only on `run` after the user confirms the Goal.
+Objective: O<nn>" <files>`; a session that cannot edit the checkout edits a
+SCRATCH COPY under /tmp and hands it over with `record_sync.sh put -m "…" -b
+<sha256|new> <page> <scratch-copy>`, `-b` naming the version it started from.
+Execution starts only on `run`, after the user confirms the Goal.
 
 ## research-note:objective run [slug] — the loop
 
@@ -58,7 +54,7 @@ starts only on `run` after the user confirms the Goal.
 mid-iteration leaves the page at most one iteration stale.
 
 **Arm the watcher, second — idempotent, every entry into the loop.** A
-Monitor dies with its session, so a resumed loop NEVER still has one; check
+Monitor dies with its session, so a resumed loop never still has one; check
 whether a Monitor of yours covers this objective, and if not, arm ONE
 (`persistent: true`, poll every 2-5 min):
 
@@ -77,17 +73,15 @@ python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn>
 One Monitor per objective, armed here and stopped when the loop ends — never
 re-armed per launch: the poll derives the outstanding set from the record, so
 every later submission under this objective is covered the moment its id
-lands on the entry. The turn-boundary harvest hook stays as the net behind
-it (it reports only entries unharvested for 15+ min, project-wide).
+lands on the entry. The turn-boundary harvest hook stays as the net behind it
+(entries unharvested for 15+ min, project-wide).
 
 **Re-plan, whenever the Plan is exhausted or a finding invalidated it.** The
 gate: is the Goal still the goal? A changed success criterion is a NEW
-objective — route to `new`; never rewrite `## Goal`. Read-first (root
-contract), plus this objective's own page and the entries it links — never
-from conversation memory. The Plan is rewritten freely: appended,
-renumbered, dropped; git holds every route it used to show. A route the work
-backed out of says so in its reading — a phase that closed a direction settled
-something; a phase no longer part of the route at all goes, and git holds it.
+objective — route to `new`. Read-first (root contract), plus this objective's
+own page and the entries it links — never from conversation memory. The Plan
+is rewritten freely; a phase that closed a direction keeps its reading, a
+phase no longer on the route goes, and git holds it.
 
 **The page is a two-way interface.** Re-read it before EVERY write-back: the
 user may have edited it while jobs ran, and their edits are ground truth —
@@ -114,22 +108,19 @@ Each iteration:
    CREATE a node (gate included) or a page; a new entry on an open page needs
    no skill; every launch via hpc-submit. `src/` changes, node-or-not the
    criterion does not settle, and budget overruns STOP the loop and ask.
-3. **The entry line is written by the launcher, not by you.** Given
-   `PHASE=P<n>` and `ROLE="<the role it plays>"`, `record_submit` writes
+3. **The entry line is written by the launcher.** Given `PHASE=P<n>` and
+   `ROLE="<the role it plays>"`, `record_submit` writes
    `- [entry name](page.md#entry-slug) \`<id>\` — <role>` into the phase block
    in the same lock as the job row, idempotently, and commits it with its own
-   `Objective: O<nn>` trailer. That is the whole reason the launcher demands
-   those two strings: the line used to be owed to a later turn, and a job that
-   runs for hours reliably swallowed it.
+   `Objective: O<nn>` trailer.
 
-   What is still YOURS the same turn: the phase's `▶` reading, if this launch
-   changes it. Write the entry line by hand only when the launcher reported it
-   did not — `NO_OBJECTIVE=1`, an ambiguity it refused to guess, or a run that
+   Still YOURS the same turn: the phase's `▶` reading, if this launch changes
+   it. Write the entry line by hand only when the launcher reported it did
+   not — `NO_OBJECTIVE=1`, an ambiguity it refused to guess, or a run that
    reached the record another way — and then through the record bus, trailers
    as usual (`Entry: <id>` / `Objective: O<nn>`, never both in one commit).
 4. **Watch your own jobs** — the Monitor armed at loop entry IS the watcher;
-   launching adds nothing (the poll re-derives the outstanding set from the
-   record each time). Each wake: analyze THAT entry in-session
+   launching adds nothing. Each wake: analyze THAT entry in-session
    (research-note:analyze), write it back; the Monitor stays armed while
    others run. The fixer never analyzes on the loop's behalf; if the loop
    dies with work in flight it stamps `attention:` so a dead loop never
@@ -140,13 +131,11 @@ Each iteration:
    phase** — its own result may have invalidated the phase it was about to
    take, and with several agents running the write is the only thing the
    others see. The entry line gains its date — the day it concluded; the ▶
-   line is written or rewritten in place: `▶ <what this settles for the Goal>`,
-   one sentence, no number, no mechanism, no figure, no table. The checkbox
-   flips when all the phase's entries concluded — O13 now FAILS the page if it has not, in either direction, because this is the step that was actually being skipped: the ▶ line got written every time and the box did not, five phases deep on one live Plan. At milestones update
-   `## Verdict`, in its form and nothing else: `**<the answer against the
-   Goal>**`, at most two more sentences that are each a conclusion — a
-   boundary, a caveat — never reasoning, then `<N> entries await review.`
-   (O11 bounds it).
+   line is written or rewritten in place, one sentence, no number, no
+   mechanism, no figure, no table (O9). **The checkbox flips when all the
+   phase's entries concluded** (O13, linted in both directions) — the ▶ line
+   gets written every time and the box is the step that gets skipped. At
+   milestones update `## Verdict`, in the record contract's form (O8, O11).
    **A probe the analysis spawned joins some plan** (O6): the SAME phase when
    it serves that phase's question — a control or diagnostic decided after the
    first result included — or a new phase with `needs: P<n>` when it starts a
@@ -172,16 +161,12 @@ no page edits.
   write-back landed.
 - **Keep what the machine did; replace what only we believed.** Entry lines,
   checkboxes, user ✓s stay; readings and the Verdict are always shown in their
-  current version only. The Goal is the exception in the other direction:
-  byte-immutable, the user's.
+  current version only.
 - A direction decided in conversation is not recorded until it is on the page.
   Before its entries exist that home is the phase header; once they exist it
   is each entry's Motivation. Interpretation prose goes to `note/<node>.md`.
-- Facts live in entries; neither the entry line nor the reading carries a
-  number or a mechanism (O9).
-- `closed` stays with the user: the loop drives entries to `analyzed`; the
-  Verdict tracks the count. Review cascades: the user's ✓ on a phase closes
-  every analyzed entry on its entry lines — one approval, one batch.
+- Review cascades: the user's ✓ on a phase closes every analyzed entry on its
+  entry lines — one approval, one batch.
 - A closed work list (a benchmark grid, a seed re-run — no finding rewrites
   it) runs the same loop with the re-plan step idle; a finding that would
   rewrite the list proves it was a full objective — stop and say so.

@@ -1,36 +1,32 @@
 ---
 name: project-setup
-description: Use when starting a NEW research project or bringing an OLD/messy one under the standard framework. Instantiates the canonical layout, shared CLAUDE.md/AGENTS.md contracts and memory, dashboard, Python environment, and conservative src/ + experiments/ migration.
+description: Use when starting a NEW research project, or bringing an OLD/messy one under the framework — layout, generated contracts, bindings, hooks, environment, and (organize mode) a conservative migration of existing code into src/ and experiments/.
 ---
 
 # research-note:project-setup
 
-Turn any directory into a project that follows the research framework in the
-root agent contract (`CLAUDE.md` and `AGENTS.md` are two views of one file): ONE project monorepo (`src/` + `tests/` + `experiments/` +
-`project_memory/` + `wiki/` + a project-side `.claude/`, layers told apart by
-commit prefixes), a live dashboard, and a reproducible env. The framework
-MACHINERY (skills, hooks, linters, fixer, dashboard generator) ships as the
-`research-note` plugin; the project carries only its own bindings.
+Turn any directory into a project that follows the root agent contract
+(`CLAUDE.md` and `AGENTS.md` are two views of one file): ONE monorepo — `src/`
++ `tests/` + `experiments/` + `project_memory/` + `wiki/` + a project-side
+`.claude/`, layers told apart by commit prefixes — a live dashboard, and a
+reproducible env. The framework MACHINERY (skills, hooks, linters, fixer,
+dashboard generator) ships as the `research-note` plugin, used identically by
+Claude and Codex; the project carries only its own bindings. Scripts resolve
+the project from the hook payload, `$RESEARCH_NOTE_PROJECT_DIR` or
+`$CLAUDE_PROJECT_DIR`, and hard-fail outside a framework project (marker:
+`project_memory/` + `.research-note/project.json`).
 
 **The mechanical half is a script** — `scripts/bootstrap_project.py` (Step 2)
 does the layout, bindings, hooks and gate in one idempotent run. Fixer, remote
-HPC, editor support and cross-agent registration are optional project features.
-This skill owns what needs judgment: the roles declaration, the project's
-the env pinning, and (organize mode) how existing code maps onto `src/` +
-`experiments/`.
+HPC, editor support and cross-agent registration are optional features. This
+skill owns what needs judgment: the roles declaration, the env pinning, and
+(organize mode) how existing code maps onto `src/` + `experiments/`.
 
 **Two modes** (auto-detected in Step 0, or force with an arg):
 - `new` — greenfield directory (empty or just a git remote).
 - `organize` — existing project with code/data already present (e.g. a flat
   legacy repo). Migration is **conservative and reversible**: `git mv` code,
   **never physically move large data** (symlink in place), archive loose files.
-
-The machinery lives in the `research-note` plugin. The same `skills/`, scripts,
-templates and project record are used by Claude and Codex; only their manifests
-and hook payload adapters differ. Hooks resolve the active project from their
-payload, `$RESEARCH_NOTE_PROJECT_DIR`, or `$CLAUDE_PROJECT_DIR`; scripts hard-fail outside a framework project
-(marker = `.claude/framework.json` + `project_memory/`). This skill makes a project
-ready for those hooks to fire.
 
 ---
 
@@ -62,40 +58,6 @@ Confirm the migration mapping with the user before the big moves (a table:
 `current → target`). Flag any >1 GB data dir explicitly.
 
 ---
-
-
-## Verify before trusting it — `scripts/doctor.sh`
-
-Bootstrap writes files; doctor checks that the machinery they describe is
-actually wired up, and prints the fix for whatever is not: main checkout on the
-default branch, githooks installed and `core.hooksPath` set, venv present, fork
-pins current, and per remote — ssh, clone, sparse cone, scheduler kind, cluster
-facts declared, interpreter parity, environment fingerprint parity.
-
-Run it right after bootstrap, after `--remote` adds a host, after a plugin
-update, and whenever something behaves oddly. With no flag it checks the core
-and every integration the project enables; a disabled one is listed as not
-checked, never reported broken. `--core` is the core alone; `--fixer`, `--hpc`
-(`--host h` for one cluster), `--editor`, `--cross-agent` check that
-integration whether or not it is enabled. It is re-runnable by design:
-most of what it catches was configured correctly once and drifted later (a
-clone predating the sparse default, a githook nobody installed, a fork that
-moved past its pin, a package installed on one machine only).
-
-**When a remote is declared, ASK for that cluster's queue placement and write
-it into `.claude/hpc.env`** — partition, standing reservation, charge account
-(`REMOTE_PARTITION` / `REMOTE_RESERVATION` / `REMOTE_ACCOUNT`; blank is a fine
-answer for a cluster that needs none). Ask once, at declaration: the submit
-step applies them as sbatch flags, so no submit file has to carry them and none
-can forget them. Skipping the question is not neutral — jobs then land in the
-cluster's default queue, where a ten-minute job can sit an hour behind everyone
-else's work with nothing in the record explaining why.
-
-**Capture the rest of that cluster's facts while the user is telling you them** — scheduler, partition, reservation, account, module loads
-— and write the submit template for THAT host then and there. A submit file is
-instantiated once and never follows the template afterwards, so the moment of
-declaration is the only moment the facts are known and the file is unwritten.
-Nothing later can infer that a job should have gone to a group reservation.
 
 ## Step 1 — Install the plugin (once per agent on a machine)
 
@@ -131,79 +93,96 @@ python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD" \
   --with-fixer --with-editor --with-cross-agent
 ```
 
-These choices are written to `.research-note/project.json`; later runs and
-SessionStart hooks read the same file. `--with-hpc` enables local HPC files,
-and `--remote HOST:DIR` enables HPC while also declaring a host. Projects from
-before this file existed retain their previous enabled behavior on migration.
+Flags: `--remote HOST:DIR` (repeatable; enables HPC and declares a host),
+`--with-fixer`, `--with-hpc`, `--with-editor`, `--with-cross-agent`,
+`--dry-run`, `--no-self-tests` (skips the plugin's own test suite in the
+acceptance gate — a minute — and keeps the linters; for a caller that has just
+run it). The old `--no-fixer`, `--no-qdash` and `--no-cross-agent` spellings
+remain supported and persistently disable those features. The choices are
+written to `.research-note/project.json`, which later runs and SessionStart
+hooks read; a project from before that file existed keeps its previous
+behaviour on migration.
 
 **If the user named a cluster, pass it here** — `--remote HOST:DIR`, the ssh
-alias and where the project lives on that host (repeatable; the first is the
-default). Declaring it at bootstrap is what reaches the queue-placement
-question below and writes the submit template while the facts are in front of
-you. Added later it still works, but the moment the user was telling you the
-facts has passed. `remote.sh setup` clones FROM the project's `origin`, so a
-project with no remote stops there: settle the remote with the user before
-declaring a host.
+alias and where the project lives on that host; the first is the default.
+Declaring it at bootstrap is what reaches the queue-placement question below
+and writes the submit template while the facts are in front of you. Added
+later it still works, but the moment the user was telling you the facts has
+passed. `remote.sh setup` clones FROM the project's `origin`, so a project
+with no remote stops there: settle the remote with the user before declaring
+a host.
 
 It creates the layout (`src/ tests/ experiments/ project_memory/{nodes,memory/shared,note,objectives}
 wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
-`AGENTS.md` views from the
-plugin templates (contracts, `framework.json`, `settings.json` with
-`enabledPlugins`), the four contract symlinks, githooks + `core.hooksPath`,
-`autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
+`AGENTS.md` views from the plugin templates (contracts, `framework.json`,
+`settings.json` with `enabledPlugins`), the four contract symlinks, githooks +
+`core.hooksPath`, `autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
 `dashboard.html`, and the acceptance gate (self-tests + both linters). When
-selected, it also starts the fixer as a detached daemon (never cron — two schedulers
-race on one lock, and `crontab(1)` on macOS is TCC-gated), installs the editor extensions (qdash + markdown white preview) into every VS
-Code extensions dir that exists (`~/.vscode-server/extensions/` and/or
+selected, it also starts the fixer as a detached daemon (never cron — two
+schedulers race on one lock, and `crontab(1)` on macOS is TCC-gated), installs
+the editor extensions (qdash + markdown white preview) into every VS Code
+extensions dir that exists (`~/.vscode-server/extensions/` and/or
 `~/.vscode/extensions/` — a local Mac that has run the `code` CLI has both, and
-only the latter is the one its window reads), creates HPC bindings, or registers
-the other agent. It prints one line per step and a
-`needs attention` summary.
+only the latter is the one its window reads), creates HPC bindings, or
+registers the other agent. It prints one line per step and a `needs attention`
+summary.
 
 **It never overwrites an existing project file** — a re-run reports `kept`, so
 running it again after a plugin update is safe and is how you pick up new
-scaffolding. Flags: `--remote HOST:DIR` (repeatable), `--dry-run`,
-`--with-fixer`, `--with-hpc`, `--with-editor`, `--with-cross-agent`. The old
-`--no-fixer`, `--no-qdash` and `--no-cross-agent` spellings remain supported
-and persistently disable those features. `--no-self-tests` skips the plugin's own test suite in the acceptance
-gate (a minute) and keeps the linters — for a caller that has just run it.
+scaffolding.
 
-**One run configures BOTH agents.** The project side was always dual — an
-`AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex` as
-compatibility links to `memory/shared`, both skill dirs on one `.agent/skills`.
-The MACHINE was not: each
-CLI keeps its own marketplace list and its own install pin and neither reads the
-other's, so a project bootstrapped from Claude left Codex able to read every
-word of the doctrine and unable to run one step of it — the skills are in the
-other agent's cache, and `.agent/skills/` holds only what this project has
-lifted. The last step closes that: it registers the plugin with whichever of
-Claude / Codex is installed and lacks it, from the same marketplace source the
-running side came from, and reads the marketplace NAME back from the target
-rather than assuming it (the two manifests declare different ones —
-`rzchi` on both sides today, but read back rather than assumed). It is idempotent (`kept` when the other side
-already has it), never fatal, and `skip`s a machine where the other CLI is not
-installed or where the script is being run from a dev checkout instead of a
-plugin cache.
-
-**Upgrading all registered projects and both installed agents is one command:**
-
-```bash
-PLUGIN="$(git config --get research-note.pluginRoot)"
-bash "$PLUGIN/scripts/update_projects.sh" --agents both
-```
+**One run configures BOTH agents.** The project side is dual by construction
+(an `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex`
+linked to `memory/shared`, both skill dirs on one `.agent/skills`); the
+cross-agent step makes the MACHINE dual too: each CLI keeps its own
+marketplace list and install pin, so it registers the plugin with whichever
+of Claude / Codex is installed and lacks it, from the same marketplace source
+the running side came from, reading the marketplace NAME back from the target
+rather than assuming it. Idempotent (`kept` when the other side already has
+it), never fatal, `skip` where the other CLI is absent or the script runs from
+a dev checkout instead of a plugin cache.
 
 Bootstrap writes each project into the agent-neutral registry at
-`~/.config/research-note/projects.json`; the updater also imports legacy Claude
-project rows, so neither CLI owns project discovery. Pass one or more project
-paths explicitly to update only those projects. The updater refreshes the
-selected native marketplaces, moves their install pins to the invoked package
-version, verifies Claude/Codex version and source-commit parity, syncs framework
-files, and repoints `research-note.pluginRoot`. In VS Code, Reload Window once
-after an extension refresh — the only step no script can take.
+`~/.config/research-note/projects.json`; upgrading every registered project
+and both installed agents later is `research-note:update`
+(`bash "$PLUGIN/scripts/update_projects.sh"`).
 
-Read its output before moving on: any `FAIL`/`WARN` line is a real problem
+Read the output before moving on: any `FAIL`/`WARN` line is a real problem
 (missing template, dangling symlink, red gate) and is cheaper to fix now than
 after the first page is written.
+
+### Verify before trusting it — `scripts/doctor.sh`
+
+Bootstrap writes files; doctor checks that the machinery they describe is
+actually wired up, and prints the fix for whatever is not: main checkout on the
+default branch, githooks installed and `core.hooksPath` set, venv present, fork
+pins current, and per remote — ssh, clone, sparse cone, scheduler kind, cluster
+facts declared, interpreter parity, environment fingerprint parity.
+
+Run it right after bootstrap, after `--remote` adds a host, after a plugin
+update, and whenever something behaves oddly. With no flag it checks the core
+and every integration the project enables; a disabled one is listed as not
+checked, never reported broken. `--core` is the core alone; `--fixer`, `--hpc`
+(`--host h` for one cluster), `--editor`, `--cross-agent` check that
+integration whether or not it is enabled. Most of what it catches was
+configured correctly once and drifted later (a clone predating the sparse
+default, a githook nobody installed, a fork that moved past its pin, a package
+installed on one machine only).
+
+**When a remote is declared, ASK for that cluster's queue placement and write
+it into `.claude/hpc.env`** — partition, standing reservation, charge account
+(`REMOTE_PARTITION` / `REMOTE_RESERVATION` / `REMOTE_ACCOUNT`; blank is a fine
+answer for a cluster that needs none). Ask once, at declaration: the submit
+step applies them as sbatch flags, so no submit file has to carry them and none
+can forget them. Unasked, jobs land in the cluster's default queue, where a
+ten-minute job can sit an hour behind everyone else's work with nothing in the
+record explaining why.
+
+**Capture the rest of that cluster's facts while the user is telling you
+them** — scheduler, partition, reservation, account, module loads — and write
+the submit template for THAT host then and there. A submit file is
+instantiated once and never follows the template afterwards, so the moment of
+declaration is the only moment the facts are known and the file is unwritten.
 
 ## Step 3 — The judgment calls the script deliberately leaves to you
 
@@ -225,8 +204,7 @@ bootstrap writes documents every key in its own comments.
 
 **Seed `project_memory/memory/shared/`** with anything learned in Step 0 (env
 quirks, data locations, dependency versions) as one-fact-per-file memories +
-`MEMORY.md` index lines. Add domain lesson files only when a real lesson
-appears — don't pre-create empty scaffolding.
+`MEMORY.md` index lines. Domain lesson files arrive when a real lesson does.
 
 **`src/INDEX.md`** — the capability index every skill checks first; its
 `## Domain libraries` section is what keeps the agent layer from hardcoding
@@ -250,12 +228,11 @@ Discovery rule). `research-note:lift` adds rows here when promoting a capability
 |--------|-----|--------------|
 ```
 
-`project_memory/note/` is the user's own free-form scratch space — no format, no
-entry rules, not agent-curated. The active agent reads it for context if asked, but does
-not write, edit, reorganize, or delete anything there unless explicitly asked to.
+`project_memory/note/` is the user's own free-form scratch space — no format,
+no entry rules, not agent-curated. The agent reads it for context if asked and
+writes there only when explicitly asked to.
 
 Remotes: **local git only** unless the user asks to create a GitHub repo.
-
 
 ## Step 4 — Main-repo hygiene + the environment contract
 
@@ -353,19 +330,15 @@ instantiate on a Mac. So a variant may exist and may only ADD: every package of
 the base appears in it at the same version. That containment is checked
 file-to-file in git, needing no host and no network, on every doctor run and
 every push (`JULIA_PROJECT` + `JULIA_PROJECT_VARIANTS` in `.claude/hpc.env`).
-Two files describing two different stacks is the failure this catches; two files
-differing by the one dependency that forced them apart is the intended state.
 
 **Set the consistency up at setup, keep it at submit.** At setup, instantiate on
 every side and see both report clean — that is the moment the environments agree
 for the first time and it costs one command each. At submit, `remote.sh push`
 brings the far side UP first (`uv sync`, `Pkg.instantiate()`) and only then
 checks, so a host that is merely behind is repaired rather than reported; what
-survives that is a real difference and stops the submit.
-
-A check that cannot establish its premise — no uv or julia on the far side, the
-host unreachable — reports `cannot verify` and asks. It never reports a failure
-it did not observe.
+survives that is a real difference and stops the submit. A check that cannot
+establish its premise — no uv or julia on the far side, the host unreachable —
+reports `cannot verify` and asks.
 
 Rules that survive that contract:
 
@@ -460,12 +433,11 @@ Answer it in this order:
    directory set.** Never widen an existing prefix's set instead (no
    `"knowledge": {"paths": ["wiki", "paper"]}`): the layer table's whole value
    is that a prefix names exactly one region of the tree, so `git log --grep`
-   and a change's blast radius read straight off the prefix. A prefix touching
-   two top-level dirs is the partition starting to dissolve — the cheap
-   widening today is the mush someone else debugs later.
+   and a change's blast radius read straight off the prefix.
 
 Declaring one is one edit in one `agent:` commit — `.research-note/project.json`
-gains a layer; the hook reads the file, so the hook itself is never edited:
+gains a layer; the hook reads the file, so the hook itself is never edited and
+an update replaces it freely while your layers survive:
 
 ```json
 "layers": {
@@ -473,13 +445,11 @@ gains a layer; the hook reads the file, so the hook itself is never edited:
 }
 ```
 
-`project_config.py validate` refuses a path or prefix claimed by two layers.
-Because the rules live in the declaration and not in the hook, the plugin's
-`commit-msg` is framework text again: an update replaces it freely and your
-layers survive, where the old hand-edited `RULES` table had to be diffed and
-ported by hand at every update. A project still on that pre-declaration hook
-keeps working — the hook falls back to its built-in table when no
-`project.json` exists — and gains the declaration the next time bootstrap runs.
+`project_config.py validate` refuses a path or prefix claimed by two layers. A
+project still on the pre-declaration hook (a hand-edited `RULES` table inside
+`commit-msg`) keeps working — the hook falls back to its built-in table when
+no `project.json` exists — and gains the declaration the next time bootstrap
+runs.
 
 Two non-answers: `chore` is not the junk layer (its set is EMPTY, root-level
 files only, on purpose), and `SKIP_PREFIX_CHECK=1` is the escape hatch for a
@@ -556,12 +526,12 @@ the fixer can call them headless.
 Each item names what PROVES it — tick on the evidence, not on the intention.
 
 - [ ] plugin is installed and enabled in each CLI present — `claude plugin list` / `codex plugin list`
-- [ ] project marker in place — `test -f .claude/framework.json`
+- [ ] project marker in place — `test -f .research-note/project.json`
 - [ ] four contracts resolve — the `DANGLING` loop in Step 7 prints four `OK`
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
 - [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)
 - [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
-- [ ] every top-level directory is owned by exactly one commit prefix (a RULES row + a root layer-table row for each beyond the standard six)
+- [ ] every top-level directory is owned by exactly one commit prefix (a `layers` entry in `.research-note/project.json` for each beyond the standard six)
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived

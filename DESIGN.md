@@ -30,11 +30,10 @@ therefore an explicit pump with its own trigger (§7).
 
 ## 2. The layout
 
-A project is one monorepo. These paths are the framework's; **everything else in
-the repo is the project's own, and the framework neither creates nor validates
-it** — one project on this framework keeps `code/` (Julia sources),
-`results_plot/` and `Paper/` beside
-these as ordinary members of the repo.
+A project is one monorepo. The layout below is the default; a project declares
+its own in `.research-note/project.json` (below), and **every path it does not
+declare is the project's own, which the framework neither creates nor
+validates**.
 
 ```
 src/            §3  canonical, tested interfaces
@@ -48,6 +47,8 @@ project_memory/ §5  nodes/         the facts
                 §7  note/          interpretation, prose, per node
 wiki/           §7  knowledge/ the standalone knowledge base
 .agent/skills/  §7  where `memory-lift` lands a lifted method (§12)
+.research-note/ §2  project.json the declared layout and integrations · rules/ the
+                    project's own contract text (§10.1) · state/ core runtime state
 .claude/        §10 this project's bindings — contracts, hpc profile, hooks
 .agents/ .codex/    the same bindings under the names the other agent reads (§12)
 ```
@@ -61,23 +62,21 @@ separation mechanical rather than aspirational:
 | `exp(<node>):` | `experiments/` |
 | `memory:` | `project_memory/` |
 | `wiki:` | `wiki/` |
-| `agent:` | `.claude/` `.agents/` `.agent/` `.codex/` — one prefix for every agent-binding directory (§12) |
+| `agent:` | `.research-note/` `.claude/` `.agents/` `.agent/` `.codex/` — one prefix for every binding directory (§12) |
 | `chore:` | nothing but root-level files — `.gitignore`, `pyproject.toml`, `uv.lock`, a root doc. The bucket for a commit that belongs to no layer |
 
-The table is the default, not a requirement. A project declares its own
-roots and layers in `.research-note/project.json` — `roles` (which directories
-are the library, the tests, the experiments, the knowledge base) and `layers`
-(which top-level paths each commit prefix may touch), every managed path owned
-by exactly one layer, and `project_config.py` is the single reader every
-consumer goes through: the commit-msg partition, the pre-commit index gate,
-`gen_index.py`, the linters' N2 cross-check, doctor, the sparse clone and the
-worktree patterns, `remote.sh pull`. An existing project therefore keeps
-`code/` and `trials/` where they are and declares them, rather than moving
-them to earn the checks. Because the rules live in the declaration, the hook
-that enforces them is framework text again and an update can replace it — the
-earlier design put the table INSIDE `commit-msg`, which made every project's
-hook a hand-edited fork that updates had to diff and port around. A project
-with no declaration reads as the standard layout.
+The table is the default, not a requirement. `.research-note/project.json`
+declares `roles` (which directories are the library, the tests, the
+experiments, the knowledge base) and `layers` (which top-level paths each
+commit prefix may touch), every managed path owned by exactly one layer, and
+`project_config.py` is the single reader every consumer goes through. An
+existing project therefore keeps `code/` and `trials/` where they are and
+declares them, rather than moving them to earn the checks. Because the rules
+live in the declaration, the hook that enforces them is framework text again
+and an update can replace it — the earlier design put the table INSIDE
+`commit-msg`, which made every project's hook a hand-edited fork that updates
+had to diff and port around. A project with no declaration reads as the
+standard layout.
 
 ---
 
@@ -203,10 +202,9 @@ project_memory/nodes/<node>/<group>/    the task pages of one instance
 ```
 
 `_index.md` is the roster, a regenerated view, never edited by hand — one row
-per node (number, name, link), then one row per entry (id, name, status,
-linked), then one row per objective (id, page, status, verdict first line) —
-the section the next free `O<nn>` is read from — so read-first starts from one
-file and sees the goals, not just the runs.
+per node, per entry and per objective (the section the next free `O<nn>` is
+read from) — so read-first starts from one file and sees the goals, not just
+the runs.
 
 A node has two kinds of page:
 
@@ -502,12 +500,11 @@ from where it says the work stands.
   match before anything runs.
 
 - **Read-first, at every entrance.** Which entrances, which sources, and what
-  each asks are the root contract's, stated there once — and it says so, in the
-  rule itself. A second copy lived here and had already fallen a source behind
-  the original, which is the whole argument for the rule. What the principle
-  buys is this: a recorded answer finishes the request or shrinks it to the part
-  that is new, and what remains is an entry on an open page, a new page (§5), or
-  a new node (§4) — and when §4 does not settle node-or-not, ask. No linter can
+  each asks are the root contract's, stated there once: a second copy lived
+  here and had already fallen a source behind the original. What the principle
+  buys: a recorded answer finishes the request or shrinks it to the part that
+  is new, and what remains is an entry on an open page, a new page (§5), or a
+  new node (§4) — and when §4 does not settle node-or-not, ask. No linter can
   run this check: a duplicate probe reaches a page only after its hours are
   spent.
 
@@ -548,28 +545,21 @@ the failure it prevents would be silent.
 
 ### 1 · Contract text — always loaded
 
-Four files hold the doctrine, each governing one subtree. They live in `.claude/`
-and are **symlinked** into the directory they govern, so the rules load themselves
-when work happens there — one home, several views. Each is **generated**: the
-plugin's template, then the project's own rules from `.research-note/rules/<x>.md`
-(`root.md`, `experiments.md`, `record.md`, `wiki.md`), with a first line that
-names both sources. The framework's text and the project's never share a file
-that anyone edits, which is what lets an update replace the one without reading
-the other out of it — the earlier scheme kept both in one file, told them apart
-by the template being a byte-prefix of the copy, and had to refuse the moment
-the framework half moved under a project's additions. A project still on
-that scheme, or on one older, is carried over once: the plugin ships the length
-and hash of every template version it ever released (`templates/history.json`),
-so an old framework half is recognised exactly and whatever follows it moves
-into the rules file — only a file matching no version is left alone, as a
-conflict for a person:
-
-| file | holds |
-|---|---|
-| `CLAUDE.md` (root) | the whole framework in one read: the layers and the pumps, node/page/entry, `src/` vs `experiments/`, where a job may run, how several agents share the repo, the commit prefixes and trailers, and what to do about a human's uncommitted edits |
-| `experiments-CLAUDE.md` | the code side: what sits under a node, how a run is invoked and named, where its outputs and logs go, and interactive-versus-batch |
-| `project_memory-CLAUDE.md` | the record side: the entry contract of §5, the objective contract of §6, and the same-turn job rules |
-| `wiki-CLAUDE.md` | the self-containment contract — a wiki page makes sense without the record it came from — and the invariants that follow from it: grounding by plain-text tag, a view never an authority, `Status:`, `⚠ Contested:`, linking, the five page types declared in `SCHEMA.md`, and admission by reusability |
+Four files hold the doctrine — the root `CLAUDE.md`, and `experiments-CLAUDE.md`,
+`project_memory-CLAUDE.md`, `wiki-CLAUDE.md` for the subtree each names. They
+live in `.claude/` and are **symlinked** into the directory they govern, so the
+rules load themselves when work happens there — one home, several views. Each
+is **generated**: the plugin's template, then the project's own rules from
+`.research-note/rules/<x>.md`, with a first line that names both sources. The
+framework's text and the project's never share a file that anyone edits, which
+is what lets an update replace the one without reading the other out of it —
+the earlier scheme kept both in one file, told them apart by the template being
+a byte-prefix of the copy, and had to refuse the moment the framework half
+moved under a project's additions. A project still on that scheme is carried
+over once: the plugin ships the length and hash of every template version it
+released (`templates/history.json`), so an old framework half is recognised
+exactly and whatever follows it moves into the rules file — only a file
+matching no version is left alone, as a conflict for a person.
 
 Rules that no machine can check live here and nowhere else — a rule that
 belongs to exactly one of these files is never restated in another.
@@ -698,9 +688,9 @@ migrates the pre-dispatcher layout, `uninstall` puts `core.hooksPath` back, and
 
 ### 6 · The scanner and the board — after the fact
 
-A fixer (a session-started daemon; its own state in `.fixer/` — the record lock
-and the rest of the CORE state are in `.research-note/state/`, so a project
-without a fixer still has somewhere to lock) each cycle
+A fixer (an optional, session-started daemon with its own state in `.fixer/`;
+the core state it once held lives in `.research-note/state/`, `lib_state.sh`
+below) each cycle
 pulls finished logs and data back (`remote.sh pull`), refreshes the remote queue
 snapshot, runs both linters, regenerates the board, and where a page and the
 world disagree raises `attention:`. **It repairs nothing** — status moves are
@@ -728,7 +718,7 @@ needs no reload to be current:
 | `record_sync.sh` | the record bus — the one write path onto `project_memory/` |
 | `record_submit.py` | the post-submit record for one launched job, called by the launcher |
 | `remote.sh` | the whole cluster bridge (§8) |
-| `lib_state.sh` | the shell twin of `project_config.state_dir()`: the core runtime state directory `.research-note/state/` — the record lock, the land lock, the harvest stamps, the bus's put backups — created with its nested `.gitignore` on first use; core state lives here and not in the fixer's `.fixer/` |
+| `lib_state.sh` | the shell twin of `project_config.state_dir()`: the core runtime state directory `.research-note/state/` — the record lock, the land lock, the harvest stamps, the bus's put backups — created with its nested `.gitignore` on first use, so a project without a fixer still has somewhere to lock |
 | `contracts.py` | generates the four contract files — the plugin's template plus the project's own `.research-note/rules/<x>.md` — carries an appendix from the old boundary scheme into the rules file once, and leaves a file edited in place alone with a CONFLICT line (layer 1) |
 | `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
 | `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
@@ -750,12 +740,12 @@ needs no reload to be current:
 - **One live record, one door.** `project_memory/` exists once, in the main
   checkout on the default branch — which therefore never switches branch. Writes
   go through the bus, which takes a baseline and refuses a concurrent edit rather
-  than overwriting it. A worktree DOES carry a copy of the record — the full
-  checkout at its branch point, stale from that moment on (since 0.13.45 an
-  EnterWorktree-created worktree is made SPARSE — no `project_memory/`, no
-  `wiki/`, the cluster clone's exclusion applied at home — so the copy
-  survives only in hand-made worktrees) — and every mechanism ignores it: the bus and `record_submit` resolve the main checkout through the
-  common git dir, and the harvest hook stays silent inside a worktree.
+  than overwriting it. A worktree the agent creates is made SPARSE — no
+  `project_memory/`, no `wiki/`, the cluster clone's exclusion applied at home
+  — so the stale copy of the record a full checkout would carry exists only in
+  a hand-made worktree, and every mechanism ignores it: the bus and
+  `record_submit` resolve the main checkout through the common git dir, and the
+  harvest hook stays silent inside a worktree.
 - **One entry, one writer.** Whoever launches a probe writes that entry — one
   writer per entry; one agent writes as many entries as it launched.
 - **A code-editing agent gets its own worktree** — landing is `merge --ff-only`,
@@ -778,20 +768,16 @@ needs no reload to be current:
 **Principle: a mechanical step belongs in a script; a judgment call belongs in
 the skill.**
 
-`bootstrap_project.py` lays down the core project in one idempotent run: the layout,
-the five `.claude/` contract files (four `CLAUDE.md` siblings and
-`framework.json`), core `settings.json`, the eight contract symlinks
-(four files × the two names the two agents look for, §12), the
-githooks — a dispatcher that runs research-note's gates and then the hooks the
-project already had (§10.5) — with `core.hooksPath` set, the auto-memory wiring,
-`.gitignore`, `_index.md`, the board, then the acceptance gate. The versioned
-`.research-note/project.json` enables optional fixer, HPC, editor and
-cross-agent support. Their setup persists the choice instead of changing only
-one bootstrap run. The fixer is a detached daemon — earlier
-versions installed a cron line BESIDE it, and two schedulers for one job
-serialize on the same lock, so the second only ever loses the race, while
-writing the user's global crontab to do it. HPC adds its environment, submit
-templates and remote permissions only when enabled.
+`bootstrap_project.py` lays down the core project in one idempotent run: the
+layout, the four generated contracts (§10.1) and `framework.json`, core
+`settings.json`, the eight contract symlinks (§12), the githooks (§10.5), the
+auto-memory wiring, `.gitignore`, `_index.md`, the board, then the acceptance
+gate. The fixer, HPC, editor and cross-agent support are integrations, each
+enabled by a flag that is persisted in `.research-note/project.json` rather
+than affecting one run — later runs, the hooks and doctor all read the same
+choice. The fixer is a detached daemon and never also a cron line: two
+schedulers for one job serialize on the same lock, so the second only ever
+loses the race, while writing the user's global crontab to do it.
 
 It deliberately leaves to the skill everything requiring judgment: the project's
 mission paragraph, which domain libraries belong in log headers, the environment
@@ -809,13 +795,10 @@ left alone. A project from before the declaration is migrated ONCE, with every
 integration on, and a disabled integration is retained exactly as it is rather
 than repaired. What it cannot decide it counts and leaves: each `conflict` line
 is a mixed file whose halves a person must sort, and nothing there is
-overwritten. A Claude-only or Codex-only machine takes the same command; the
-agent that is absent prints one line and the run carries on. The four contracts are regenerated by `contracts.py` (§10.1) —
-a project's own rules live in `.research-note/rules/` and never share a file with
-the framework's text, so there is nothing to tell apart; the
-git hooks are refreshed through `githooks_install.py`, which keeps forwarding to
-the project's pre-existing hooks and leaves a pre-declaration `commit-msg` alone
-until its layer rows have moved into `.research-note/project.json`.
+overwritten. The contracts go through `contracts.py` (§10.1) and the hooks
+through `githooks_install.py` (§10.5), which leaves a pre-declaration
+`commit-msg` alone until its layer rows have moved into
+`.research-note/project.json`. Which agents it updates is §12's.
 `doctor.sh` verifies every wire either script laid and prints the fix for
 whatever is not yet true. It is split the way the project is: the CORE —
 plugin root, project configuration, record layer, git hooks, the project's own

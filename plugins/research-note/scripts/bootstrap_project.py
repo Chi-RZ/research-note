@@ -463,8 +463,30 @@ def register_project(proj: Path, dry: bool) -> None:
     say("new", "project registry", str(PROJECT_REGISTRY))
 
 
+KNOWN_FLAGS = {"--dry-run", "--no-self-tests", "--remote", *(
+    flag for on, off in FEATURE_FLAGS.values() for flag in on + off)}
+
+
+def usage() -> str:
+    flags = " ".join(sorted(KNOWN_FLAGS - {"--remote"}))
+    return (__doc__.split("\n\n")[0].strip() + "\n\n"
+            "usage: bootstrap_project.py [PROJECT_DIR] [--remote HOST:DIR ...] [flags]\n"
+            f"flags: {flags}\n"
+            "PROJECT_DIR defaults to the current directory.\n")
+
+
 def main() -> int:
     argv = sys.argv[1:]
+    # A flag this script does not know is refused, never treated as a project
+    # path or silently ignored: `--help` once ran a real bootstrap into the
+    # caller's cwd, git init included.
+    if any(a in ("-h", "--help") for a in argv):
+        print(usage())
+        return 0
+    unknown = [a for a in argv if a.startswith("-") and a not in KNOWN_FLAGS]
+    if unknown:
+        print(f"bootstrap: unknown flag(s) {' '.join(unknown)}\n\n{usage()}", file=sys.stderr)
+        return 2
     # --remote HOST:DIR is repeatable: the FIRST occurrence is the default host
     # (back-compat REMOTE_HOST/REMOTE_DIR); every occurrence lands in the
     # multi-remote keys (REMOTE_HOSTS + REMOTE_DIR_<host>) when there is more

@@ -268,3 +268,15 @@ def test_optional_fixer_off_means_no_fixer_state_and_no_process(empty, home):
     assert not (empty / ".fixer").exists()
     ps = subprocess.run(["ps", "ax", "-o", "command="], capture_output=True, text=True).stdout
     assert str(empty) not in ps
+
+
+def test_bootstrap_refuses_unknown_flags_and_help_writes_nothing(tmp_path, home):
+    """`--help` once ran a real bootstrap into the caller's cwd, git init
+    included — a flag the script does not know is refused, never a project path."""
+    cwd = tmp_path / "somewhere"
+    cwd.mkdir()
+    r = sh(cwd, home, sys.executable, str(BOOTSTRAP), "--help")
+    assert r.returncode == 0 and "usage:" in r.stdout
+    r = sh(cwd, home, sys.executable, str(BOOTSTRAP), "--frobnicate")
+    assert r.returncode == 2 and "unknown flag" in r.stderr
+    assert list(cwd.iterdir()) == [], "nothing may be written by a refused or help invocation"

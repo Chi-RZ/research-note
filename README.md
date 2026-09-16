@@ -23,13 +23,13 @@ source code and knowledge as the work proceeds.
 
 ## A typical run
 
-Human hand over a goal or plan, the agent excute and record the computational results and analysis for human review and correction. 
+You hand over a goal or a plan; the agent runs it and records the results and
+the analysis on a page, for you to review and correct.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
   <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, which fix the procedure and standardise the format of every page." src="docs/typical-run-light.svg" width="100%">
 </picture>
-
 
 ## 1. Install
 
@@ -50,8 +50,6 @@ codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
 codex plugin add research-note@rzchi
 ```
 
-</details>
-
 ## 2. Configure a project
 
 Open the directory you want to use as a research project. It can be new or
@@ -64,23 +62,23 @@ If you also need a cluster or a GitHub remote, mention it in the same request.
 That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md)
 skill. The skill does the following.
 
-- checks whether the directory is new or an existing project that needs
-  organizing. For an existing project, it maps reusable code to `src/`, scripts
-  and one-off entry points to `experiments/`, leaves large data where it is,
-  and archives loose output files.
+- checks whether the directory is new or an existing project. An existing
+  project either keeps its own layout, declared in `.research-note/project.json`,
+  or is organized: reusable code to `src/`, scripts and one-off entry points to
+  `experiments/`, large data left where it is, loose output files archived.
 - creates `src/`, `tests/`, `experiments/`, `project_memory/`, and `wiki/`, and
   runs `git init` if needed.
 - writes the project contracts, settings, and environment files under
-  `.claude/`, installs the githooks, and adds the needed `.gitignore` entries.
-  It also adds matching `AGENTS.md` files so Claude and Codex use the same
-  instructions. The contracts are generated from the plugin's text plus your
-  own rules in `.research-note/rules/`; edit those files, and an update keeps
-  them.
-- creates the dashboard, starts the fixer and background scanner, installs the
-  editor extensions when available, and runs the acceptance checks.
-- registers the plugin with the other agent when both Claude and Codex are
-  installed. The setup can be run again without overwriting existing project
-  files.
+  `.claude/`, installs the githooks in front of any hooks the repository already
+  has, and adds the needed `.gitignore` entries. Matching `AGENTS.md` files give
+  Claude and Codex the same instructions. The contracts are generated from the
+  plugin's text plus your own rules in `.research-note/rules/`; edit those
+  files, and an update keeps them.
+- creates the dashboard and runs the acceptance checks. The fixer, the editor
+  extensions, the cluster support and the registration with the other agent are
+  integrations: each is enabled only when you ask for it, and the choice is kept
+  in `.research-note/project.json`. The setup can be run again without
+  overwriting existing project files.
 
 If you run jobs on a cluster, include its SSH host and project path in the
 request, for example `hpc:/scratch/you/myproject`.
@@ -107,8 +105,9 @@ the following.
 - refreshes each installed agent's marketplace and plugin version, then checks
   that Claude and Codex use the same version and source commit when both are
   installed.
-- updates project pins and syncs framework files, page templates, and missing
-  hooks.
+- updates project pins and refreshes the framework-owned files — contracts,
+  hooks — while a project-owned file is never written (`--dry-run` prints which
+  is which).
 - preserves project-specific settings and merges new permissions, while
   reporting drift in `hpc.env` and `.slurm` files.
 - repoints `research-note.pluginRoot`, then runs doctor and both linters.

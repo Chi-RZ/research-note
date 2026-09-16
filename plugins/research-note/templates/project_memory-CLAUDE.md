@@ -14,7 +14,7 @@ Page templates — an entry page, a node.md, an objective page — sit in
 
 ```
 project_memory/
-├── _index.md              the node + entry + objective roster — regenerated (gen_index.py), never hand-edited
+├── _index.md              the node + entry + objective roster — regenerated (gen_index.py)
 ├── nodes/<node>/
 │   ├── node.md            the gate first, then one validation per in-place edit
 │   ├── <page>.md          a task page at node level
@@ -145,8 +145,8 @@ moves.** Numbers never change; descriptions do — this entry's, and, elsewhere,
 two things the same grep finds: every conclusion whose `because` cited the
 changed datum, which returns from `closed` to `analyzed` the same turn, and
 every Motivation that QUOTES it, whose quote is corrected while its question
-stands. An entry is never withdrawn and never
-deleted. A correction is its own commit, trailered `Correct: <id>`.
+stands. An entry is never withdrawn and never deleted. A correction is its own
+commit (trailer under Commits).
 
 ## Lifecycle
 
@@ -173,15 +173,12 @@ expecting to continue is a reason not to close yet.
 **A launch names the phase it serves.** `PHASE=P<n>` and `ROLE="<what this
 entry does for it>"` on the launcher; `record_submit` writes the Plan line
 itself, in the same lock as the job row, and the pre-flight REFUSES to launch
-without them (`NO_OBJECTIVE=1` for a run that serves none). The line used to be
-left to a later turn, and a job that runs for hours reliably swallows it — the
-phase then shows nothing under it, and an objective-scoped watcher cannot see
-the entry at all.
+without them (`NO_OBJECTIVE=1` for a run that serves none).
 
 Every submission, the same turn: the id onto the owning entry's `Jobs:` field
 (ranges allowed, `63902601–04`; host tags, `@t6`), and the log's repo-relative
-link into the entry. Link the log the instant it exists. A job belongs to its
-entry; there is no page-level table (P5). An empty `- **Jobs:**` is never
+link into the entry. A job belongs to its entry; there is no page-level table
+(P5). An empty `- **Jobs:**` is never
 silent: a `running` entry with no ids — or a linked launcher log with none —
 is J5, and an id the Facts name — or a `Job <id> —` line anywhere — missing
 from the field is J6, because the field is what every watcher, waiter and
@@ -189,8 +186,8 @@ board reads. (Motivation and Refs quote OTHER entries' ids as provenance;
 those belong exactly where they are.)
 
 The launching session watches its own jobs — at most one watcher per
-objective, scopes disjoint, never one per job — and analyses them in-session. The fixer scans and raises `attention:`; it
-repairs nothing.
+objective, scopes disjoint, never one per job — and analyses them in-session.
+The fixer scans and raises `attention:`; it repairs nothing.
 
 ## Commits
 
@@ -220,29 +217,24 @@ Three sections, in order, nothing else (O2):
   - ▶ <what this settles for the Goal> one sentence
 ```
 
-  **The box flips when every entry under the phase has concluded (O13)** —
-  and it is the step that gets skipped, because unlike the ▶ line it carries no
-  judgement and says nothing new. The two are not the same act: ▶ is written
-  and rewritten in place while the phase runs; the box is the phase's state,
-  and the page is what the user reads instead of the session, so a Plan that
-  under-reports itself misleads its only reader. Linted in both directions.
+  **The box flips when every entry under the phase has concluded (O13)**,
+  linted in both directions — the step that gets skipped, because unlike the ▶
+  line it carries no judgement: ▶ is rewritten in place while the phase runs,
+  the box is the phase's state, and a Plan that under-reports itself misleads
+  its only reader.
 
   **The entry line goes on its phase in the same turn as the submission
-  (O14)** — not when the job returns. A long run opens a gap between launching
-  and having something to say, and the line is what gets lost in it: the
-  launcher has already written the job id onto the entry, so the machine knows
-  what the page does not, and the omission is invisible from the session whose
-  own context holds the truth. A `running` or `analyzed` entry carrying jobs,
-  on a page this Plan links, that no phase names, fails the objective page.
+  (O14)** — not when the job returns: the launcher has already written the job
+  id onto the entry, so the machine knows what the page does not, and the
+  omission is invisible from the session whose own context holds the truth. A
+  `running` or `analyzed` entry carrying jobs, on a page this Plan links, that
+  no phase names, fails the objective page.
 
   An entry line's date is the day it concluded — unlike the entry's own
   `Date`, which is creation; while it runs it has none. Neither line carries a
   number, a mechanism, a figure or a table — those are the entry's, one click
-  away (O9). A phase is ONE question and as many entries as it needed.
-  `needs:` makes the Plan a DAG (O5); absent, it means the phase above. The
-  Plan is rewritten freely — appended, renumbered, dropped; git holds every
-  route it used to show. A follow-up spawned by a live phase joins some plan
-  (O6).
+  away (O9). `needs:` makes the Plan a DAG (O5); absent, it means the phase
+  above. A follow-up spawned by a live phase joins some plan (O6).
 
 - **`## Verdict`** — in this form, and nothing else (O8, O11):
 

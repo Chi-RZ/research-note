@@ -22,7 +22,7 @@
 #   setup   clone the host's dir from this repo's GitHub origin if missing, else
 #           ff-pull; print both SHAs. A FRESH clone is sparse (cone: src/ tests/
 #           experiments/ + root files — the cluster runs jobs, it never needs
-#           project_memory/, wiki/ or .claude/), with an old-git pattern fallback.
+#           project_memory/ or a knowledge root; .claude/ travels, the submit templates read hpc.env from it), with an old-git pattern fallback.
 #   push    local `git push` -> each host's `merge --ff-only` -> hard SHA equality check
 #   queue   `squeue -u $USER` snapshot from EVERY host, kept to the jobs whose
 #           WorkDir is under that host's $REMOTE_DIR -> <project>/.fixer/remote_queue

@@ -1,20 +1,17 @@
 ---
 name: wiki-compile
-description: Use when source material (notes, record conclusions, documents) should enter the project's self-organizing knowledge wiki, when asked to lift knowledge into the wiki, or when the wiki needs linting or reorganizing.
+description: Use when the user asks to compile source material (notes, closed record conclusions, documents) into the project's knowledge wiki, to query it, or to lint or reorganize it.
 ---
 
 # research-note:wiki-compile
 
-## Overview
-
 The wiki is a compiled view of what the project currently knows, organized by
 TOPIC (not by source, not by time), maintained by the agent. Sources stay
 where they live and are never edited. The human reads, asks, and reviews;
-the agent files, merges, cross-links, and flags.
-
-**Grounding invariant:** every claim on a wiki page is traceable to a cited
-source — locate in the source before you write. **The wiki is a view, never
-an authority:** sources and records never cite wiki pages back.
+the agent files, merges, cross-links, and flags. The invariants every page
+holds — grounding, view-never-authority, self-containment, `Status:`,
+`⚠ Contested:`, the five types, admission, linking — are `wiki/CLAUDE.md`'s;
+this skill is the procedure that satisfies them.
 
 ## Layout
 
@@ -36,12 +33,9 @@ and the user decides which.
 Derive the taxonomy ONCE, from the whole compilable record, at the first
 compile; from then on edit it deliberately. Re-deriving it per compile is the
 failure this replaces: twice, a wiki rebuilt from whatever had just arrived came
-out shaped like the record rather than like the subject, and both attempts were
-withdrawn.
+out shaped like the record rather than like the subject.
 
 ### Page types
-
-Five, domain-neutral, the same in any project.
 
 | type | holds | does not hold |
 |---|---|---|
@@ -51,20 +45,14 @@ Five, domain-neutral, the same in any project.
 | `open` | unsettled questions and known limits | anything already settled |
 | `overview` | routing only: links out to the pages of one cluster | content |
 
-**There is no `finding` type.** A result never gets its own page; it is evidence
-cited ON a concept, method or comparison. A wiki with one page per result is the
-record with extra steps.
+A result is evidence cited ON a concept, method or comparison — a wiki with
+one page per result is the record with extra steps.
 
 **Overview threshold** — a cluster of fewer than three pages gets no overview;
 its line in `index.md` is its entry point. Overviews answer growth, not
 tidiness.
 
 ### Admission
-
-**Reusable across sources, or it does not enter.** A one-off observation — this
-box's load average, this seed, these lattice sizes, what a queue was doing on
-Tuesday — stays in the record and is cited by tag. What enters is what survives
-the occasion that produced it.
 
 The test: *would this still be true if the run were repeated on other
 hardware?* An operational number fails it and belongs in
@@ -104,19 +92,16 @@ written down with the reason.
   `<node>: <entry name>` shape — which ends a plain YAML scalar and makes the
   whole block unparseable. And an id like `03.010` is a valid YAML float: it
   loads as `3.01`, colliding with `03.01` and breaking any lookup keyed on the
-  id. Neither failure announces itself; the first raises only when something
-  finally parses the file, and the second never raises at all.
+  id. Neither failure announces itself.
 
   `hash` is the fingerprint `wiki_sources.py` prints for the text that
   compiled — for an entry, its question plus its Conclusion; for a note, the
   whole file. It is what lets lint find a page whose source moved under it
-  without re-reading anything. Do not hand-compute it; take it from the
-  script's output for the source you just used.
+  without re-reading anything. Take it from the script's output for the
+  source you just used.
 - Body: prose sections; **every paragraph carries its source citation(s)**,
-  and a citation is a **plain-text tag, never a path or a link** — `<node>`,
-  `<node>/<group>: <entry name>`, `note/<topic>`, `experiments/<node>/impl/`.
-  Nothing under `wiki/` may link outside it (`wiki/CLAUDE.md`, hard): a reader
-  with lab access resolves a tag, and a published copy dangles nothing.
+  as plain-text tags — `<node>`, `<node>/<group>: <entry name>`,
+  `note/<topic>`, `experiments/<node>/impl/`.
 - `⚠ Contested:` blocks present BOTH sides with citations and never resolve.
 - `Open:` section holds boundaries and unanswered questions.
 
@@ -127,7 +112,7 @@ written down with the reason.
 **Hard gate on the record: only `Status: closed` entries compile.** An
 `analyzed` entry carries the agent's judgement and not yet the user's — only the
 user closes, and the wiki is the published layer, so it deliberately lags the
-lab. Never relax this.
+lab. The gate has no override.
 
 What compiles out of an entry is its **`Conclusion` together with the question
 its `Motivation` ends in**. The Conclusion is a pointer sentence — it `answers`
@@ -138,17 +123,16 @@ they stay in the record and are cited by tag, per the hub rule below.
 
 **Start from `scripts/wiki_sources.py`, not from the pages.** It walks the
 record once and prints every compilable source with its tag, its id and its
-hash — which is the gate, the citation and the staleness key in one pass,
-instead of one read per page. It also lists, under `held`, the entries the user
-has not closed — so you can tell them whether a closing pass is worth asking
-for. Nothing promotes those; the gate has no override.
+hash — the gate, the citation and the staleness key in one pass. It also lists,
+under `held`, the entries the user has not closed — so you can tell them
+whether a closing pass is worth asking for.
 
 **No `SCHEMA.md` yet? Derive it first, from ALL the sources at once**, and get
 the user's assent before compiling a line. Read every compilable source, look
 for the three signals — a term recurring across questions, several questions
 sharing one subject, a contrastive question shape (`X against Y`) — and propose
-the page list with a type for each and the signal that justified it. Frequency
-proposes; it does not establish. Then compile into what was agreed.
+the page list with a type for each and the signal that justified it. Then
+compile into what was agreed.
 
 Sources are processed ONE AT A TIME, serially. Per source:
 
@@ -158,20 +142,20 @@ Sources are processed ONE AT A TIME, serially. Per source:
 2. **Place** — merge claims into the declared page that covers them. **No
    declared page fits → STOP and ask**: this is either a source that does not
    belong in the wiki, or a proposal to change `SCHEMA.md`, and that is the
-   user's call, not a page you invent mid-compile. **Split** a page that has
-   outgrown one topic (≳150 lines, or two theses under one title) — also a
-   `SCHEMA.md` change — repairing inbound links. New claim conflicts with page
-   text: rewrite to the current best understanding when the old claim is
-   superseded by its own source's standards; otherwise mark `⚠ Contested`.
+   user's call. **Split** a page that has outgrown one topic (≳150 lines, or
+   two theses under one title) — also a `SCHEMA.md` change — repairing inbound
+   links. New claim conflicts with page text: rewrite to the current best
+   understanding when the old claim is superseded by its own source's
+   standards; otherwise mark `⚠ Contested`.
 3. **Ground** — verify every number, name and quote against the source
    before writing it; attach the citation.
 4. **Cascade** — search other pages for the affected concepts; update them
-   or add `[topic](topic.md)` cross-links (standard markdown, not wikilinks — VSCode/GitHub previews must resolve them). Linking rules: (a) hub rule — a
-   number lives on ONE page; other pages link to it, never restate it;
-   (b) first cross-topic mention in a section links in place, to a section
-   anchor when one fits; (c) every page ends with `## Related`, 2-4 links
-   each carrying a clause naming WHY related; backlinks are never
-   hand-maintained.
+   or add `[topic](topic.md)` cross-links (standard markdown — VSCode/GitHub
+   previews must resolve them). Linking rules: (a) hub rule — a number lives
+   on ONE page; other pages link to it, never restate it; (b) first
+   cross-topic mention in a section links in place, to a section anchor when
+   one fits; (c) every page ends with `## Related`, 2-4 links each carrying a
+   clause naming WHY related; backlinks are never hand-maintained.
 5. **Record** — update `index.md`; append one `log.md` line:
    `date | source | pages touched | disposition`.
 
@@ -199,20 +183,18 @@ Answer from index → pages, citing pages. Writes nothing unless asked.
   - tag no longer compilable → the entry left `closed`. A correction returns
     every conclusion that cited a changed datum from `closed` to `analyzed`
     (record contract), so the record is saying this page now rests on a claim
-    the user has withdrawn. Report it; do not quietly delete the page's text.
+    the user has withdrawn. Report it; the page's text stays until a person
+    decides.
 
-  This is the one failure a merge-based wiki cannot catch on its own. A claim
-  that is CONTRADICTED gets caught at Place, where the new claim collides with
-  the old. A claim whose source was simply rewritten or retracted has no
-  challenger, so without this check it sits on the page indefinitely, correctly
-  cited and no longer true.
+  This is the one failure a merge-based wiki cannot catch on its own: a
+  CONTRADICTED claim collides with the new one at Place, but a claim whose
+  source was simply rewritten or retracted has no challenger and would sit on
+  the page indefinitely, correctly cited and no longer true.
 
 ## Rules
 
-- **User-triggered only** — never compile into the wiki unprompted. The
-  wiki is the published layer, and an agent that generalises its own
-  readings compounds its own mistakes (root contract, "Stop and ask").
-- Never edit a source. Never compile two sources concurrently.
+- **User-triggered only** (root contract, "Stop and ask").
+- Never edit a source. One source at a time.
 - **Condense, don't copy.** A note is a running scratch; what compiles is the
   settled understanding. Drop superseded readings, and **keep the negative
   results that settled** — "X was ruled out because ..." is knowledge.
@@ -220,5 +202,5 @@ Answer from index → pages, citing pages. Writes nothing unless asked.
   not through a wiki page that restates it.
 - A human review sets `Status: reviewed`; any later machine edit resets it
   to `compiled`.
-- **When NOT to use:** writing understanding that has no source yet (that is
-  the human's note to write first), or citing wiki pages from records.
+- Understanding that has no source yet is the human's note to write first,
+  not the wiki's to invent.

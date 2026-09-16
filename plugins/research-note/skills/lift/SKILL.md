@@ -1,16 +1,15 @@
 ---
 name: lift
-description: Use when a capability implemented inside one or more experiments should become a designed, tested interface in src/ — a second consumer has appeared, or discovery turned up prior art that should be canonicalized before you write another local helper. Interface design, not file moving; strictly additive.
+description: Use when a capability inside one or more experiments should become a designed, tested interface in src/ — a second consumer appeared, or discovery found prior art to canonicalize before another local helper is written. Strictly additive.
 ---
 
 # Lift Skill
 
-You are promoting a **capability** into `src/`. (`src/` here is the
-project's declared library root — `project_config.py role libraries` —
-and `experiments/` its declared experiment root; the standard names are
-used throughout.) The experiment's existing
-implementation is a reference for correctness, not the artifact being
-moved. The deliverable is a new `src/` module plus a mirrored test —
+You are promoting a **capability** into `src/` — the project's declared
+library root (`project_config.py role libraries`); `experiments/` is its
+declared experiment root, and the standard names are used throughout. The
+experiment's implementation is a reference for correctness, not the artifact
+being moved. The deliverable is a new `src/` module plus a mirrored test —
 nothing else changes.
 
 This skill prescribes no domain vocabulary and no language. Where it needs a
@@ -23,26 +22,27 @@ Read one before you write one.
 1. **Lift the capability, not the code.** The experiment script is a
    correctness reference. The src implementation is designed for reuse,
    so its API may differ from any single experiment's local form.
-2. **Strictly additive.** No experiment scripts are modified by this
-   skill. Old code keeps working unchanged.
+2. **Strictly additive.** No experiment script is modified and the
+   experiment's local copy stays — it is the reference the test pinned
+   against; it may drift later, which is fine because the canonical
+   implementation now lives in `src/`. Migration happens later,
+   opportunistically, as its own `exp(<node>):` commit naming this one (the
+   root contract's `feat:` + `exp:` pair).
 3. **1-to-1 src↔test mirroring**, in whatever spelling the project already
    uses — one test file per source file, at the mirrored path, named the way
-   its siblings are named. The project contract states the rule; the existing
-   tests show the form.
-4. **Equivalence-pinned tests.** Every lift's test suite must include at least
-   one check that pins the new implementation against the reference on the
-   same inputs, **at the smallest input the capability accepts** — the
-   cheapest case that still exercises the thing, not a production-scale run.
-   Inline the reference in the test so it does not depend on the experiment
-   file staying unchanged.
+   its siblings are named.
+4. **Equivalence-pinned tests.** Every lift's test suite includes at least one
+   check that pins the new implementation against the reference on the same
+   inputs, **at the smallest input the capability accepts** — the cheapest
+   case that still exercises the thing; smallest-input equivalence is enough
+   to pin correctness. Inline the reference in the test so it does not depend
+   on the experiment file staying unchanged. Without it the lift has no
+   anchor to the code that was known to work.
 5. **Dispatch discipline.** Tests follow the venue (root contract): on a
-   Slurm cluster through the scheduler on a compute partition — never the
-   login node; on a bare server a quick foreground run is the right call.
-6. **One `feat:` commit** here: `feat: lift <capability> → src/<path>` adds
-   src + test (+ regenerated `src/INDEX.md`) together. This skill is strictly
-   additive — no experiment changes now; when an experiment later adopts the
-   interface, that lands as its own `exp(<node>):` commit naming this one
-   (the root contract's `feat:` + `exp:` pair).
+   Slurm cluster through the scheduler on a compute partition; on a bare
+   server a quick foreground run.
+6. **One `feat:` commit**: `feat: lift <capability> → src/<path>` adds
+   src + test (+ regenerated `src/INDEX.md`) together.
 
 ## Workflow
 
@@ -53,14 +53,15 @@ Create one TodoWrite task per step.
 State the capability as a **concept in the project's own terms**, not a
 function name, and not a description of the code that happens to implement it.
 A good name says what is computed and under which convention; it survives the
-implementation being rewritten.
+implementation being rewritten — an interface named for today's algorithm has
+to be renamed when the method changes.
 
 The test: a name is good if someone who never read the experiment could tell
 whether a given function is an instance of it. "Lift `_helper_3`" fails that;
 so does "lift the fast path".
 
-The concept name should fit in one sentence. If it doesn't, the lift is
-probably too big — split it.
+The concept name fits in one sentence. If it doesn't, the lift is too big —
+split it.
 
 ### Step 2 — SURVEY existing implementations
 
@@ -69,10 +70,9 @@ List every place the capability currently appears, in this order:
 1. **Third-party libraries already in the project.** Especially the project's
    **domain library** — the dependency named at the top of `src/INDEX.md`,
    which holds canonical machinery that often subsumes whatever an experiment
-   hand-rolled. Grep its source for the concept's vocabulary.
-   If it provides a clean realization, the "lift" reduces to a convenience
-   wrapper or — better — a one-line caller-side change that uses the library
-   directly. **Do not re-implement what the domain library already gives you.**
+   hand-rolled. Grep its source for the concept's vocabulary. If it provides a
+   clean realization, the "lift" reduces to a convenience wrapper or — better
+   — a one-line caller-side change that uses the library directly.
 
 2. **`src/`** — grep for any existing realization, and read `src/INDEX.md`
    for the function index.
@@ -85,7 +85,7 @@ For each occurrence record:
 - Differences — parameterization, conventions, return type
 
 The survey is what surfaces design decisions. If two experiments disagree
-about a convention, that disagreement must be resolved in the API design step,
+about a convention, that disagreement is resolved in the API design step,
 not papered over.
 
 Halt if:
@@ -109,24 +109,24 @@ Propose:
   question for the user, not a new directory you create quietly.
 
 **Halt for user approval before writing code.** The design step is the
-high-leverage moment of the lift — getting it wrong cheaply at this stage
-is much better than refactoring after the lift lands.
+high-leverage moment of the lift — five minutes of design review prevents
+weeks of API churn.
 
 ### Step 4 — IMPLEMENT in src/
 
 Write the agreed API at the agreed path. Implementation may borrow
 freely from the experiment's existing form, but:
-- Replace closures over ambient state with explicit arguments.
+- Replace closures over ambient state with explicit arguments — the closures
+  are why the code was not already reusable.
 - Replace inline procedural code with function bodies.
 - Use the agreed conventions, not the experiment's idiosyncratic ones.
 - Add a short docstring stating *what* the function computes and any
-  convention a caller could get wrong — the ones that are invisible at the
-  call site are exactly the ones to write down.
-- No multi-paragraph docstrings; no comments restating what well-named
-  identifiers already convey.
+  convention a caller could get wrong — the ones invisible at the call site
+  are exactly the ones to write down. One-line comments only where a
+  well-named identifier does not already say it.
 
-Regenerate `src/INDEX.md` (`gen_index.py`) — it is a generated view,
-never hand-edited; the new function's docstring first line becomes its row.
+Regenerate `src/INDEX.md` (`gen_index.py`) — a generated view; the new
+function's docstring first line becomes its row.
 
 ### Step 5 — TEST (mirrored, with equivalence check)
 
@@ -142,16 +142,12 @@ self-contained inline reference (the relevant lines copied from the
 experiment, or a minimal known-good implementation), then assert they agree.
 
 Take the comparison idiom and its tolerance from the project's existing
-tests rather than inventing one; a tolerance looser than a sibling test's
-needs a sentence saying why.
+tests; a tolerance looser than a sibling test's needs a sentence saying why.
 
-Run per the venue — through the scheduler on a cluster, foreground on a bare
-server.
-
-Must pass before committing. If the equivalence test fails, the lifted
-implementation has drifted from the reference — fix the implementation, not
-the test, unless you have a deliberate and stated reason for the divergence
-(in which case document it in the docstring).
+Run per the venue. Passing is the completion criterion. If the equivalence
+test fails, the lifted implementation has drifted from the reference — fix
+the implementation, not the test, unless you have a deliberate and stated
+reason for the divergence (documented in the docstring).
 
 ### Step 6 — COMMIT
 
@@ -164,21 +160,10 @@ feat: lift <capability description> → src/<path>
 
 No experiment-side changes. Stop.
 
-## What This Skill Does NOT Do
-
-- **Does not modify experiment scripts.** Old code keeps working. Migration
-  is opportunistic and happens outside this skill.
-- **Does not delete the experiment's local copy.** The experiment's version
-  is the reference the test pinned against; it may drift later, which is fine
-  because the canonical implementation now lives in `src/`.
-- **Does not enforce equivalence at production scale.** Smallest-input
-  equivalence is enough to pin correctness.
-- **Does not invoke other skills.** Brainstorming, planning and writing plans
-  are separate. The lift is a focused mechanical-with-design-step operation.
-
 ## When to Halt and Ask
 
-- The capability decomposes into more than 3 functions → too big; split.
+- The capability decomposes into more than 3 functions → too big; split. Bugs
+  hide in the seams between sub-capabilities.
 - The survey reveals a genuine disagreement between experiment forms about a
   convention — not a design choice you can make alone; ask which is canonical.
 - The destination doesn't exist and the right level is unclear → ask before
@@ -186,14 +171,3 @@ No experiment-side changes. Stop.
 - The equivalence test fails after a careful implementation → the experiment's
   form may carry a hidden bug or an unstated convention; ask before "fixing"
   either side.
-
-## Anti-Patterns
-
-| Tempting move | Why it's wrong |
-|---|---|
-| "Skip the equivalence test — the function obviously works" | The equivalence test is the link to the reference; without it the lift has no anchor to the code that was known to work |
-| "Lift this 200-line procedural section all at once" | Too big; bugs hide in the seams between sub-capabilities. Split. |
-| "Also rewrite the experiment to use the new API" | Out of scope. Migration happens later, opportunistically. |
-| "Skip the design step — the API is obvious" | Almost never true. Five minutes of design review prevents weeks of API churn. |
-| "Keep the closures so it matches the experiment exactly" | The closures are why the code wasn't already reusable. Parameterize properly. |
-| "Name it after the algorithm it currently uses" | The name outlives the implementation; an interface named for today's method has to be renamed when the method changes |

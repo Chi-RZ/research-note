@@ -19,6 +19,11 @@
    "bytes": 11585,
    "sha256": "d19873a973b0f9e9e2fdf3b1ba1dc31698cdd5aafbc73dbca7a1b02040db4019",
    "commit": "worktree"
+  },
+  {
+   "bytes": 10688,
+   "sha256": "10637849c8fc6cc4b49245c22318644df03a2c50c7b309df80a2210572e142fd",
+   "commit": "worktree"
   }
  ],
  "experiments-CLAUDE.md": [
@@ -41,6 +46,11 @@
    "bytes": 5704,
    "sha256": "4ac8de99294afec56dc946c6fc65516c9ab5bcbc0cf66e34c848ede6e1a09a8c",
    "commit": "worktree"
+  },
+  {
+   "bytes": 4783,
+   "sha256": "5df9ff5ad2357680d10e9b053bbe79b2c2c6d0c57f3608a83ba9138eb6260208",
+   "commit": "worktree"
   }
  ],
  "project_memory-CLAUDE.md": [
@@ -57,6 +67,11 @@
   {
    "bytes": 14309,
    "sha256": "f0b86efba6db33e496ff3a07c7d9926be04c05a02d4163683a7c6cddb82e6716",
+   "commit": "worktree"
+  },
+  {
+   "bytes": 13643,
+   "sha256": "64dfbdf5ff933cbdc0a449070ad5434ddea2cea34401351d5b6b88ca82c8de37",
    "commit": "worktree"
   }
  ],
@@ -79,6 +94,11 @@
   {
    "bytes": 4135,
    "sha256": "ac418d7cc71827e1d05a516e8f5273d61d8b88c6560abfe059d3df449725b8a0",
+   "commit": "worktree"
+  },
+  {
+   "bytes": 3840,
+   "sha256": "6c1c124d7fb623f7e79609e22c2f2829eba09cf6ff8f8b8fd5e5e0e4ada5c3f2",
    "commit": "worktree"
   }
  ]
