@@ -1,15 +1,13 @@
 ---
 name: update
-description: Use when pulling a new version of this plugin onto a machine — refresh the Claude and Codex marketplaces, equalize their installed versions, and sync every registered project's framework files. Run it after the plugin repo gains a commit, or when a project's contracts look older than its skills. Not for editing the plugin itself.
+description: Use when pulling a new version of this plugin onto a machine — refresh the Claude and Codex marketplaces, equalize their installed versions, and update every registered project. Run it after the plugin repo gains a commit, or when a project's contracts look older than its skills. Not for editing the plugin itself.
 ---
 
 # research-note:update
 
-Pulling a plugin version into one agent is only part of the job. Claude and
-Codex keep separate caches and registries; the four contract files live in
-each project's `.claude/` and do NOT — so a plugin upgrade silently leaves
-every project's written doctrine one version behind its own linter. This skill
-closes that gap in one pass.
+Claude and Codex keep separate caches and registries. Project contracts live in
+the repository, so installing a new plugin version does not update them. This
+skill updates both sides and each registered project in one pass.
 
 Run the whole sequence; report what moved. The user invoking this has already
 decided, so the steps run without asking between them.
@@ -55,7 +53,7 @@ The script then performs, per project and in order:
    owns each managed path and what this run may do to it (step 3 below is
    that table in prose);
 2. update the Claude project-scope pin, where Claude has one;
-3. regenerate the four contracts (`contracts.py`), copy the page templates,
+3. update the framework section of the four contracts (`contracts.py`), copy the page templates,
    refresh the git hooks (`githooks_install.py`), repoint
    `research-note.pluginRoot`, merge the permission rules the template gained —
    the cluster's commands only for a project that enables `hpc`;
@@ -107,7 +105,7 @@ agent's own installed pin until its session reloads.
 Installing an agent that has the plugin NOWHERE is still
 `bootstrap_project.py`'s job, not an update's.
 
-## 3. Sync the framework files, never the personalized ones
+## 3. Sync managed files
 
 Every managed path has one owner, and the owner decides what an update may
 do. `update_projects.sh --dry-run PROJECT` prints this table for the project

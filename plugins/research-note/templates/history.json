@@ -29,6 +29,11 @@
    "bytes": 10482,
    "sha256": "e502b5f16b9109cb593d8165c267b523987236747f9eea9adfd396a95e43be78",
    "commit": "worktree"
+  },
+  {
+   "bytes": 10537,
+   "sha256": "4d72e80242fd5c347fac23710f55d0cec1e0cbdfd425b74bb06541b5ddb992b0",
+   "commit": "worktree"
   }
  ],
  "experiments-CLAUDE.md": [

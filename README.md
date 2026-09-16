@@ -9,17 +9,14 @@ source code and knowledge as the work proceeds.
 
 ## What it is for
 
-- A formatted structure that records computational results faithfully — the
-  commit, the recipe, the machine and the question all resolve from the record
-  alone.
+- A record that ties each result to its code, recipe, machine, and question.
 
-- A long run you supervise from a page, not from a transcript. Sessions end and
-  get compacted; the page is what survives them, and only you close an entry.
+- A page for supervising long runs. The page survives a finished or compacted
+  session, and only you close an entry.
 
-- An auto-evolving code memory and knowledge base that grows with your project.
-  The agent grows with you.
+- A shared memory and knowledge base for the project.
 
-- An easily shareable distilled layer for collaborating with other people later.
+- A concise layer you can share with collaborators.
 
 ## A typical run
 
@@ -33,8 +30,8 @@ the analysis on a page, for you to review and correct.
 
 ## 1. Install
 
-You need one of the two agents. Installing for both is the same two commands
-twice — they share one copy of the plugin, not two.
+You need one of the two agents. If you use both, install the same repository in
+each agent; their plugin caches remain separate.
 
 **Claude Code**
 
@@ -77,8 +74,22 @@ skill. The skill does the following.
 - creates the dashboard and runs the acceptance checks. The fixer, the editor
   extensions, the cluster support and the registration with the other agent are
   integrations: each is enabled only when you ask for it, and the choice is kept
-  in `.research-note/project.json`. The setup can be run again without
-  overwriting existing project files.
+  in `.research-note/project.json`. You can run setup again; ordinary project
+  files stay in place and the contract framework section is refreshed safely.
+
+Optional setup choices are:
+
+| Request or flag | Adds |
+|---|---|
+| `--remote HOST:PATH` | cluster settings and remote job support |
+| `--with-hpc` | HPC bindings without declaring a host yet |
+| `--with-fixer` | the background fixer |
+| `--with-editor` | editor extensions |
+| `--with-cross-agent` | registration with the other installed agent |
+| `--dry-run` | show changes without writing them |
+
+The same choices can be disabled with `--no-hpc`, `--no-fixer`,
+`--no-editor`, or `--no-cross-agent`. A remote host enables HPC automatically.
 
 If you run jobs on a cluster, include its SSH host and project path in the
 request, for example `hpc:/scratch/you/myproject`.
@@ -105,9 +116,9 @@ the following.
 - refreshes each installed agent's marketplace and plugin version, then checks
   that Claude and Codex use the same version and source commit when both are
   installed.
-- updates project pins and refreshes the framework-owned files — contracts,
-  hooks — while a project-owned file is never written (`--dry-run` prints which
-  is which).
+- updates project pins, the framework part of each contract, and the hooks.
+  The project-specific section in each contract is preserved. `--dry-run`
+  prints what would change.
 - preserves project-specific settings and merges new permissions, while
   reporting drift in `hpc.env` and `.slurm` files.
 - repoints `research-note.pluginRoot`, then runs doctor and both linters.

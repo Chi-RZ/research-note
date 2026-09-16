@@ -115,7 +115,7 @@ a host.
 It creates the layout (`src/ tests/ experiments/ project_memory/{nodes,memory/shared,note,objectives}
 wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
 `AGENTS.md` views from the plugin templates (contracts, `framework.json`,
-`settings.json` with `enabledPlugins`), the four contract symlinks, githooks +
+`settings.json` with `enabledPlugins`), the contract views, githooks +
 `core.hooksPath`, `autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
 `dashboard.html`, and the acceptance gate (self-tests + both linters). When
 selected, it also starts the fixer as a detached daemon (never cron — two
@@ -127,9 +127,9 @@ only the latter is the one its window reads), creates HPC bindings, or
 registers the other agent. It prints one line per step and a `needs attention`
 summary.
 
-**It never overwrites an existing project file** — a re-run reports `kept`, so
-running it again after a plugin update is safe and is how you pick up new
-scaffolding.
+**It preserves existing project files.** A re-run reports `kept` for ordinary
+project files. It may update a managed contract's framework section while
+preserving the `## Project-specific rules` section.
 
 **One run configures BOTH agents.** The project side is dual by construction
 (an `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex`
@@ -536,6 +536,6 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
 - [ ] if editor support is enabled, extensions are real copies (not symlinks) and the user was asked to reload the window
 - [ ] if fixer is enabled, re-running `start_fixer_daemon.sh` prints `already running`, and `doctor.sh` reports the last cycle under thirty minutes old
-- [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and the four contract symlinks print `OK`**
+- [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and every contract view prints `OK`**
 - [ ] `uv run python -c "import <pkg>"` succeeds
 - [ ] layered commits (`memory:` / `wiki:` / `chore:` …, `agent:` separately); summary printed; `research-note:plan` suggested

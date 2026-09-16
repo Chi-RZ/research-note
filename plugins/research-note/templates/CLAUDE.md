@@ -3,7 +3,8 @@
 This file is the **root contract**: doctrine and pointers — the rules no linter
 can decide, and where everything else lives. Every skill that says "root
 contract" means this file. Detail belongs to the contract of the subtree you are
-working in, which loads itself when you work there.
+working in. Before editing a scoped directory, read its `CLAUDE.md` as Claude or
+its `AGENTS.md` as Codex.
 
 ## Layers
 
