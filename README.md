@@ -35,25 +35,29 @@ step in at the two moments that are yours — and at any other moment you like.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
-  <img alt="Three lanes. Top, what only you do: hand over a goal, close it, ask for a lift, and start a correction at any step. Middle, what the agent does: plan, run, analyze, distil, each naming the skills it drives. An arc returns from analyze to plan, where the page decides what runs next. Beneath, the dashboard, the fixer that raises a hand without repairing, and the linters." src="docs/typical-run-light.svg" width="100%">
+  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, holding the procedure and keeping every page in one shape without repairing anything." src="docs/typical-run-light.svg" width="100%">
 </picture>
 
-| | **you** | **the agent** |
-|---|---|---|
-| **plan** | hand over a goal | opens the objective page, decides the first phase — [`objective`](plugins/research-note/skills/objective/SKILL.md) · [`plan`](plugins/research-note/skills/plan/SKILL.md) |
-| **run** | | launches it, records the job id and the log on the entry the same turn — [`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md) |
-| **analyze** | | collects the results, writes the conclusion, stops at `analyzed` — [`analyze`](plugins/research-note/skills/analyze/SKILL.md) |
-| | **close it** | never the agent's: writing a conclusion is "I measured, I judge"; closing is "I accept" |
-| **distil** | ask for a lift | code into `src/`, a finding into the wiki, a habit into a skill — [`lift`](plugins/research-note/skills/lift/SKILL.md) · [`wiki-compile`](plugins/research-note/skills/wiki-compile/SKILL.md) · [`memory-lift`](plugins/research-note/skills/memory-lift/SKILL.md) |
-| | **correct it** | any step, not just the end — by hand or by asking; the cascade is walked for you — [`correct`](plugins/research-note/skills/correct/SKILL.md) |
+Closing is yours because writing a conclusion is "I measured, I judge" and
+closing is "I accept". Correcting is yours too, at any step — the cascade is
+walked for you.
+
+The skills, in the order they appear above:
+[`objective`](plugins/research-note/skills/objective/SKILL.md) ·
+[`plan`](plugins/research-note/skills/plan/SKILL.md) ·
+[`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md) ·
+[`analyze`](plugins/research-note/skills/analyze/SKILL.md) ·
+[`correct`](plugins/research-note/skills/correct/SKILL.md) ·
+[`lift`](plugins/research-note/skills/lift/SKILL.md) ·
+[`wiki-compile`](plugins/research-note/skills/wiki-compile/SKILL.md) ·
+[`memory-lift`](plugins/research-note/skills/memory-lift/SKILL.md)
 
 After each phase the agent re-reads the page and takes the next one from what
 is written there, not from what it remembers.
 
-Three things watch, and none of them repairs: a **dashboard** showing what is
-running, what is unclosed and what needs attention; a **fixer** that scans on a
-timer and raises a hand; and the **linters**, 47 checks that run on every
-write, every commit and every scan.
+Underneath, two things watch and neither edits your work: the **dashboard**,
+and the **fixer with the linters** — 47 checks that hold the procedure and keep
+every page in one shape, raising a hand rather than repairing.
 
 ## Requirements and platform
 
