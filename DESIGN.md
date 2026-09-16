@@ -825,6 +825,16 @@ caller names it (`--fixer`, `--hpc`, `--editor`, `--cross-agent`; `--core` for
 the core alone). A disabled integration is neither started, required nor
 reported broken — it is listed as not checked.
 
+**The compatibility matrix.** `scripts/tests/test_compat_matrix.py` runs the
+real bootstrap and the real updater against real repositories, one test per
+row of the plan's release gate: an empty directory as a local-only project; an
+existing repository with its own layout and its own hooks, before and after an
+update; a project from before the declaration migrated once; a machine with no
+agent CLI; the fixer and HPC present only when asked for; setup and update
+re-run to no diff. It is what "works in a project research-note did not
+create" means here, and a row that stops passing is a compatibility regression
+by definition.
+
 **Resource detection — what it does NOT do.** Setup detects the machine's SHAPE,
 not its CAPACITY: whether pytest is installed, which editor extension
 directories are present. It does not discover GPUs, partitions,

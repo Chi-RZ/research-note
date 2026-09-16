@@ -894,14 +894,19 @@ def main() -> int:
         sync_other_agent(dry)
 
     print("\n· acceptance gate")
-    r = subprocess.run([sys.executable, "-m", "pytest", str(HERE / "tests"), "-q"],
-                       capture_output=True, text=True, cwd=proj, env=env)
-    if r.returncode == 0:
-        say("ok", "framework self-tests")
-    elif "No module named pytest" in (r.stderr + r.stdout):
-        say("skip", "framework self-tests", "pytest not installed")
+    if "--no-self-tests" in sys.argv:
+        # the plugin's own suite takes a minute; a caller that has just run it
+        # (the compatibility matrix, a CI job) skips it here and keeps the linters
+        say("skip", "framework self-tests", "--no-self-tests")
     else:
-        say("FAIL", "framework self-tests", (r.stdout.strip().splitlines() or [""])[-1])
+        r = subprocess.run([sys.executable, "-m", "pytest", str(HERE / "tests"), "-q"],
+                           capture_output=True, text=True, cwd=proj, env=env)
+        if r.returncode == 0:
+            say("ok", "framework self-tests")
+        elif "No module named pytest" in (r.stderr + r.stdout):
+            say("skip", "framework self-tests", "pytest not installed")
+        else:
+            say("FAIL", "framework self-tests", (r.stdout.strip().splitlines() or [""])[-1])
     for script in ("check_node_page.py", "check_objective_page.py"):
         r = subprocess.run([sys.executable, str(HERE / script), "--quiet"],
                            capture_output=True, text=True, cwd=proj, env=env)

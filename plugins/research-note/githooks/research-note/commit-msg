@@ -76,6 +76,15 @@ def main() -> int:
     if subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"],
                       capture_output=True).returncode != 0:
         return 0
+    # A SETUP commit onto an EXISTING repository spans every layer the same
+    # way — bootstrap lays the layout, the record, the contracts and the
+    # bindings in one run — and there is a HEAD to split it against, so the
+    # rule above does not reach it. It is recognised by the one file only
+    # setup adds: the declaration. Not sticky — the next commit is ongoing work.
+    added = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=A"],
+                           capture_output=True, text=True).stdout.split()
+    if ".research-note/project.json" in added:
+        return 0
     rules, experiment_roots = project_rules()
     m = re.match(r"^([a-z]+)(\([^)]*\))?:", subject)
     if not m or m.group(1) not in rules:

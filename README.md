@@ -116,6 +116,35 @@ the following.
 The command prints what it changed for each project. It does not stage or commit
 anything, so review the output and commit the changes yourself.
 
+## What is tested to work
+
+The plugin's own suite (`plugins/research-note/scripts/tests/`) runs a
+compatibility matrix against real repositories on every change:
+
+- an empty directory becomes a local-only project: no fixer, no cluster, no
+  editor extension, no second agent — and the record, the hooks and doctor
+  work there.
+- an existing repository keeps its own code layout (`code/`, `trials/`,
+  whatever it has) by declaring it in `.research-note/project.json`; nothing
+  is moved, and the commit checks apply to the declared directories.
+- an existing repository's git hooks — a pre-commit framework, git-lfs, a
+  hand-written pre-push — all still run after setup and after update, with
+  their arguments, stdin and exit codes intact.
+- a machine with one agent, or none on PATH, completes setup.
+- the fixer and the cluster support are present only when asked for.
+- running setup or update a second time changes nothing.
+
+## Migrating a project set up by an earlier version
+
+Run the update once. It writes `.research-note/project.json` with every
+integration turned on, which is what the project had. It moves anything you
+had added below a contract into `.research-note/rules/`, and regenerates the
+contract with it. It replaces the git hooks with the dispatcher, and your
+project's earlier hooks keep running. The record lock moves out of `.fixer/`
+into `.research-note/state/`. Nothing is deleted. The update prints one
+`conflict:` line for every file it could not resolve on its own, with the
+command to see the difference.
+
 Claude Code currently supports a few more setup and configuration steps than
 Codex. Both agents can run jobs and write the research record.
 

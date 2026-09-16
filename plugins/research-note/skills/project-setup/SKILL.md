@@ -165,7 +165,8 @@ running it again after a plugin update is safe and is how you pick up new
 scaffolding. Flags: `--remote HOST:DIR` (repeatable), `--dry-run`,
 `--with-fixer`, `--with-hpc`, `--with-editor`, `--with-cross-agent`. The old
 `--no-fixer`, `--no-qdash` and `--no-cross-agent` spellings remain supported
-and persistently disable those features.
+and persistently disable those features. `--no-self-tests` skips the plugin's own test suite in the acceptance
+gate (a minute) and keeps the linters — for a caller that has just run it.
 
 **One run configures BOTH agents.** The project side was always dual — an
 `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex` as

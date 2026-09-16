@@ -117,7 +117,13 @@ if [ "$main_root" = "$PROJ" ]; then ok "running from the main checkout"
 else warn "this is a linked worktree (main is $main_root)" \
           "records belong to the main checkout; the bus writes there regardless"; fi
 def="$(git -C "$PROJ" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
-[ -n "$def" ] || def=main
+# no origin yet: the same fallback the record bus uses, so the two agree on
+# which branch the record lives on — main if it exists, else master
+if [ -z "$def" ]; then
+    if git -C "$main_root" show-ref -q --verify refs/heads/main; then def=main
+    elif git -C "$main_root" show-ref -q --verify refs/heads/master; then def=master
+    else def=main; fi
+fi
 cur="$(git -C "$main_root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 [ "$cur" = "$def" ] && ok "main checkout on $def" \
   || bad "main checkout is on '$cur', not '$def'" "the bus refuses to write the record off the default branch"

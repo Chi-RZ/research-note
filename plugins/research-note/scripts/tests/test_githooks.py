@@ -168,3 +168,22 @@ def test_pre_commit_lints_staged_record_page(repo, tmp_path):
     (plug / "scripts" / "check_node_page.py").write_text("import sys; sys.exit(1)\n")
     r = pre_commit(repo, {"RESEARCH_NOTE_PLUGIN": str(plug), "SKIP_RECORD_LINT": "1"})
     assert r.returncode == 0
+
+
+def test_the_setup_commit_onto_an_existing_repo_may_span_every_layer(repo):
+    """Bootstrap onto a repo that already has commits lays every layer in one
+    run; the initial-commit exemption does not reach it (there is a HEAD), so
+    the commit that ADDS the declaration is exempt instead — and only that one."""
+    (repo / ".research-note").mkdir()
+    (repo / ".research-note/project.json").write_text((PLUGIN / "templates/project.json").read_text())
+    subprocess.run(["git", "-C", repo, "config", "research-note.pluginRoot", str(PLUGIN)], check=True)
+    r = commit_msg(repo, ["src/a.py", "project_memory/_index.md", "wiki/index.md"],
+                   "agent: research-note setup")          # the helper stages -A: the declaration too
+    assert r.returncode == 0, r.stderr
+    subprocess.run(["git", "-C", repo, "commit", "-q", "-m", "agent: research-note setup"],
+                   check=True, env={**os.environ, "SKIP_PREFIX_CHECK": "1",
+                                    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                                    "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
+    # the declaration now exists and is not being added: ordinary rules again
+    r = commit_msg(repo, ["src/b.py", "wiki/other.md"], "agent: sneaks two layers")
+    assert r.returncode == 1 and "one commit = one layer" in r.stderr
