@@ -73,6 +73,21 @@ def test_bootstrap_memory_views_resolve_to_shared_memory(tmp_path):
         assert link.resolve() == shared.resolve()
 
 
+def test_bootstrap_only_preserves_old_feature_defaults_for_legacy_projects(tmp_path):
+    bootstrap = _bootstrap()
+    assert not bootstrap.needs_legacy_config(tmp_path)
+
+    marker = tmp_path / ".claude/framework.json"
+    marker.parent.mkdir()
+    marker.write_text("{}")
+    assert bootstrap.needs_legacy_config(tmp_path)
+
+    config = tmp_path / ".research-note/project.json"
+    config.parent.mkdir()
+    config.write_text("{}")
+    assert not bootstrap.needs_legacy_config(tmp_path)
+
+
 def test_contracts_name_shared_memory_as_the_authority():
     root = (PLUGIN / "templates" / "CLAUDE.md").read_text()
     record = (PLUGIN / "templates" / "project_memory-CLAUDE.md").read_text()

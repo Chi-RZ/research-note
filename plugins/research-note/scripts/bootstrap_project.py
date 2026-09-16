@@ -51,6 +51,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parent
 TEMPLATES = PLUGIN / "templates"
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+from project_config import CONFIG_PATH, initial_project_config
 
 DIRS = ("src", "tests", "experiments", "experiments/tests", "wiki", ".agent/skills",
         "wiki/knowledge",
@@ -140,6 +143,14 @@ GITIGNORE_LINES = (".fixer", ".venv", "__pycache__/", "*.egg-info/",
                    "experiments/*/checkpoint")
 
 report: list[tuple[str, str, str]] = []       # (state, what, detail)
+
+
+def needs_legacy_config(proj: Path) -> bool:
+    """Whether first-time schema config must preserve pre-schema behaviour."""
+    return (
+        not (proj / CONFIG_PATH).exists()
+        and (proj / ".claude/framework.json").is_file()
+    )
 
 
 
@@ -374,6 +385,13 @@ def main() -> int:
         print(f"bootstrap: {proj} is not a directory", file=sys.stderr)
         return 2
 
+    # Read this before the template loop creates .claude/framework.json. A
+    # pre-schema project already had every integration enabled by default, so
+    # its first project.json must preserve that behaviour. A new project starts
+    # from the smaller core and opts into integrations explicitly.
+    config_path = proj / CONFIG_PATH
+    legacy_without_config = needs_legacy_config(proj)
+
     def w(path: Path, text: str, label: str) -> None:
         """Write only when absent — an existing file is the user's."""
         if path.exists():
@@ -413,6 +431,10 @@ def main() -> int:
             say("FAIL", dst, f"template missing: {t}")
             continue
         w(proj / dst, t.read_text(encoding="utf-8"), dst)
+    config_text = json.dumps(
+        initial_project_config(legacy=legacy_without_config), indent=2
+    ) + "\n"
+    w(config_path, config_text, str(CONFIG_PATH))
 
     print("\n· page templates (.claude/examples/)")
     for ex in sorted((TEMPLATES.parent / "design").glob("*-template.md")):
