@@ -9,23 +9,16 @@ source code and knowledge as the work proceeds.
 
 ## What it is for
 
-A number is only worth as much as what comes with it. Every one is written down
-where it was produced, carrying the commit, the knobs and the machine that
-produced it, and the question it was supposed to answer.
+Every number is recorded with the commit, the knobs and the machine behind it,
+and the question it was answering.
 
-An agent can work for days, and you should not have to read the transcript to
-find out what happened. There is a page per goal. It says where the work stands,
-and nothing on it is closed until you close it.
+You follow a long run from a page, not a transcript. Sessions get compacted;
+the page outlives them, and only you close an entry.
 
-Code and understanding come out of the work while it is still going on, not
-afterwards. A capability the second experiment needs moves into `src/`. An
-explanation worth keeping moves into the wiki. And whatever one session worked
-out the hard way gets written down where the next one reads before it starts,
-so you are not explaining the same thing every Monday.
+Code and knowledge are pulled out while the work is still going on, so the
+project keeps what it learns and the next session does not start cold.
 
-What you hand to someone else is `src/`, its tests, and the wiki. That much is
-built to leave the project. The rest is the trail that got you there, and it
-stays.
+`src/`, its tests and the wiki are built to be handed to someone else.
 
 ## A typical run
 
