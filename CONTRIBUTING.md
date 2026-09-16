@@ -7,7 +7,7 @@ pip install pytest pyyaml
 python -m pytest plugins/research-note/scripts/tests -q
 ```
 
-373 tests, about 30 seconds. Two test-only dependencies and nothing else:
+375 tests, about 30 seconds. Two test-only dependencies and nothing else:
 `pytest`, and `pyyaml` for the single test that parses the skills' ```yaml
 examples with a real parser. The shipped code itself is standard-library
 Python, POSIX shell and git — nothing to install to RUN it. The suite builds its own

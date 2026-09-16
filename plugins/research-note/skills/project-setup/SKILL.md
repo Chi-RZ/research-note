@@ -125,8 +125,8 @@ wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
 plugin templates (contracts, `framework.json`, `hpc.env`, `settings.json` with
 `enabledPlugins`), the four contract symlinks, githooks + `core.hooksPath`,
 `autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
-`dashboard.html`, the fixer (cron where a crontab exists, else the detached
-daemon), the editor extensions (qdash + markdown white preview) into every VS
+`dashboard.html`, the fixer as a detached daemon (never cron — two schedulers
+race on one lock, and `crontab(1)` on macOS is TCC-gated), the editor extensions (qdash + markdown white preview) into every VS
 Code extensions dir that exists (`~/.vscode-server/extensions/` and/or
 `~/.vscode/extensions/` — a local Mac that has run the `code` CLI has both, and
 only the latter is the one its window reads), and finally the acceptance gate
@@ -447,8 +447,7 @@ genuine anomaly, not a habit — used routinely it turns the partition off.
 Verify and hand over:
 
 ```bash
-crontab -l | grep .fixer/run.sh          # cron host: exactly one line for this project
-pgrep -af lint_fixer_daemon               # daemon host: one loop
+pgrep -af lint_fixer_daemon               # one loop for this project
 ls -l project_memory/dashboard.html       # the board exists
 ```
 
@@ -519,7 +518,7 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
 - [ ] editor extensions installed as real copies (not symlinks); user asked to reload window
-- [ ] lint-fixer up — SLURM: `crontab -l` shows the `*/10` line; BARE host: re-running `start_fixer_daemon.sh` prints `already running` + `hasTrustDialogAccepted: true` in `~/.claude.json`
+- [ ] lint-fixer up — re-running `start_fixer_daemon.sh` prints `already running`, and `doctor.sh` reports the last cycle under thirty minutes old
 - [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and the four contract symlinks print `OK`**
 - [ ] `uv run python -c "import <pkg>"` succeeds
 - [ ] layered commits (`memory:` / `wiki:` / `chore:` …, `agent:` separately); summary printed; `research-note:plan` suggested
