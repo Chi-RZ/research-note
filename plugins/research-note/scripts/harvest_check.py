@@ -39,7 +39,7 @@ would report J3 for entries whose jobs ended after the branch point:
 misleading noise injected into an agent doing something else.
 
 The hook path reports only entries that have sat harvestable for MIN_AGE_MIN
-minutes (first-seen times in .fixer/harvest_first_seen.json, shared across
+minutes (first-seen times in .research-note/state/harvest_first_seen.json, shared across
 sessions). A fresh J3 is the owner's Monitor's business — reporting it
 project-wide from minute zero made every bystander session listen along for
 the minutes the owner was already on it, and made "whose is it" a question
@@ -65,13 +65,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_node_page as C  # noqa: E402
+from project_config import state_dir  # noqa: E402
 
 ROOT = C.ROOT
 NODES = ROOT / "project_memory" / "nodes"
 OBJ_DIR = ROOT / "project_memory" / "objectives"
 SNAPSHOT = ROOT / ".fixer" / "remote_queue"
 STALE_MIN = 30          # matches the linter's own snapshot-staleness cutoff
-FIRST_SEEN = ROOT / ".fixer" / "harvest_first_seen.json"
+FIRST_SEEN = ROOT / ".research-note" / "state" / "harvest_first_seen.json"
+LEGACY_FIRST_SEEN = ROOT / ".fixer" / "harvest_first_seen.json"   # pre-0.2.3 location
 MIN_AGE_MIN = 15        # hook default; a Monitor passes --min-age 0
 
 RUNNING_RE = re.compile(r"^(?:-\s+\*\*)?Status:(?:\*\*)?\s*running\s*$", re.M)
@@ -175,7 +177,7 @@ def in_linked_worktree() -> bool:
 def age_gate(keyed: list[tuple[str, str]], min_age: int) -> list[str]:
     """Report a J3 only once it has sat harvestable for `min_age` minutes.
 
-    First-seen stamps live in a shared .fixer state file; an entry that
+    First-seen stamps live in a shared state file; an entry that
     leaves the J3 set (harvested, or its job resumed) is purged, so a later
     re-finish starts a fresh clock. Written via temp + same-dir rename —
     two sessions' hooks race benignly (last writer wins on stamps both just
@@ -184,7 +186,8 @@ def age_gate(keyed: list[tuple[str, str]], min_age: int) -> list[str]:
         return [line for _, line in keyed]
     now = time.time()
     try:
-        seen = json.loads(FIRST_SEEN.read_text(encoding="utf-8"))
+        source = FIRST_SEEN if FIRST_SEEN.exists() else LEGACY_FIRST_SEEN
+        seen = json.loads(source.read_text(encoding="utf-8"))
     except Exception:
         seen = {}
     current = {k for k, _ in keyed}
@@ -193,7 +196,10 @@ def age_gate(keyed: list[tuple[str, str]], min_age: int) -> list[str]:
     new_state = {k: seen.get(k, now) for k in current}
     if new_state != seen:
         try:
-            FIRST_SEEN.parent.mkdir(exist_ok=True)
+            if FIRST_SEEN.parent == ROOT / ".research-note" / "state":
+                state_dir(ROOT)          # also lays the nested .gitignore
+            else:
+                FIRST_SEEN.parent.mkdir(parents=True, exist_ok=True)
             tmp = FIRST_SEEN.with_suffix(f".{id(seen)}.tmp")
             tmp.write_text(json.dumps(new_state), encoding="utf-8")
             tmp.replace(FIRST_SEEN)

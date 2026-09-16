@@ -13,7 +13,8 @@ project state must survive that):
   ledger.jsonl   append-only events {ts, tier, key, event: fixed|failed|parked}
                  replayed each cycle for consecutive-fail counts and parked set.
                  To un-park an item by hand: append {"key": "...", "event": "fixed"}.
-  record.lock    shared flock serializing record commits — the cycle's own git
+  (the shared record.lock lives in .research-note/state/, with the bus)
+  record.lock    (legacy location, unused since 0.2.3) — the cycle's own git
                  add/commit (sweeps, attention flags) and the record-bus script
                  take it; agents launched by run_agent commit for themselves
   logs/run-<ts>/ worklist-<tier>.txt + agent-<tier>.log per run that launched agents
@@ -54,7 +55,18 @@ sys.path.insert(0, str(SCRIPTS))
 from projroot import nth_parent, resolve_root     # noqa: E402
 
 ROOT = resolve_root(nth_parent(HERE, 1))          # project root
-STATE = ROOT / ".fixer"                           # runtime state, gitignored
+STATE = ROOT / ".fixer"                           # the fixer's OWN state, gitignored
+
+
+def record_lock_path() -> Path:
+    """The record lock is core state, shared with the bus and the launcher's
+    record step, so it lives where a project without a fixer keeps it."""
+    lock_dir = ROOT / ".research-note" / "state"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    ignore = lock_dir.parent / ".gitignore"
+    if not ignore.exists():
+        ignore.write_text("state/\n", encoding="utf-8")
+    return lock_dir / "record.lock"
 # need /analyze judgment: J3 (run finished, unreported), E7/E9 (an entry says
 # `analyzed` but carries no Facts / no Conclusion — the conclusion itself is
 # missing). J4 is a mechanical open->running flip -> format tier.
@@ -77,10 +89,10 @@ def log(msg: str) -> None:
 
 def locked_commit(files: list, msg: str) -> None:
     """The cycle's own record commits (sweeps, attention flags) go through an
-    flock on .fixer/record.lock — shared with the record-bus script, so no two
+    flock on .research-note/state/record.lock — shared with the record-bus script, so no two
     actors interleave add/commit. Agents commit for themselves, not here."""
     STATE.mkdir(exist_ok=True)
-    with open(STATE / "record.lock", "a") as lk:      # "a" creates if missing
+    with open(record_lock_path(), "a") as lk:         # "a" creates if missing
         fcntl.flock(lk, fcntl.LOCK_EX)
         paths = [str(f) for f in files]
         subprocess.run(["git", "-C", str(ROOT), "add", "--"] + paths,

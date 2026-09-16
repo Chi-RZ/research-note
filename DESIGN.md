@@ -686,7 +686,9 @@ migrates the pre-dispatcher layout, `uninstall` puts `core.hooksPath` back, and
 
 ### 6 · The scanner and the board — after the fact
 
-A fixer (a session-started daemon; state in `.fixer/`) each cycle
+A fixer (a session-started daemon; its own state in `.fixer/` — the record lock
+and the rest of the CORE state are in `.research-note/state/`, so a project
+without a fixer still has somewhere to lock) each cycle
 pulls finished logs and data back (`remote.sh pull`), refreshes the remote queue
 snapshot, runs both linters, regenerates the board, and where a page and the
 world disagree raises `attention:`. **It repairs nothing** — status moves are
@@ -714,6 +716,7 @@ needs no reload to be current:
 | `record_sync.sh` | the record bus — the one write path onto `project_memory/` |
 | `record_submit.py` | the post-submit record for one launched job, called by the launcher |
 | `remote.sh` | the whole cluster bridge (§8) |
+| `lib_state.sh` | the shell twin of `project_config.state_dir()`: the core runtime state directory `.research-note/state/` — the record lock, the land lock, the harvest stamps, the bus's put backups — created with its nested `.gitignore` on first use; core state lives here and not in the fixer's `.fixer/` |
 | `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
 | `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
 | `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
@@ -790,7 +793,13 @@ git hooks are refreshed through `githooks_install.py`, which keeps forwarding to
 the project's pre-existing hooks and leaves a pre-declaration `commit-msg` alone
 until its layer rows have moved into `.research-note/project.json`.
 `doctor.sh` verifies every wire either script laid and prints the fix for
-whatever is not yet true.
+whatever is not yet true. It is split the way the project is: the CORE —
+plugin root, project configuration, record layer, git hooks, the project's own
+environment — is checked for every project; an integration (fixer, HPC, editor,
+the other agent) only when `.research-note/project.json` enables it or the
+caller names it (`--fixer`, `--hpc`, `--editor`, `--cross-agent`; `--core` for
+the core alone). A disabled integration is neither started, required nor
+reported broken — it is listed as not checked.
 
 **Resource detection — what it does NOT do.** Setup detects the machine's SHAPE,
 not its CAPACITY: whether pytest is installed, which editor extension

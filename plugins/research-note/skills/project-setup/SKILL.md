@@ -73,7 +73,11 @@ pins current, and per remote — ssh, clone, sparse cone, scheduler kind, cluste
 facts declared, interpreter parity, environment fingerprint parity.
 
 Run it right after bootstrap, after `--remote` adds a host, after a plugin
-update, and whenever something behaves oddly. It is re-runnable by design:
+update, and whenever something behaves oddly. With no flag it checks the core
+and every integration the project enables; a disabled one is listed as not
+checked, never reported broken. `--core` is the core alone; `--fixer`, `--hpc`
+(`--host h` for one cluster), `--editor`, `--cross-agent` check that
+integration whether or not it is enabled. It is re-runnable by design:
 most of what it catches was configured correctly once and drifted later (a
 clone predating the sparse default, a githook nobody installed, a fork that
 moved past its pin, a package installed on one machine only).
@@ -511,7 +515,9 @@ Two prerequisites the fixer is silently useless without:
   `~/.claude.json`.
 
 Tune models / cadence / caps with a `.fixer/config.json` override of the
-plugin's defaults; all runtime state lives in `<project>/.fixer/` (gitignored).
+plugin's defaults; the fixer's own runtime state lives in `<project>/.fixer/`
+(gitignored). The record lock and the other core state are NOT there — they are
+in `.research-note/state/`, which exists with or without a fixer.
 
 ## Step 7 — The gate (bootstrap runs it; re-run after your Step 3 edits)
 

@@ -172,7 +172,8 @@ nobody is there to answer.
 
 ## 4. Verify, then commit
 
-Run `scripts/doctor.sh` in each project first — it checks the wiring the sync
+Run `scripts/doctor.sh` in each project first (the core plus whatever the
+project enables; a disabled integration is listed, not failed) — it checks the wiring the sync
 just touched (githooks installed and pointed at, record layer on the default
 branch, the scanner alive, each remote reachable and in step) and prints the
 fix for anything it finds. A green doctor is the evidence that the update

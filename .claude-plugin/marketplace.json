@@ -10,7 +10,7 @@
     {
       "name": "research-note",
       "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds — for agent-assisted computational research.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "source": "./plugins/research-note"
     }
   ]

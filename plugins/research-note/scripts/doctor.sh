@@ -8,7 +8,8 @@
 # predates the sparse default, a githook nobody installed, a fork checkout that
 # moved past its pin, an environment that gained a package on one machine only.
 #
-# Usage: doctor.sh [--host <h>]      (default: every declared host)
+# Usage: doctor.sh [--core] [--fixer] [--hpc [--host <h>]] [--editor] [--cross-agent]
+#        (no flag: the core plus every integration the project enables)
 # Exit:  0 all green · 1 at least one FAIL · 2 could not run
 set -uo pipefail
 
@@ -31,6 +32,52 @@ bad()  { printf '  \033[31m✗\033[0m %s\n     → %s\n' "$1" "$2"; FAILED=1; }
 
 echo "doctor: $PROJ"
 
+
+# --- what to check. The CORE — plugin root, project configuration, record
+# layer, git hooks, the project's own environment — is what every project has
+# and is checked unless an integration is named alone. An INTEGRATION is
+# checked when .research-note/project.json enables it (a project from before
+# the declaration enables all four), or when it is named: a disabled one is
+# neither started, required nor reported broken.
+#   doctor.sh              core + every enabled integration
+#   doctor.sh --core       core only
+#   doctor.sh --fixer | --hpc [--host h] | --editor | --cross-agent
+#                          that integration only, enabled or not (add --core to
+#                          have the core as well)
+RUN_CORE=1; CORE_FLAG=0; HOST_FILTER=""; declare -a ONLY=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --core) CORE_FLAG=1 ;;
+        --all) ;;
+        --fixer|--hpc|--editor|--cross-agent) ONLY+=("${1#--}") ;;
+        --host) shift; HOST_FILTER=${1:-} ;;
+        -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+        *) echo "doctor: unknown argument $1 (--core, --fixer, --hpc, --editor, --cross-agent, --host h)" >&2; exit 2 ;;
+    esac
+    shift
+done
+[ ${#ONLY[@]} -gt 0 ] && [ "$CORE_FLAG" = 0 ] && RUN_CORE=0
+feature_on() {  # feature_on <fixer|hpc|editor|cross_agent>
+    if [ -f "$PROJ/.research-note/project.json" ]; then
+        [ "$(python3 "$HERE/project_config.py" --project "$PROJ" feature "$1" 2>/dev/null)" = true ]
+    else
+        return 0
+    fi
+}
+want() {  # want <feature>: named on the command line, or enabled and nothing was named
+    local f=$1 o
+    for o in ${ONLY[@]+"${ONLY[@]}"}; do [ "$o" = "${f//_/-}" ] && return 0; done
+    [ ${#ONLY[@]} -gt 0 ] && return 1
+    [ "$CORE_FLAG" = 1 ] && return 1
+    feature_on "$f"
+}
+skipped() { printf '  \033[2m–\033[0m %s\n' "$1"; }
+not_checked() {  # under the default run only: say that a disabled integration was left alone
+    [ ${#ONLY[@]} -eq 0 ] && [ "$CORE_FLAG" = 0 ] \
+        && skipped "$1: disabled in .research-note/project.json — not checked (doctor.sh --${1//_/-} to check it anyway)"
+}
+
+if [ "$RUN_CORE" = 1 ]; then
 plugin_root=$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)
 if [ -n "$plugin_root" ] && [ -f "$plugin_root/.codex-plugin/plugin.json" ] \
         && [ -f "$plugin_root/.claude-plugin/plugin.json" ]; then
@@ -95,45 +142,6 @@ else
       || bad "core.hooksPath unset" "re-run bootstrap_project.py"
 fi
 
-echo
-echo "local launch venue"
-if command -v sbatch >/dev/null 2>&1; then
-    ok "local Slurm (submit_slurm.sh; submit files under $EXPERIMENT_ROOTS/<node>/<group>/submit/)"
-    [ -n "${REMOTE_PARTITION:-}${REMOTE_RESERVATION:-}${REMOTE_ACCOUNT:-}" ] \
-      && ok "queue placement declared" \
-      || warn "no queue placement for the LOCAL cluster" \
-              "jobs land in its default queue — REMOTE_PARTITION / REMOTE_RESERVATION / REMOTE_ACCOUNT in .claude/hpc.env"
-else
-    ok "local bare host (launch_bare_gpu.sh; jobs are wrapper PIDs)"
-fi
-if command -v uv >/dev/null 2>&1; then ok "uv on PATH"
-else bad "no uv on PATH" "the launchers and the bus both shell out to it"; fi
-if command -v python3 >/dev/null 2>&1; then ok "python3 available (the record lock, the linters)"
-else bad "no python3" "the bus cannot lock, hash or lint the record without it"; fi
-
-echo
-echo "background scanner"
-hb="$PROJ/.fixer/last_run"
-if [ -f "$hb" ]; then
-    age=$(( ( $(date +%s) - $(date -r "$hb" +%s 2>/dev/null || echo 0) ) / 60 ))
-    [ "$age" -lt 30 ] && ok "fixer alive (last cycle ${age} min ago)" \
-      || bad "fixer heartbeat ${age} min old" "cron or the daemon died — $PROJ/.fixer/run.sh, and see .fixer/last_error"
-else
-    warn "fixer never ran" "fixer/start_fixer_daemon.sh — without it nothing raises a hand when a loop dies unattended"
-fi
-if [ -s "$PROJ/.fixer/last_error" ]; then
-    bad "fixer reported an error" "$(head -c 160 "$PROJ/.fixer/last_error")"
-else ok "no fixer errors"; fi
-# The scanner's whole job is to surface things; a stale queue snapshot means
-# its remote view — and every J3 on a remote job — is blind.
-snap="$PROJ/.fixer/remote_queue"
-if [ -n "${REMOTE_HOST:-}${REMOTE_HOSTS:-}" ]; then
-    if [ -f "$snap" ]; then
-        sage=$(( ( $(date +%s) - $(date -r "$snap" +%s 2>/dev/null || echo 0) ) / 60 ))
-        [ "$sage" -lt 30 ] && ok "remote queue snapshot ${sage} min old" \
-          || warn "remote queue snapshot ${sage} min old" "remote.sh queue — until then J3 cannot judge a remote job"
-    else warn "no remote queue snapshot yet" "remote.sh queue"; fi
-fi
 dirty=$(git -C "$PROJ" status --porcelain -- project_memory 2>/dev/null | grep -c '\.md$')
 [ "${dirty:-0}" -eq 0 ] && ok "no uncommitted record edits" \
   || warn "$dirty record file(s) uncommitted" "the bus commits what it writes — these came from somewhere else; commit them yourself"
@@ -147,6 +155,18 @@ if git -C "$main_root" remote get-url origin >/dev/null 2>&1; then
     else warn "$ahead unpushed commit(s) — a bus push failed, or never ran" "git -C $main_root push"; fi
 fi
 
+if command -v uv >/dev/null 2>&1; then ok "uv on PATH"
+else bad "no uv on PATH" "the launchers and the bus both shell out to it"; fi
+if command -v python3 >/dev/null 2>&1; then ok "python3 available (the record lock, the linters)"
+else bad "no python3" "the bus cannot lock, hash or lint the record without it"; fi
+# core runtime state — the record lock, the harvest stamps — outside .fixer/,
+# so a project without a fixer still has somewhere to lock
+if mkdir -p "$PROJ/.research-note/state" 2>/dev/null; then
+    if git -C "$PROJ" check-ignore -q .research-note/state/record.lock 2>/dev/null; then
+        ok "core state dir .research-note/state/ (gitignored)"
+    else warn "core state dir .research-note/state/ is not gitignored" \
+              "printf 'state/\\n' > $PROJ/.research-note/.gitignore — or the record lock ends up in a commit"; fi
+else bad "cannot create .research-note/state/" "the record bus and the launcher lock there"; fi
 echo
 echo "python environment"
 if [ -x "$PROJ/.venv/bin/python" ]; then
@@ -208,7 +228,24 @@ if [ -n "${JULIA_PROJECT:-}" ]; then
     fi
 fi
 
-for RH in ${REMOTE_HOSTS:-${REMOTE_HOST:-}}; do
+fi
+
+if want hpc; then
+[ -f "$PROJ/.claude/hpc.env" ] && ok "hpc profile .claude/hpc.env" \
+  || bad "hpc: .claude/hpc.env is missing" "re-run bootstrap_project.py --with-hpc"
+echo
+echo "local launch venue"
+if command -v sbatch >/dev/null 2>&1; then
+    ok "local Slurm (submit_slurm.sh; submit files under $EXPERIMENT_ROOTS/<node>/<group>/submit/)"
+    [ -n "${REMOTE_PARTITION:-}${REMOTE_RESERVATION:-}${REMOTE_ACCOUNT:-}" ] \
+      && ok "queue placement declared" \
+      || warn "no queue placement for the LOCAL cluster" \
+              "jobs land in its default queue — REMOTE_PARTITION / REMOTE_RESERVATION / REMOTE_ACCOUNT in .claude/hpc.env"
+else
+    ok "local bare host (launch_bare_gpu.sh; jobs are wrapper PIDs)"
+fi
+
+for RH in ${HOST_FILTER:-${REMOTE_HOSTS:-${REMOTE_HOST:-}}}; do
     v="REMOTE_DIR_$(printf '%s' "$RH" | tr -c 'A-Za-z0-9_' '_')"
     RD="${!v:-${REMOTE_DIR:-}}"
     echo
@@ -293,6 +330,64 @@ for RH in ${REMOTE_HOSTS:-${REMOTE_HOST:-}}; do
              "declare LIB_<name>_LOCAL and LIB_<name>_${hk} in .claude/hpc.env (record + push gate together), or pin the fork by rev — { git = ..., rev = <sha> }, bump_lib.sh to move it"
     fi
 done
+else not_checked hpc; fi
+
+if want fixer; then
+echo
+echo "background scanner"
+hb="$PROJ/.fixer/last_run"
+if [ -f "$hb" ]; then
+    age=$(( ( $(date +%s) - $(date -r "$hb" +%s 2>/dev/null || echo 0) ) / 60 ))
+    [ "$age" -lt 30 ] && ok "fixer alive (last cycle ${age} min ago)" \
+      || bad "fixer heartbeat ${age} min old" "cron or the daemon died — $PROJ/.fixer/run.sh, and see .fixer/last_error"
+else
+    warn "fixer never ran" "fixer/start_fixer_daemon.sh — without it nothing raises a hand when a loop dies unattended"
+fi
+if [ -s "$PROJ/.fixer/last_error" ]; then
+    bad "fixer reported an error" "$(head -c 160 "$PROJ/.fixer/last_error")"
+else ok "no fixer errors"; fi
+# The scanner's whole job is to surface things; a stale queue snapshot means
+# its remote view — and every J3 on a remote job — is blind.
+snap="$PROJ/.fixer/remote_queue"
+if [ -n "${REMOTE_HOST:-}${REMOTE_HOSTS:-}" ]; then
+    if [ -f "$snap" ]; then
+        sage=$(( ( $(date +%s) - $(date -r "$snap" +%s 2>/dev/null || echo 0) ) / 60 ))
+        [ "$sage" -lt 30 ] && ok "remote queue snapshot ${sage} min old" \
+          || warn "remote queue snapshot ${sage} min old" "remote.sh queue — until then J3 cannot judge a remote job"
+    else warn "no remote queue snapshot yet" "remote.sh queue"; fi
+fi
+else not_checked fixer; fi
+
+if want editor; then
+echo
+echo "editor support"
+ext_seen=0
+for ext_dir in "$HOME/.vscode-server/extensions" "$HOME/.vscode/extensions"; do
+    [ -d "$ext_dir" ] || continue
+    ext_seen=1
+    if [ -d "$ext_dir/local.qdash-0.0.1" ]; then ok "qdash board viewer in $ext_dir"
+    else bad "qdash board viewer missing from $ext_dir" "re-run bootstrap_project.py --with-editor, then Reload Window"; fi
+done
+[ "$ext_seen" = 1 ] || warn "no VS Code extensions directory on this machine" \
+    "nothing to install into — the board is still readable as project_memory/dashboard.html"
+else not_checked editor; fi
+
+if want cross_agent; then
+echo
+echo "the other agent"
+agents_seen=0
+if command -v codex >/dev/null 2>&1; then
+    agents_seen=1
+    if grep -q 'research-note@' "$HOME/.codex/config.toml" 2>/dev/null; then ok "codex has the plugin registered"
+    else bad "codex is installed but has no research-note plugin" "re-run bootstrap_project.py --with-cross-agent from the Claude cache, or codex plugin add"; fi
+fi
+if command -v claude >/dev/null 2>&1; then
+    agents_seen=1
+    if grep -q 'research-note@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then ok "claude has the plugin registered"
+    else bad "claude is installed but has no research-note plugin" "re-run bootstrap_project.py --with-cross-agent from the Codex cache, or claude plugin install"; fi
+fi
+[ "$agents_seen" = 1 ] || warn "neither claude nor codex is on PATH" "nothing to register the plugin with"
+else not_checked cross_agent; fi
 
 echo
 [ "$FAILED" = 0 ] && echo "doctor: all green" || echo "doctor: fix the ✗ items above"

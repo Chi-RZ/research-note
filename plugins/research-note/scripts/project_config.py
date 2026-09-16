@@ -17,6 +17,11 @@ from typing import Any
 
 
 CONFIG_PATH = Path(".research-note/project.json")
+#: core runtime state — the record lock, the land lock, the harvest stamps, the
+#: bus's put backups. Under the MAIN checkout, gitignored by a nested
+#: .research-note/.gitignore, and independent of whether the fixer exists:
+#: it used to live in .fixer/, which made a disabled fixer own the record's lock.
+STATE_DIR = Path(".research-note/state")
 SCHEMA = 1
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -59,6 +64,17 @@ LEGACY_FEATURES = {
     "editor": True,
     "cross_agent": True,
 }
+
+
+def state_dir(root: str | Path) -> Path:
+    """The project's core runtime state directory, created on first use with the
+    nested .gitignore that keeps it out of the record's commits."""
+    base = Path(root).expanduser().resolve() / STATE_DIR
+    base.mkdir(parents=True, exist_ok=True)
+    ignore = base.parent / ".gitignore"
+    if not ignore.exists():
+        ignore.write_text("state/\n", encoding="utf-8")
+    return base
 
 
 class ConfigError(ValueError):

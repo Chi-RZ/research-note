@@ -521,6 +521,10 @@ def main() -> int:
         say("new", label)
 
     print("\n· layout")
+    # core runtime state (the record lock, the harvest stamps) lives under
+    # .research-note/state/ and never in a commit; the nested ignore is what
+    # keeps it out, so it is laid with the layout
+    w(proj / ".research-note" / ".gitignore", "state/\n", ".research-note/.gitignore")
     for d in layout_dirs(project_config):
         p = proj / d
         if p.is_dir():

@@ -2,7 +2,8 @@
 # record_sync.sh — the record bus: the ONE write path onto the record's single
 # live instance (project_memory/ in the MAIN checkout, on the default branch).
 # Works from any cwd including a linked worktree; all record writers serialize
-# on .fixer/record.lock (shared with the fixer daemon).
+# on .research-note/state/record.lock (shared with the launcher's record step
+# and the fixer daemon, when there is one).
 #
 # Two modes:
 #   record_sync.sh -m "<commit message>" <repo-rel-file> [...]
@@ -80,8 +81,9 @@ branch="$(git -C "$MAIN" rev-parse --abbrev-ref HEAD)"
 [[ $branch == "$default" ]] \
     || { echo "ERROR: main checkout $MAIN is on '$branch', not '$default' — refusing to write the record" >&2; exit 1; }
 
-mkdir -p "$MAIN/.fixer"
-exec 9>"$MAIN/.fixer/record.lock"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_state.sh"
+STATE="$(rn_state_dir "$MAIN")" || { echo "ERROR: cannot create $MAIN/.research-note/state" >&2; exit 1; }
+exec 9>"$STATE/record.lock"
 # flock(2) on the inherited fd 9, taken by python3 rather than flock(1) — macOS
 # ships no flock(1), python3 is already this script's linter runtime. The lock
 # lives on the OPEN FILE DESCRIPTION, so it outlives this helper and is held for
@@ -123,7 +125,7 @@ put_bak=""
 if [[ $mode == put ]]; then
     mkdir -p "$MAIN/$(dirname "${files[0]}")"
     if [[ -f "$MAIN/${files[0]}" ]]; then
-        put_bak="$(mktemp "$MAIN/.fixer/put_bak.XXXXXX")"
+        put_bak="$(mktemp "$STATE/put_bak.XXXXXX")"
         cp "$MAIN/${files[0]}" "$put_bak"
     fi
     restore_put() {

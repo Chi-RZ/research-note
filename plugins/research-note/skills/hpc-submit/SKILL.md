@@ -491,7 +491,7 @@ in the log header); the wrapper flips the exit code and exits on its own.
    3. **Armed nothing and moved on?** The harvest HOOK is the net: every
       turn, `harvest_check.py` injects a line for each `running` entry whose
       the entry has sat harvestable, unharvested, for `MIN_AGE_MIN` minutes —
-      measured from when a hook FIRST SAW it that way (`.fixer/harvest_first_seen.json`,
+      measured from when a hook FIRST SAW it that way (`.research-note/state/harvest_first_seen.json`,
       shared across sessions), not from when the jobs ended: with no session
       running, nothing is watching and the clock has not started —
       forgotten or orphaned, tagged with the objective that links it. It

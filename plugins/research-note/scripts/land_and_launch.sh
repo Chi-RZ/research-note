@@ -82,8 +82,9 @@ fi
 [ -z "$(git -C "$WT" status --porcelain)" ] || {
     echo "land_and_launch: $WT has uncommitted changes — commit them first" >&2; exit 2; }
 
-mkdir -p "$MAIN/.fixer"
-exec 9>"$MAIN/.fixer/land.lock"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_state.sh"
+STATE="$(rn_state_dir "$MAIN")" || { echo "land_and_launch: cannot create $MAIN/.research-note/state" >&2; exit 2; }
+exec 9>"$STATE/land.lock"
 
 # 180 s. The launch itself is fast — launch_bare_gpu.sh backgrounds the job and
 # returns after a 3 s PID probe, it does not wait for the run. What varies is

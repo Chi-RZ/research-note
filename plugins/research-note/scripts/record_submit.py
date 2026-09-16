@@ -28,6 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from projroot import nth_parent, resolve_root  # noqa: E402
+from project_config import state_dir  # noqa: E402
 
 def _main_checkout() -> Path | None:
     """The MAIN checkout, even when invoked from a linked worktree.
@@ -372,9 +373,7 @@ def main() -> int:
     # The record lock (shared with the bus and the fixer) covers the whole
     # read-modify-write: a concurrent bus put on the same page can neither
     # interleave with nor overwrite this record. Released on process exit.
-    lockdir = ROOT / ".fixer"
-    lockdir.mkdir(exist_ok=True)
-    lock = open(lockdir / "record.lock", "a")
+    lock = open(state_dir(ROOT) / "record.lock", "a")
     fcntl.flock(lock, fcntl.LOCK_EX)
     ok, msg, eid = record(*sys.argv[1:5])
     print(msg)

@@ -38,12 +38,12 @@ rm -rf "$R"
 # --- the lock is real -------------------------------------------------------
 R="$(fixture)"; WT="$R/wt"
 echo work > "$WT/g"; git -C "$WT" add g; git -C "$WT" commit -qm work
-mkdir -p "$R/.fixer"
+mkdir -p "$R/.research-note/state"
 # Hold land.lock from another process for 3 s. The right behaviour is to WAIT
 # and then land — not to fail — so the property is elapsed time, not exit code.
 # Asserting failure here would only test that the timeout is shorter than the
 # hold, which is a property of the test rather than of the script.
-python3 - "$R/.fixer/land.lock" <<'HOLD' &
+python3 - "$R/.research-note/state/land.lock" <<'HOLD' &
 import fcntl, sys, time
 f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); time.sleep(3)
 HOLD
@@ -73,7 +73,7 @@ chmod +x "$R/fake_launcher.sh"
 ( cd "$WT" && bash "$SCRIPT" -- "$R/fake_launcher.sh" ) >/dev/null 2>&1
 BG="$(cat "$R/bg.pid" 2>/dev/null)"
 # the script has exited; if the lock is free the backgrounded child did not keep it
-python3 - "$R/.fixer/land.lock" <<'PY'
+python3 - "$R/.research-note/state/land.lock" <<'PY'
 import fcntl, sys
 f = open(sys.argv[1], "w")
 try:
@@ -91,7 +91,7 @@ R="$(fixture)"; WT="$R/wt"
 echo dirty > "$WT/g"                       # uncommitted
 ( cd "$WT" && bash "$SCRIPT" --land-only ) >/dev/null 2>&1
 check "refuses a dirty branch" "$?" "2"
-python3 - "$R/.fixer/land.lock" <<'PY' 2>/dev/null
+python3 - "$R/.research-note/state/land.lock" <<'PY' 2>/dev/null
 import fcntl, sys, os
 sys.exit(0 if not os.path.exists(sys.argv[1]) else 1)
 PY
