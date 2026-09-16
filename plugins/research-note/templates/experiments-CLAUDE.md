@@ -109,3 +109,21 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = os.environ.get("GPU_ID", "0")
 import jax
 ```
+
+---
+
+## This project's own rules
+
+Everything above this line is framework text: `research-note:update` replaces it
+with the plugin's copy whenever the two differ, so an edit made up there is lost
+at the next update and a deletion up there comes back.
+
+Add what this project decides for itself **below** this line. The updater
+recognises an appendix by the framework half still matching byte for byte, and
+leaves everything after it alone — it will say so, naming how many lines it kept.
+If the framework text has also moved on, it refuses to copy at all and prints the
+diff for you to port by hand, rather than carrying the update forward and dropping
+your lines in the same stroke.
+
+A rule here that would serve every project belongs in the plugin instead — say so
+and it can be lifted into the template.

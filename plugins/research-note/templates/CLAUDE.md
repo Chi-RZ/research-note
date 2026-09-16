@@ -186,3 +186,21 @@ Ask what they were and why before building on them or reverting them.
 | node layout, run scripts, log naming, outputs | `experiments/CLAUDE.md` |
 | what makes a wiki page publishable | `wiki/CLAUDE.md` |
 | the linters and every other framework script | `PLUGIN="$(git config --get research-note.pluginRoot)"` — the shared Claude/Codex binding written by project setup; if it is empty the installed cache still works: `ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \| sort -V \| tail -1` |
+
+---
+
+## This project's own rules
+
+Everything above this line is framework text: `research-note:update` replaces it
+with the plugin's copy whenever the two differ, so an edit made up there is lost
+at the next update and a deletion up there comes back.
+
+Add what this project decides for itself **below** this line. The updater
+recognises an appendix by the framework half still matching byte for byte, and
+leaves everything after it alone — it will say so, naming how many lines it kept.
+If the framework text has also moved on, it refuses to copy at all and prints the
+diff for you to port by hand, rather than carrying the update forward and dropping
+your lines in the same stroke.
+
+A rule here that would serve every project belongs in the plugin instead — say so
+and it can be lifted into the template.

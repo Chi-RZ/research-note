@@ -54,39 +54,42 @@ codex plugin add research-note@rzchi
 
 ## 2. Configure a project
 
-Open the directory you want to become your research project — new or existing
-— and tell the agent:
+Open the directory you want to use as a research project. It can be new or
+already contain code. Then tell the agent:
 
-> set up this project with research-note — you can add a remote HPC and a
-> GitHub repo too
+> set up this project with research-note
+
+If you also need a cluster or a GitHub remote, mention it in the same request.
 
 That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md)
-skill. In one pass it:
+skill. The skill does the following.
 
-- lays out `src/ tests/ experiments/ project_memory/ wiki/`, and `git init`s if
-  there is no repo yet;
-- writes the four contract files into `.claude/` and links them into the
-  subtrees they govern, with an `AGENTS.md` beside every `CLAUDE.md`, so both
-  agents read the same text;
-- installs the githooks — one commit may touch one layer, and a record page
-  that does not lint is not committed;
-- generates the dashboard, and starts the background scanner that keeps it
-  current;
-- registers the plugin with whichever of Claude and Codex is installed and
-  lacks it, so a project set up from one agent is usable from the other.
+- checks whether the directory is new or an existing project that needs
+  organizing. For an existing project, it maps reusable code to `src/`, scripts
+  and one-off entry points to `experiments/`, leaves large data where it is,
+  and archives loose output files.
+- creates `src/`, `tests/`, `experiments/`, `project_memory/`, and `wiki/`, and
+  runs `git init` if needed.
+- writes the project contracts, settings, and environment files under
+  `.claude/`, installs the githooks, and adds the needed `.gitignore` entries.
+  It also adds matching `AGENTS.md` files so Claude and Codex use the same
+  instructions.
+- creates the dashboard, starts the fixer and background scanner, installs the
+  editor extensions when available, and runs the acceptance checks.
+- registers the plugin with the other agent when both Claude and Codex are
+  installed. The setup can be run again without overwriting existing project
+  files.
 
-**If you run jobs on a cluster**, name it in the same sentence: the ssh host,
-and where the project should live there — `hpc:/scratch/you/myproject`.
+If you run jobs on a cluster, include its SSH host and project path in the
+request, for example `hpc:/scratch/you/myproject`.
 
-Setup asks once for that cluster's queue placement — partition, reservation,
-charge account — and writes it into `.claude/hpc.env`. Every submission reads it
-from there.
+Setup asks where jobs should run on that cluster. It records the partition,
+reservation, and account in `.claude/hpc.env`, and submissions use those values
+later.
 
-Setup then clones the project onto the cluster, leaving out `project_memory/`
-and `wiki/`: the record lives in one place only.
-
-**A cluster needs a git remote.** Code reaches the far side by `git pull`, never
-by copying files.
+It then clones the project onto the cluster without `project_memory/` or
+`wiki/`. The record stays in one place. A cluster must have a git remote so the
+code can arrive with `git pull`.
 
 ## Updating
 
@@ -94,18 +97,24 @@ Tell the agent:
 
 > update research-note
 
-That runs the [`update`](plugins/research-note/skills/update/SKILL.md) skill. One pass carries the new
-version into **both** agents and **every** registered project: it moves each
-agent's install, repoints every project at the new plugin directory, syncs the
-framework's own files while leaving yours alone, and ends on doctor and both
-linters. It holds the two agents to the same source commit and prints what each
-resolves to.
+That runs the [`update`](plugins/research-note/skills/update/SKILL.md) skill.
+One command updates the installed agents and every registered project. It does
+the following.
 
-Nothing moves silently — read the output; it names whatever it refuses to
-touch, and why.
+- finds projects from the shared registry and older Claude project entries.
+- refreshes each installed agent's marketplace and plugin version, then checks
+  that Claude and Codex use the same version and source commit when both are
+  installed.
+- updates project pins and syncs framework files, page templates, and missing
+  hooks.
+- preserves project-specific settings and merges new permissions, while
+  reporting drift in `hpc.env` and `.slurm` files.
+- repoints `research-note.pluginRoot`, then runs doctor and both linters.
 
-Setup and configuration are best driven from Claude Code — a few things are
-not yet fully supported in Codex. Running jobs and writing the record work
-from either.
+The command prints what it changed for each project. It does not stage or commit
+anything, so review the output and commit the changes yourself.
+
+Claude Code currently supports a few more setup and configuration steps than
+Codex. Both agents can run jobs and write the research record.
 
 MIT licensed.
