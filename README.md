@@ -9,16 +9,17 @@ source code and knowledge as the work proceeds.
 
 ## What it is for
 
-Every number is recorded with the commit, the knobs and the machine behind it,
-and the question it was answering.
+A formatted structure that records computational results faithfully — the
+commit, the recipe, the machine and the question all resolve from the record
+alone.
 
-You follow a long run from a page, not a transcript. Sessions get compacted;
-the page outlives them, and only you close an entry.
+A long run you supervise from a page, not from a transcript. Sessions end and
+get compacted; the page is what survives them, and only you close an entry.
 
-Code and knowledge are pulled out while the work is still going on, so the
-project keeps what it learns and the next session does not start cold.
+An auto-evolving code memory and knowledge base that grows with your project.
+The agent grows with you.
 
-`src/`, its tests and the wiki are built to be handed to someone else.
+An easily shareable distilled layer for collaborating with other people later.
 
 ## A typical run
 
