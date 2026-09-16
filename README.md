@@ -57,7 +57,8 @@ codex plugin add research-note@rzchi
 Open the directory you want to become your research project — new or existing
 — and tell the agent:
 
-> set up this project with research-note
+> set up this project with research-note — with a remote HPC and a GitHub
+> repo, if you want
 
 That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md)
 skill. In one pass it:
@@ -77,9 +78,25 @@ skill. In one pass it:
   whatever still needs attention named in the output.
 
 It never overwrites a file you already have — a re-run reports `kept`, which is
-how a project picks up new scaffolding after an update. Two things are left to
-you on purpose: your cluster's queue facts in `.claude/hpc.env`, and how you
-pin your environment.
+how a project picks up new scaffolding after an update. How you pin your
+environment is left to you on purpose.
+
+**If you run jobs on a cluster**, name it in the same sentence — the ssh host
+and where the project should live on it, say `hpc:/scratch/you/myproject`.
+Setup then asks once for that cluster's queue placement — partition,
+reservation, charge account — and writes them into `.claude/hpc.env`, so no
+submit file has to carry them and none can forget them. It clones the project
+onto the cluster sparsely: everything except `project_memory/` and `wiki/`,
+because the record lives in exactly one place and a stale copy on the cluster
+is worse than none. Nothing is installed there.
+
+That clone is why a cluster needs **a git remote the cluster can reach** —
+GitHub, GitLab, your own server, anything it can `git clone`. Code travels to
+the cluster by `git pull` on the far side, never by copying files, which is
+also what lets a launch refuse to start until both sides sit on the same clean,
+pushed commit. Without a remote there is no channel, and the cluster step stops
+with that message. If the project has no remote yet, say so and the agent will
+set one up with you first.
 
 ## Updating
 

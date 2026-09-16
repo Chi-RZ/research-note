@@ -119,6 +119,15 @@ When this skill is already running, use the plugin root that contains this
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"      # add --dry-run to preview
 ```
 
+**If the user named a cluster, pass it here** — `--remote HOST:DIR`, the ssh
+alias and where the project lives on that host (repeatable; the first is the
+default). Declaring it at bootstrap is what reaches the queue-placement
+question below and writes the submit template while the facts are in front of
+you. Added later it still works, but the moment the user was telling you the
+facts has passed. `remote.sh setup` clones FROM the project's `origin`, so a
+project with no remote stops there: settle the remote with the user before
+declaring a host.
+
 It creates the layout (`src/ tests/ experiments/ project_memory/{nodes,memory/shared,note,objectives}
 wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
 `AGENTS.md` views from the
@@ -135,8 +144,9 @@ only the latter is the one its window reads), and finally the acceptance gate
 
 **It never overwrites an existing project file** — a re-run reports `kept`, so
 running it again after a plugin update is safe and is how you pick up new
-scaffolding. Flags: `--dry-run`, `--no-fixer`, `--no-qdash` (skips the whole
-editor-extensions step, not just qdash), `--no-cross-agent`.
+scaffolding. Flags: `--remote HOST:DIR` (repeatable), `--dry-run`,
+`--no-fixer`, `--no-qdash` (skips the whole editor-extensions step, not just
+qdash), `--no-cross-agent`.
 
 **One run configures BOTH agents.** The project side was always dual — an
 `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex` as
