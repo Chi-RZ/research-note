@@ -20,10 +20,64 @@ an authority:** sources and records never cite wiki pages back.
 
 ```
 wiki/knowledge/
+├── SCHEMA.md     the declared page taxonomy — which pages exist and what each covers
 ├── index.md      the topic tree — the only entry point; every page listed
 ├── <topic>.md    one page per topic
 └── log.md        append-only operation log
 ```
+
+## The declared taxonomy
+
+`SCHEMA.md` says which pages exist and what each covers. **A source is routed
+into a declared page; it does not get to create one.** A source that fits
+nowhere is either not reusable knowledge, or a proposal to change `SCHEMA.md` —
+and the user decides which.
+
+Derive the taxonomy ONCE, from the whole compilable record, at the first
+compile; from then on edit it deliberately. Re-deriving it per compile is the
+failure this replaces: twice, a wiki rebuilt from whatever had just arrived came
+out shaped like the record rather than like the subject, and both attempts were
+withdrawn.
+
+### Page types
+
+Five, domain-neutral, the same in any project.
+
+| type | holds | does not hold |
+|---|---|---|
+| `concept` | one thing or idea in the subject: what it is, what it fixes, how it relates | procedure; head-to-head judgement |
+| `method` | one procedure: what it does, what it needs, **what it costs** | whether it beats an alternative |
+| `comparison` | one contrastive question: how X and Y differ, when to choose which | what X is — that is a `concept`, linked |
+| `open` | unsettled questions and known limits | anything already settled |
+| `overview` | routing only: links out to the pages of one cluster | content |
+
+**There is no `finding` type.** A result never gets its own page; it is evidence
+cited ON a concept, method or comparison. A wiki with one page per result is the
+record with extra steps.
+
+**Overview threshold** — a cluster of fewer than three pages gets no overview;
+its line in `index.md` is its entry point. Overviews answer growth, not
+tidiness.
+
+### Admission
+
+**Reusable across sources, or it does not enter.** A one-off observation — this
+box's load average, this seed, these lattice sizes, what a queue was doing on
+Tuesday — stays in the record and is cited by tag. What enters is what survives
+the occasion that produced it.
+
+The test: *would this still be true if the run were repeated on other
+hardware?* An operational number fails it and belongs in
+`project_memory/memory/`; the thing the number taught — that a measurement on a
+shared machine reports contention rather than requirement, say — passes it and
+belongs on a page.
+
+### Tags
+
+Controlled. A new tag is declared in `SCHEMA.md` first, then used — freeform
+tags decay into noise. Frequency proposes a tag; it does not establish one, and
+`SCHEMA.md` is where a term seen often but deliberately NOT made a page is
+written down with the reason.
 
 ## Page format
 
@@ -33,6 +87,8 @@ wiki/knowledge/
   ```yaml
   ---
   topic: <topic>
+  type: concept             # one of the five declared in SCHEMA.md
+  tags: [exactness]         # from SCHEMA.md's controlled list, never freeform
   status: compiled          # or `reviewed` — a human approved this revision
   updated: YYYY-MM-DD       # the date the KNOWLEDGE changed, not the file
   sources:
@@ -87,16 +143,26 @@ instead of one read per page. It also lists, under `held`, the entries the user
 has not closed — so you can tell them whether a closing pass is worth asking
 for. Nothing promotes those; the gate has no override.
 
+**No `SCHEMA.md` yet? Derive it first, from ALL the sources at once**, and get
+the user's assent before compiling a line. Read every compilable source, look
+for the three signals — a term recurring across questions, several questions
+sharing one subject, a contrastive question shape (`X against Y`) — and propose
+the page list with a type for each and the signal that justified it. Frequency
+proposes; it does not establish. Then compile into what was agreed.
+
 Sources are processed ONE AT A TIME, serially. Per source:
 
-1. **Triage** — read it; check the index and candidate pages. Nothing
-   genuinely new → append a `no material` line to the log and stop.
-2. **Place** — merge claims into the page with the same thesis; **create**
-   a page when no thesis fits; **split** a page that has outgrown one topic
-   (≳150 lines, or two theses under one title), repairing inbound links.
-   New claim conflicts with page text: rewrite to the current best
-   understanding when the old claim is superseded by its own source's
-   standards; otherwise mark `⚠ Contested`.
+1. **Triage** — read it; check `SCHEMA.md` and the candidate pages. Nothing
+   genuinely new → append a `no material` line to the log and stop. Fails the
+   admission test → `not reusable` line, and stop.
+2. **Place** — merge claims into the declared page that covers them. **No
+   declared page fits → STOP and ask**: this is either a source that does not
+   belong in the wiki, or a proposal to change `SCHEMA.md`, and that is the
+   user's call, not a page you invent mid-compile. **Split** a page that has
+   outgrown one topic (≳150 lines, or two theses under one title) — also a
+   `SCHEMA.md` change — repairing inbound links. New claim conflicts with page
+   text: rewrite to the current best understanding when the old claim is
+   superseded by its own source's standards; otherwise mark `⚠ Contested`.
 3. **Ground** — verify every number, name and quote against the source
    before writing it; attach the citation.
 4. **Cascade** — search other pages for the affected concepts; update them
@@ -109,6 +175,11 @@ Sources are processed ONE AT A TIME, serially. Per source:
 5. **Record** — update `index.md`; append one `log.md` line:
    `date | source | pages touched | disposition`.
 
+When the pass ends, append one `gate` line naming every source the gate held
+back — concluded but not closed — so the omission is visible rather than
+silent. A reader who cannot see what was withheld cannot tell a thin page from
+a thin subject.
+
 ### query
 
 Answer from index → pages, citing pages. Writes nothing unless asked.
@@ -117,6 +188,8 @@ Answer from index → pages, citing pages. Writes nothing unless asked.
 
 - **Safe fixes** (apply): missing/dead index rows; broken links repairable
   to exactly one target.
+- **Against `SCHEMA.md`** (report): a page not declared there, a declared page
+  that does not exist, a `type:` or `tags:` entry the schema does not list.
 - **Reports** (never auto-fix facts): uncited claims; contradictions across
   pages; orphan pages; oversized pages. Append the result to the log.
 - **Supersession** (report, never auto-fix): re-run `wiki_sources.py` and

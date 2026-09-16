@@ -368,12 +368,24 @@ Two soft channels, split by mechanism rather than subject:
 the record to make sense is not publishable. It lags on purpose: material arrives
 only through a pump, and only once it has settled.
 
+Its shape is DECLARED rather than emergent. `wiki/knowledge/SCHEMA.md` fixes
+which pages exist and what each covers, derived once from the whole record and
+edited deliberately afterwards; a source is routed into a declared page and a
+source that fits nowhere is a proposal to change that file, which is the user's
+to decide. The alternative was tried and withdrawn twice: a structure
+re-derived at every compile takes the shape of whatever arrived last, which is
+the record's shape and not the subject's. Pages are one of five types —
+`concept`, `method`, `comparison`, `open`, `overview` — and there is no
+`finding` type, because a result is evidence cited ON a page rather than a page
+of its own. What enters must be reusable across sources: a one-off stays in the
+record and is cited by tag, while what the one-off taught may enter.
+
 **Condensation is always an explicit pump, never implicit.**
 
 | pump | from → to | trigger | gate |
 |---|---|---|---|
 | `lift` | `experiments/` → `src/` | a SECOND consumer appears | what lifts is a designed API, never the literal code. Lands as a `feat:` plus an `exp(<node>):` |
-| `wiki-compile` | `note/` and closed entries → `wiki/` | the user asks | the interpretation has settled; an entry must be `closed`, and what compiles is its `Conclusion` |
+| `wiki-compile` | `note/` and closed entries → `wiki/` | the user asks | the interpretation has settled; an entry must be `closed`; what compiles is its `Conclusion`; and it must route into a page `SCHEMA.md` already declares |
 | `memory-lift` | `memory/` → the project's `.agent/skills/`, which both agents' skill directories are views of (§12) | the user asks | would it apply verbatim in a DIFFERENT project? |
 
 Two of the three wait for the user, because an agent that generalises its own
@@ -534,7 +546,7 @@ when work happens there — one home, several views:
 | `CLAUDE.md` (root) | the whole framework in one read: the layers and the pumps, node/page/entry, `src/` vs `experiments/`, where a job may run, how several agents share the repo, the commit prefixes and trailers, and what to do about a human's uncommitted edits |
 | `experiments-CLAUDE.md` | the code side: what sits under a node, how a run is invoked and named, where its outputs and logs go, and interactive-versus-batch |
 | `project_memory-CLAUDE.md` | the record side: the entry contract of §5, the objective contract of §6, and the same-turn job rules |
-| `wiki-CLAUDE.md` | the self-containment contract — a wiki page makes sense without the record it came from — and the invariants that follow from it: grounding by plain-text tag, a view never an authority, `Status:`, `⚠ Contested:`, linking |
+| `wiki-CLAUDE.md` | the self-containment contract — a wiki page makes sense without the record it came from — and the invariants that follow from it: grounding by plain-text tag, a view never an authority, `Status:`, `⚠ Contested:`, linking, the five page types declared in `SCHEMA.md`, and admission by reusability |
 
 Rules that no machine can check live here and nowhere else — a rule that
 belongs to exactly one of these files is never restated in another.
