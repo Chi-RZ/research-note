@@ -9,24 +9,23 @@ source code and knowledge as the work proceeds.
 
 ## What it is for
 
-**Every number the code produces is placeable the moment it is produced — by
-the agent that produced it, with no extra human step.** Placeable means four
-things resolve from the record alone: the code (a commit), the knobs (a
-recipe), the machine (an environment), and the description — what was asked and
-what was found.
+A number is only worth as much as what comes with it. Every one is written down
+where it was produced, carrying the commit, the knobs and the machine that
+produced it, and the question it was supposed to answer.
 
-**An autonomous run is legible from a page, not from a transcript.** Sessions
-end, get compacted, get thrown away. The objective page is what survives them,
-and it is what you read to know where a campaign stands.
+An agent can work for days, and you should not have to read the transcript to
+find out what happened. There is a page per goal. It says where the work stands,
+and nothing on it is closed until you close it.
 
-**The code and the understanding are distilled as the work proceeds, not
-after.** A project that only accumulates entries ends with a thousand true
-facts and nothing reusable, so condensation is an explicit step with its own
-trigger — never a tidy-up at the end.
+Code and understanding come out of the work while it is still going on, not
+afterwards. A capability the second experiment needs moves into `src/`. An
+explanation worth keeping moves into the wiki. And whatever one session worked
+out the hard way gets written down where the next one reads before it starts,
+so you are not explaining the same thing every Monday.
 
-None of that is advice. A record page that cannot say which commit, which
-knobs, which machine, and which question is refused by a linter before it
-lands.
+What you hand to someone else is `src/`, its tests, and the wiki. That much is
+built to leave the project. The rest is the trail that got you there, and it
+stays.
 
 ## A typical run
 
