@@ -30,22 +30,12 @@ lands.
 
 ## A typical run
 
-You hand over a goal; the agent works the loop and writes everything down.
+Human hand over a goal or plan, the agent excute and record the computational results and analysis for human review and correction. 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
-  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, holding the procedure and keeping every page in one shape without repairing anything." src="docs/typical-run-light.svg" width="100%">
+  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, which fix the procedure and standardise the format of every page." src="docs/typical-run-light.svg" width="100%">
 </picture>
-
-The skills, in the order they appear above:
-[`objective`](plugins/research-note/skills/objective/SKILL.md) ·
-[`plan`](plugins/research-note/skills/plan/SKILL.md) ·
-[`hpc-submit`](plugins/research-note/skills/hpc-submit/SKILL.md) ·
-[`analyze`](plugins/research-note/skills/analyze/SKILL.md) ·
-[`correct`](plugins/research-note/skills/correct/SKILL.md) ·
-[`lift`](plugins/research-note/skills/lift/SKILL.md) ·
-[`wiki-compile`](plugins/research-note/skills/wiki-compile/SKILL.md) ·
-[`memory-lift`](plugins/research-note/skills/memory-lift/SKILL.md)
 
 ## Requirements and platform
 

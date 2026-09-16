@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 344" role="img" aria-label="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, holding the procedure and keeping every page in one shape without repairing anything.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 344" role="img" aria-label="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, which fix the procedure and standardise the format of every page.">
 <style>
   :root {
     --ink: #2E2C29; --faint: #938D85; --muted: #6E6862;
@@ -89,6 +89,6 @@
 <line class="d-arw-m" x1="34.0" y1="88.0" x2="30.7" y2="93.0"/>
 <text class="d-pump-m" x="-170" y="28" text-anchor="middle" style="font-size:11.5px" transform="rotate(-90 0 0)">look any time</text>
 <rect class="d-fix" x="14" y="298" width="864" height="34" rx="2"/>
-<text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">the procedure held, every page in one shape &#8212; never a repair</text>
+<text class="d-lbl" x="32" y="320" text-anchor="start" style="font-size:12.5px">fixes the procedure, and standardises the format of every page</text>
 <text class="d-band" x="862" y="320" text-anchor="end" style="font-size:11px">FIXER &amp; LINTERS</text>
 </svg>
