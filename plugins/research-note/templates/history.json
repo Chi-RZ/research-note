@@ -1,0 +1,85 @@
+{
+ "CLAUDE.md": [
+  {
+   "bytes": 10844,
+   "sha256": "0abf1040781357677961c87e078e316b3114c9dc0c85ba1c652da9a9b58985a8",
+   "commit": "3d995d6"
+  },
+  {
+   "bytes": 11655,
+   "sha256": "83266cec743e50ad4728a90027707de1fc0c8a9a4fee2c1a050e150294f43c48",
+   "commit": "8902b70"
+  },
+  {
+   "bytes": 11929,
+   "sha256": "c0a60d41357aa8232ccf163a176e0fad7343361d6569b25394d5249785b9f4b5",
+   "commit": "84872e0"
+  },
+  {
+   "bytes": 11585,
+   "sha256": "d19873a973b0f9e9e2fdf3b1ba1dc31698cdd5aafbc73dbca7a1b02040db4019",
+   "commit": "worktree"
+  }
+ ],
+ "experiments-CLAUDE.md": [
+  {
+   "bytes": 5075,
+   "sha256": "8cfbc708cadda2a940c9fc7b8814e35202ade8b4a9b0c5bf1f9563c8ce87d16a",
+   "commit": "3d995d6"
+  },
+  {
+   "bytes": 5230,
+   "sha256": "2b943e79cd731e23d19cf0388a32b9cd2b90b0bc71f09a6fc6708d52138542da",
+   "commit": "5b35703"
+  },
+  {
+   "bytes": 6041,
+   "sha256": "487cdb75c236e08e1502af9c17673ac88defdf7e17dbef13dc5096de8226706f",
+   "commit": "8902b70"
+  },
+  {
+   "bytes": 5704,
+   "sha256": "4ac8de99294afec56dc946c6fc65516c9ab5bcbc0cf66e34c848ede6e1a09a8c",
+   "commit": "worktree"
+  }
+ ],
+ "project_memory-CLAUDE.md": [
+  {
+   "bytes": 13840,
+   "sha256": "e2dc1c67e028b3c58f1a3d0ad004edf9e9901f410c7d991a0315e99ede7c9b6c",
+   "commit": "3d995d6"
+  },
+  {
+   "bytes": 14651,
+   "sha256": "88716a08992e2ccf891a2f5de451814a61a14eeccd0ca33ad22be99cf3a995a6",
+   "commit": "8902b70"
+  },
+  {
+   "bytes": 14309,
+   "sha256": "f0b86efba6db33e496ff3a07c7d9926be04c05a02d4163683a7c6cddb82e6716",
+   "commit": "worktree"
+  }
+ ],
+ "wiki-CLAUDE.md": [
+  {
+   "bytes": 2825,
+   "sha256": "8cb01c16fcc62b9d56692d27d2bed587440c4daee6bd924ffe806543e976d53e",
+   "commit": "3d995d6"
+  },
+  {
+   "bytes": 3636,
+   "sha256": "b757e552652eb60c08b7ea355a4f10cd92bbb5728770d85c119420cd0fd3f807",
+   "commit": "8902b70"
+  },
+  {
+   "bytes": 4479,
+   "sha256": "74e089024fe8c1988c3f3685f3f2e117ce22e729ea0d218f6b1fe9c2f117d883",
+   "commit": "a688efd"
+  },
+  {
+   "bytes": 4135,
+   "sha256": "ac418d7cc71827e1d05a516e8f5273d61d8b88c6560abfe059d3df449725b8a0",
+   "commit": "worktree"
+  }
+ ]
+}

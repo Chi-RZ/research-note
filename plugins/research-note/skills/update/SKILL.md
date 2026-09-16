@@ -130,7 +130,7 @@ For every project on the framework, compare `.claude/<file>` against
 
 | File | Treatment |
 |---|---|
-| `CLAUDE.md`, `experiments-CLAUDE.md`, `wiki-CLAUDE.md`, `project_memory-CLAUDE.md` | **Framework text — copy the template over the project's copy** when it drifts |
+| `CLAUDE.md`, `experiments-CLAUDE.md`, `wiki-CLAUDE.md`, `project_memory-CLAUDE.md` | **Generated — never edited, never copied by hand.** `contracts.py` (the updater runs it) writes each as the plugin's template plus the project's own `.research-note/rules/<root\|experiments\|record\|wiki>.md`; the first line of the generated file names both. A project rule goes in the rules file; a framework rule goes in the plugin. A pre-generation file (0.1.9–0.2.3, the boundary block with an appendix under it) has its appendix carried into the rules file once — `migrated`. It reports `CONFLICT` and leaves the file alone only when a pre-generation file's project text cannot be told apart (edited in place, or an appendix beside a rules file that already has content): that is the judgment call — move the text, then `contracts.py sync PROJECT --force` |
 | `framework.json` | **State + policy — never copy.** `record` is the project's migration marker; the linters' FW gate reads it, and copying the template's value marks an unmigrated record as current, disarming the one check that protects it. The marker moves only when the record is actually migrated. `record_language` is the project's policy and stays |
 | `settings.json` | **Personalized** (permissions, env) — never copy wholesale. But DIFF the `permissions.allow` lists: a new mechanism often needs a new command (0.11 added `flock` and `sha256sum` for the record bus), and a project missing it fails at the moment the mechanism first runs. Add what the template gained; keep everything the project has. Verify `enabledPlugins` still names the plugin |
 | `hpc.env` | **Personalized** (this machine's cluster) — never copy. But diff it against `templates/hpc.env` for KEYS the template documents and the project lacks, and tell the user what each would do (0.11 added `REMOTE_PARTITION` / `REMOTE_RESERVATION` / `REMOTE_ACCOUNT`; a project without them queues wherever the cluster defaults). Their values are the user's to give |
@@ -141,16 +141,14 @@ For every project on the framework, compare `.claude/<file>` against
 into `.claude/` — edit the `.claude/` file, and the change is an `agent:`
 commit.
 
-Before copying, diff and LOOK. Byte-identical to the template is the normal end
-state for the four contract files, so a project-specific hunk is a signal, not a
-detail — and which way it resolves depends on WHY the two differ:
+A `CONFLICT` line on a contract is the one place this step needs you. Read
+the diff it prints, and sort the project's text by WHY it is there:
 
-| The project's copy has… | Resolution |
+| The project's text is… | Resolution |
 |---|---|
-| text the template moved past (an older wording of the same rule) | copy the template over it — this is ordinary drift, the reason this step exists |
-| a machine fact (a path, a cluster name, a partition) | that belongs in `hpc.env` or `settings.json`, not in a contract file. Copy the template over it and move the fact to where it lives; report the move |
-| a rule the project genuinely decided for itself | STOP and ask. Do not copy. A local rule in a framework file is either worth lifting into the template for everyone, or worth moving into the project's own prose — the user decides which |
-| the template's newer text ALREADY (nothing to do) | leave it; report `same` |
+| an older wording of a framework rule | nothing to keep — `contracts.py sync PROJECT --force` |
+| a machine fact (a path, a cluster name, a partition) | that belongs in `hpc.env` or `settings.json`, not in a contract. Move it there, then `--force`; report the move |
+| a rule the project genuinely decided for itself | move it into `.research-note/rules/<x>.md`, then `--force`. If it would serve every project, say so — it may belong in the template instead; the user decides which |
 
 For the derived-and-personalized files (`hpc-submit/*.slurm`) the same question
 has a different answer, because both halves are legitimate: the log-header block

@@ -206,13 +206,17 @@ after the first page is written.
 
 ## Step 3 — The judgment calls the script deliberately leaves to you
 
-**The root contract is FRAMEWORK text and is overwritten on every update.** A
-project may append below it, and the updater then leaves the whole file alone —
-but that turns an automatic sync into a permanent hand-merge, so append only
-what has nowhere else to live: an extra commit prefix, which the `commit-msg`
-hook reads from there. Prose about what this project is FOR belongs in
-`project_memory/note/`, or in the `Goal` of its first objective, where nothing
-overwrites it and the record can cite it.
+**The four contracts are GENERATED — never edit them.** Each `.claude/*-CLAUDE.md`
+is the plugin's template plus this project's own rules file, and its first
+line says so. What this project decides for itself goes in
+`.research-note/rules/` — `root.md`, `experiments.md`, `record.md`, `wiki.md` —
+and bootstrap or an update regenerates the contract with it appended. Write
+there only what has nowhere else to live: a convention the linters cannot
+check, a binding to this project's tools. A commit prefix is a layer in
+`.research-note/project.json`, not prose. Prose about what this project is FOR
+belongs in `project_memory/note/`, or in the `Goal` of its first objective,
+where the record can cite it. A rule that would serve every project belongs in
+the plugin's template — say so.
 
 **`.claude/hpc.env`** — the machine facts nothing can infer: where a cluster
 is, and which queue to land in. Purely local work needs none of it; the file

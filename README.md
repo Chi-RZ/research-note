@@ -73,7 +73,9 @@ skill. The skill does the following.
 - writes the project contracts, settings, and environment files under
   `.claude/`, installs the githooks, and adds the needed `.gitignore` entries.
   It also adds matching `AGENTS.md` files so Claude and Codex use the same
-  instructions.
+  instructions. The contracts are generated from the plugin's text plus your
+  own rules in `.research-note/rules/`; edit those files, and an update keeps
+  them.
 - creates the dashboard, starts the fixer and background scanner, installs the
   editor extensions when available, and runs the acceptance checks.
 - registers the plugin with the other agent when both Claude and Codex are

@@ -67,13 +67,25 @@ accident. `git log` is the best documentation here; keep it that way.
 
 ## Releasing
 
-The version lives in **three** files and a test pins two of them:
+The version lives in **three** files and tests hold them to one value:
 
 ```
 .claude-plugin/marketplace.json
 plugins/research-note/.claude-plugin/plugin.json
 plugins/research-note/.codex-plugin/plugin.json
 ```
+
+**A change to any of the four contract templates needs one more step:**
+
+```
+python3 plugins/research-note/scripts/contracts.py record-history
+```
+
+It appends the new template's length and hash to `templates/history.json`,
+which is how a later version recognises a project's contract as "the framework
+text of some release, plus whatever the project appended" and carries the
+appendix over instead of dropping it. A test fails until the current template
+is in the list.
 
 **Push is the channel, not the last tidying step.** Every agent's marketplace is
 a clone of this repository's remote, so an unpushed commit is invisible to every

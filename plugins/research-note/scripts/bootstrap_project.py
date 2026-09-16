@@ -61,6 +61,7 @@ TEMPLATES = PLUGIN / "templates"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 import githooks_install  # noqa: E402
+import contracts  # noqa: E402
 from project_config import (
     CONFIG_PATH,
     ConfigError,
@@ -73,11 +74,9 @@ from project_config import (
 
 #: template -> where it lands in the project (project-OWNED copies from here on;
 #: the plugin's templates are the seed, not a live mirror)
-FILES = {"CLAUDE.md": ".claude/CLAUDE.md",
-         "experiments-CLAUDE.md": ".claude/experiments-CLAUDE.md",
-         "project_memory-CLAUDE.md": ".claude/project_memory-CLAUDE.md",
-         "wiki-CLAUDE.md": ".claude/wiki-CLAUDE.md",
-         "framework.json": ".claude/framework.json"}
+FILES = {"framework.json": ".claude/framework.json"}
+#: the four contracts are not copied but GENERATED — template + the project's
+#: own rules file — by contracts.py, here and at every update
 # Both agent-specific discovery locations are views onto one canonical skill
 # directory. Targets are relative to each link's parent directory.
 SKILL_LINKS = {
@@ -553,6 +552,9 @@ def main() -> int:
             say("FAIL", dst, f"template missing: {t}")
             continue
         w(proj / dst, t.read_text(encoding="utf-8"), dst)
+    # the contracts: framework template + .research-note/rules/<x>.md, generated;
+    # an appendix under the old boundary block is carried into the rules file
+    contracts.sync(proj, PLUGIN, dry=dry, say=say)
     if config_path.exists():
         if project_config == base_config:
             say("kept", str(CONFIG_PATH))

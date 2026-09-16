@@ -179,36 +179,16 @@ PY
         echo "   claude project pin: skipped"
     fi
 
-    # --- framework text: copy when it drifts. A hunk that is this project's own
-    # decision is the skill's judgment call, not this script's; it reports the
-    # drift so the caller can look before the copy lands in a commit.
-    for f in CLAUDE.md experiments-CLAUDE.md wiki-CLAUDE.md project_memory-CLAUDE.md; do
-        [ -f "$CACHE/templates/$f" ] || continue
-        if [ ! -f "$P/.claude/$f" ]; then
-            run cp "$CACHE/templates/$f" "$P/.claude/$f"; echo "   contract: $f CREATED"; CHANGED+=("$P")
-        elif ! diff -q "$CACHE/templates/$f" "$P/.claude/$f" >/dev/null 2>&1; then
-            n=$(diff "$CACHE/templates/$f" "$P/.claude/$f" | grep -c '^[<>]')
-            # A project may APPEND its own bindings under the framework text (a
-            # layout table, extra commit prefixes). When the template is still a
-            # byte-prefix of the project's copy, the framework half is already
-            # current and the whole diff is that appendix — copying would delete
-            # it, which is a deletion wearing a sync's clothes. Report instead.
-            tl=$(wc -l < "$CACHE/templates/$f")
-            pl=$(wc -l < "$P/.claude/$f")
-            if head -n "$tl" "$P/.claude/$f" | diff -q - "$CACHE/templates/$f" >/dev/null 2>&1; then
-                echo "   contract: $f framework text is CURRENT; the project appends $((pl - tl)) own line(s) below it — left alone"
-            elif [ "$pl" -gt "$tl" ]; then
-                # Longer AND the prefix does not match: the framework text drifted
-                # under content this project added. A copy would carry the drift
-                # forward and drop the addition in the same stroke, so neither half
-                # can be done blind.
-                echo "   contract: $f DRIFTED under $((pl - tl)) project-added line(s) — port by hand, a copy would drop them"
-                echo "      diff $CACHE/templates/$f $P/.claude/$f"
-            else
-                run cp "$CACHE/templates/$f" "$P/.claude/$f"; echo "   contract: $f synced ($n differing lines)"; CHANGED+=("$P")
-            fi
-        fi
-    done
+    # --- the four contracts are GENERATED: the plugin's template plus the
+    # project's own .research-note/rules/<x>.md. contracts.py regenerates them,
+    # carries an appendix from the old boundary scheme into the rules file
+    # once, and leaves a file that was edited in place alone with a CONFLICT
+    # line and the diff command — the judgment call is the skill's.
+    if [ -f "$CACHE/scripts/contracts.py" ]; then
+        ct_out=$(python3 "$CACHE/scripts/contracts.py" sync "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        printf '%s\n' "$ct_out" | grep -vE '^same ' | sed 's/^/   contract: /'
+        printf '%s\n' "$ct_out" | grep -qE '^(new|migrated|generated|regenerated) ' && CHANGED+=("$P")
+    fi
 
     # --- framework.json is STATE + policy, never synced wholesale: `record` is
     # the project's migration marker (the linters' FW gate reads it), so copying
