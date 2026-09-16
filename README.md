@@ -33,6 +33,11 @@ lands.
 You hand over a goal. The agent works the loop and writes everything down. You
 step in at the two moments that are yours — and at any other moment you like.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
+  <img alt="Three lanes. Top, what only you do: hand over a goal, close it, ask for a lift, and start a correction at any step. Middle, what the agent does: plan, run, analyze, distil, each naming the skills it drives. An arc returns from analyze to plan, where the page decides what runs next. Beneath, the dashboard, the fixer that raises a hand without repairing, and the linters." src="docs/typical-run-light.svg" width="100%">
+</picture>
+
 | | **you** | **the agent** |
 |---|---|---|
 | **plan** | hand over a goal | opens the objective page, decides the first phase — [`objective`](plugins/research-note/skills/objective/SKILL.md) · [`plan`](plugins/research-note/skills/plan/SKILL.md) |
