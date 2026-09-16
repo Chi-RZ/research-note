@@ -504,7 +504,11 @@ def lint(path: Path) -> list[str]:
     ready = sum(1 for pg, sl in plan_entry_refs(path)
                 if pg.exists() and entry_status(pg).get(sl) == "analyzed")
     verdict_body = body_of(text, "Verdict")
-    claim = re.search(r"(\d+)\s+entr(?:y|ies)\s+await review", verdict_body, re.I)
+    # `awaits?` so one entry can be written in English. Without it the only
+    # spelling the count check accepts is "1 entries await review", and the
+    # natural singular falls to the branch below, whose message then asks for
+    # the ungrammatical form by name.
+    claim = re.search(r"(\d+)\s+entr(?:y|ies)\s+awaits? review", verdict_body, re.I)
     if claim and int(claim.group(1)) != ready:
         errs.append(f"O8 the Verdict says `{claim.group(1)} entries await review` "
                     f"but the Plan links {ready} `analyzed` entr(y/ies) — the "
@@ -512,7 +516,7 @@ def lint(path: Path) -> list[str]:
     elif not claim and ready:
         errs.append(f"O8 the Verdict states no awaiting-review count while the "
                     f"Plan links {ready} `analyzed` entr(y/ies) — write "
-                    f"`{ready} entries await review`")
+                    f"`{ready} entr" + ("y awaits" if ready == 1 else "ies await") + " review`")
 
     # O4 — the Goal is the user's, byte-unchanged against the committed version.
     prev = git_show(path)

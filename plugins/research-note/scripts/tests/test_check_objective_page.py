@@ -234,6 +234,28 @@ def test_o8_matching_count_is_silent(obj, tmp_path):
     assert not any(e.startswith("O8") for e in errs)
 
 
+def test_o8_accepts_one_entry_written_in_english(obj, tmp_path):
+    """`1 entry awaits review` is the same claim as `1 entries await review`.
+
+    The check read only `await`, so the grammatical singular matched nothing and
+    fell to the missing-count branch — which then told the writer to spell it the
+    one way English does not. A count check that can only be satisfied
+    ungrammatically teaches every page to carry the error.
+    """
+    _analyzed_task(tmp_path)
+    errs = relint(obj, OBJ.replace("The route is running.",
+                                   "The route is running. 1 entry awaits review."))
+    assert not any(e.startswith("O8") for e in errs)
+
+
+def test_o8_stale_count_still_fires_when_written_in_the_singular(obj, tmp_path):
+    """Accepting the spelling must not stop the count from being CHECKED."""
+    _analyzed_task(tmp_path)
+    errs = relint(obj, OBJ.replace("The route is running.",
+                                   "The route is running. 3 entry awaits review."))
+    assert any(e.startswith("O8") and "3" in e for e in errs)
+
+
 # --- O6 --------------------------------------------------------------------
 
 FOLLOW_UP = """

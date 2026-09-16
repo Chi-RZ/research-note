@@ -4,8 +4,8 @@
 Everything here is derivable from the plugin's templates plus the target path, so
 it is a script rather than skill prose: repeatable, testable, and identical in
 every project. What is NOT here is everything that needs a judgment call —
-the project's mission, migrating existing code into src/ + experiments/,
-pinning dependency versions. The skill owns those and calls this for the rest.
+migrating existing code into src/ + experiments/, pinning dependency
+versions. The skill owns those and calls this for the rest.
 
 IDEMPOTENT BY CONSTRUCTION: an existing file is kept and reported as `kept`,
 never overwritten (your edited contracts and settings survive
@@ -722,13 +722,12 @@ def main() -> int:
     if bad:
         print("  needs attention: " + "; ".join(bad))
     print("\nNext (the judgment calls this script deliberately leaves to you):\n"
-          "  1. the project appendix of the root agent contract — the mission paragraph and\n"
-          "     the project's own bindings\n"
-          "  2. .claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
+          "  1. .claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
           "     in log headers\n"
-          "  3. pyproject.toml + uv sync — pin the env (see the project-setup skill)\n"
-          "  4. Reload Window in VS Code, then: Open Q Dashboard\n"
-          "  5. Run the plugin's scripts/doctor.sh — it verifies every wire this\n"
+          "  2. pyproject.toml — pin the env however this project prefers\n"
+          "     (see the project-setup skill)\n"
+          "  3. Reload Window in VS Code, then: Open Q Dashboard\n"
+          "  4. Run the plugin's scripts/doctor.sh — it verifies every wire this\n"
           "     script laid (and every one it could not), and prints the fix for\n"
           "     whatever is not yet true")
     return 1 if any(s == "FAIL" for s, _, _ in report) else 0

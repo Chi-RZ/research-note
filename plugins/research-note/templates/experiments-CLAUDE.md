@@ -11,6 +11,8 @@ experiments/<node>/
   impl/            the node's implementation: the callable functions a run
                    script invokes, plus the declaration of which knobs exist —
                    never their values
+    __init__.py            a module-level DESCRIPTION = "..." is the node's
+                           line in the roster; without it the column reads —
   <group>/         one folder per problem instance the node's algorithm is run
                    on. Named for that instance by the project, one level deep.
                    A node opens with one group from the start.

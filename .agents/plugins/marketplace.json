@@ -1,7 +1,7 @@
 {
   "name": "rzchi",
   "interface": {
-    "displayName": "Research Note Local"
+    "displayName": "Research Note"
   },
   "plugins": [
     {
