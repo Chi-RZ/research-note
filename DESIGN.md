@@ -47,8 +47,8 @@ project_memory/ §5  nodes/         the facts
                 §7  note/          interpretation, prose, per node
 wiki/           §7  knowledge/ the standalone knowledge base
 .agent/skills/  §7  where `memory-lift` lands a lifted method (§12)
-.research-note/ §2  project.json the declared layout and integrations · rules/ the
-                    project's own contract text (§10.1) · state/ core runtime state
+.research-note/ §2  project.json the declared layout and integrations · state/ core
+                    runtime state (old rules/ files are read-only migration input)
 .claude/        §10 this project's bindings — contracts, hpc profile, hooks
 .agents/ .codex/    the same bindings under the names the other agent reads (§12)
 ```
@@ -543,26 +543,18 @@ The mechanisms form a ladder from "text you read" to "machine that refuses".
 Where a mechanism sits on the ladder is decided by one test: a gate only where
 the failure it prevents would be silent.
 
-### 1 · Contract text — always loaded
+### 1 · Contract text — loaded by scope
 
-Four files hold the doctrine — the root `CLAUDE.md`, and `experiments-CLAUDE.md`,
-`project_memory-CLAUDE.md`, `wiki-CLAUDE.md` for the subtree each names. They
-live in `.claude/` and are **symlinked** into the directory they govern, so the
-rules load themselves when work happens there — one home, several views. Each
-is **generated**: the plugin's template, then the project's own rules from
-`.research-note/rules/<x>.md`, with a first line that names both sources. The
-framework's text and the project's never share a file that anyone edits, which
-is what lets an update replace the one without reading the other out of it —
-the earlier scheme kept both in one file, told them apart by the template being
-a byte-prefix of the copy, and had to refuse the moment the framework half
-moved under a project's additions. A project still on that scheme is carried
-over once: the plugin ships the length and hash of every template version it
-released (`templates/history.json`), so an old framework half is recognised
-exactly and whatever follows it moves into the rules file — only a file
-matching no version is left alone, as a conflict for a person.
-
-Rules that no machine can check live here and nowhere else — a rule that
-belongs to exactly one of these files is never restated in another.
+Four contract templates cover the root, experiments, project memory and wiki.
+The framework text is followed by a `## Project-specific rules` section in the
+same editable file. The files live in `.claude/` and are symlinked into the
+directories they govern, with both `CLAUDE.md` and `AGENTS.md` views so Claude
+and Codex read the same contract through their own recognised filename. An
+update replaces only the framework section and preserves the project section.
+Projects from older releases that kept additions in `.research-note/rules/`
+have those files imported once; new projects do not create that second source.
+If the framework section was edited in place and cannot be separated safely,
+the updater leaves the file alone and reports a conflict.
 
 ### 2 · Skills — loaded on invocation
 
@@ -719,7 +711,7 @@ needs no reload to be current:
 | `record_submit.py` | the post-submit record for one launched job, called by the launcher |
 | `remote.sh` | the whole cluster bridge (§8) |
 | `lib_state.sh` | the shell twin of `project_config.state_dir()`: the core runtime state directory `.research-note/state/` — the record lock, the land lock, the harvest stamps, the bus's put backups — created with its nested `.gitignore` on first use, so a project without a fixer still has somewhere to lock |
-| `contracts.py` | generates the four contract files — the plugin's template plus the project's own `.research-note/rules/<x>.md` — carries an appendix from the old boundary scheme into the rules file once, and leaves a file edited in place alone with a CONFLICT line (layer 1) |
+| `contracts.py` | updates the framework section of the four contract files, preserves the project-specific appendix below its heading, imports old `.research-note/rules/<x>.md` files for compatibility, and reports a CONFLICT when the framework section was edited in place (layer 1) |
 | `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
 | `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
 | `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
@@ -769,7 +761,7 @@ needs no reload to be current:
 the skill.**
 
 `bootstrap_project.py` lays down the core project in one idempotent run: the
-layout, the four generated contracts (§10.1) and `framework.json`, core
+layout, the four editable contracts (§10.1) and `framework.json`, core
 `settings.json`, the eight contract symlinks (§12), the githooks (§10.5), the
 auto-memory wiring, `.gitignore`, `_index.md`, the board, then the acceptance
 gate. The fixer, HPC, editor and cross-agent support are integrations, each

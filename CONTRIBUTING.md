@@ -82,10 +82,9 @@ python3 plugins/research-note/scripts/contracts.py record-history
 ```
 
 It appends the new template's length and hash to `templates/history.json`,
-which is how a later version recognises a project's contract as "the framework
-text of some release, plus whatever the project appended" and carries the
-appendix over instead of dropping it. A test fails until the current template
-is in the list.
+which is how a later version recognises the framework section of an older
+contract and carries the project's appendix over instead of dropping it. A
+test fails until the current template is in the list.
 
 **Push is the channel, not the last tidying step.** Every agent's marketplace is
 a clone of this repository's remote, so an unpushed commit is invisible to every

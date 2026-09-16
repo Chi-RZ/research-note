@@ -199,11 +199,10 @@ PY
         echo "   claude project pin: skipped"
     fi
 
-    # --- the four contracts are GENERATED: the plugin's template plus the
-    # project's own .research-note/rules/<x>.md. contracts.py regenerates them,
-    # carries an appendix from the old boundary scheme into the rules file
-    # once, and leaves a file that was edited in place alone with a CONFLICT
-    # line and the diff command — the judgment call is the skill's.
+    # --- the four contracts have a framework section followed by the project's
+    # editable appendix. contracts.py updates the first and preserves the
+    # second. Older .research-note/rules/<x>.md files are imported once for
+    # compatibility; an edited framework section is reported as CONFLICT.
     if [ -f "$CACHE/scripts/contracts.py" ]; then
         ct_out=$(python3 "$CACHE/scripts/contracts.py" sync "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
         printf '%s\n' "$ct_out" | grep -vE '^same ' | sed 's/^/   contract: /'

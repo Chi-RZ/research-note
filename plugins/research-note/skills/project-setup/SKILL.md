@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Use when starting a NEW research project, or bringing an OLD/messy one under the framework — layout, generated contracts, bindings, hooks, environment, and (organize mode) a conservative migration of existing code into src/ and experiments/.
+description: Use when starting a NEW research project, or bringing an OLD/messy one under the framework — layout, editable contracts, bindings, hooks, environment, and (organize mode) a conservative migration of existing code into src/ and experiments/.
 ---
 
 # research-note:project-setup
@@ -186,17 +186,16 @@ declaration is the only moment the facts are known and the file is unwritten.
 
 ## Step 3 — The judgment calls the script deliberately leaves to you
 
-**The four contracts are GENERATED — never edit them.** Each `.claude/*-CLAUDE.md`
-is the plugin's template plus this project's own rules file, and its first
-line says so. What this project decides for itself goes in
-`.research-note/rules/` — `root.md`, `experiments.md`, `record.md`, `wiki.md` —
-and bootstrap or an update regenerates the contract with it appended. Write
-there only what has nowhere else to live: a convention the linters cannot
-check, a binding to this project's tools. A commit prefix is a layer in
-`.research-note/project.json`, not prose. Prose about what this project is FOR
-belongs in `project_memory/note/`, or in the `Goal` of its first objective,
-where the record can cite it. A rule that would serve every project belongs in
-the plugin's template — say so.
+**The four contracts have two parts.** The framework template comes first.
+Project-specific rules go below the `## Project-specific rules` heading in the
+same contract. Claude reads the `CLAUDE.md` view and Codex reads the matching
+`AGENTS.md` view. Updates replace only the framework section and preserve the
+project section. Write there only what has nowhere else to live: a convention
+the linters cannot check, a binding to this project's tools. A commit prefix is
+a layer in `.research-note/project.json`, not prose. Prose about what this
+project is FOR belongs in `project_memory/note/`, or in the `Goal` of its first
+objective, where the record can cite it. A rule that would serve every project
+belongs in the plugin's template — say so.
 
 **`.claude/hpc.env`** — the machine facts nothing can infer: where a cluster
 is, and which queue to land in. Purely local work needs none of it; the file

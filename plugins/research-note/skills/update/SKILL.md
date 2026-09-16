@@ -115,7 +115,7 @@ do. `update_projects.sh --dry-run PROJECT` prints this table for the project
 
 | File | Treatment |
 |---|---|
-| `CLAUDE.md`, `experiments-CLAUDE.md`, `wiki-CLAUDE.md`, `project_memory-CLAUDE.md` | **Generated — never edited, never copied by hand.** `contracts.py` (the updater runs it) writes each as the plugin's template plus the project's own `.research-note/rules/<root\|experiments\|record\|wiki>.md`; the first line of the generated file names both. A project rule goes in the rules file; a framework rule goes in the plugin. A pre-generation file (0.1.9–0.2.3, the boundary block with an appendix under it) has its appendix carried into the rules file once — `migrated`. It reports `CONFLICT` and leaves the file alone only when a pre-generation file's project text cannot be told apart (edited in place, or an appendix beside a rules file that already has content): that is the judgment call — move the text, then `contracts.py sync PROJECT --force` |
+| `CLAUDE.md`, `experiments-CLAUDE.md`, `wiki-CLAUDE.md`, `project_memory-CLAUDE.md` | **Managed and editable.** The framework template is the first section. Write project-specific rules below `## Project-specific rules`; `contracts.py` preserves that appendix while updating the framework section. Older `.research-note/rules/<root\|experiments\|record\|wiki>.md` files are imported once for compatibility and then left untouched. If the framework section was edited in place and cannot be separated from the project text, the updater reports `CONFLICT` and leaves the file alone. |
 | `framework.json` | **State + policy — never copy.** `record` is the project's migration marker; the linters' FW gate reads it, and copying the template's value marks an unmigrated record as current, disarming the one check that protects it. The marker moves only when the record is actually migrated. `record_language` is the project's policy and stays |
 | `settings.json` | **Personalized** (permissions, env) — never copy wholesale. But DIFF the `permissions.allow` lists: a new mechanism often needs a new command (0.11 added `flock` and `sha256sum` for the record bus, then `bash`/`python3`/`ssh`/`scp`/`rsync` for the bus, remote.sh and doctor), and a project missing it fails at the moment the mechanism first runs — silently, as a permission prompt nobody is there to answer. Add what the template gained; keep everything the project has. Verify `enabledPlugins` still names the plugin |
 | `hpc.env` | **Personalized** (this machine's cluster) — never copy. But diff it against `templates/hpc.env` for KEYS the template documents and the project lacks, and tell the user what each would do (0.11 added `REMOTE_PARTITION` / `REMOTE_RESERVATION` / `REMOTE_ACCOUNT`; a project without them queues wherever the cluster defaults). Their values are the user's to give |
@@ -123,8 +123,9 @@ do. `update_projects.sh --dry-run PROJECT` prints this table for the project
 | `hpc-submit/*.slurm` | **Derived + personalized**: instantiated from the plugin's `skills/hpc-submit/scripts/*.slurm`, then edited for this cluster (partition, reservation, account). Do NOT copy over — DIFF them against the plugin's versions and port any plugin-side fix by hand, reporting what you ported. A project copy silently keeps the bugs the template already fixed |
 
 `project_memory/CLAUDE.md` and its siblings in the project tree are symlinks
-into `.claude/`, and those are generated — a project's own text lives in
-`.research-note/rules/<x>.md`, and a change there is an `agent:` commit.
+into `.claude/`. Edit the project-specific section through either the
+`CLAUDE.md` or `AGENTS.md` view. The old `.research-note/rules/<x>.md` files
+are compatibility inputs only.
 
 A `CONFLICT` line on a contract is the one place this step needs you. Read
 the diff it prints, and sort the project's text by WHY it is there:
@@ -133,7 +134,7 @@ the diff it prints, and sort the project's text by WHY it is there:
 |---|---|
 | an older wording of a framework rule | nothing to keep — `contracts.py sync PROJECT --force` |
 | a machine fact (a path, a cluster name, a partition) | that belongs in `hpc.env` or `settings.json`, not in a contract. Move it there, then `--force`; report the move |
-| a rule the project genuinely decided for itself | move it into `.research-note/rules/<x>.md`, then `--force`. If it would serve every project, say so — it may belong in the template instead; the user decides which |
+| a rule the project genuinely decided for itself | put it below `## Project-specific rules` in the matching contract. If it would serve every project, say so — it may belong in the template instead; the user decides which |
 
 For the derived-and-personalized files (`hpc-submit/*.slurm`) both halves are
 legitimate: the log-header block is the framework's and must be ported

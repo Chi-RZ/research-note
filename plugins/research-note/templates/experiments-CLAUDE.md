@@ -96,11 +96,9 @@ import jax
 
 ---
 
-## This project's own rules
+## Project-specific rules
 
-The text above is the framework's, generated from the plugin's template: an
-edit made up there is replaced at the next update, and a deletion comes back.
-What follows is this project's own, read from `.research-note/rules/experiments.md` —
-edit that file, and bootstrap or `research-note:update` regenerates this one.
-A rule that would serve every project belongs in the plugin instead — say so
-and it can be lifted into the template.
+Write rules for this project's experiments below this heading. This section
+belongs to the project and is kept when the plugin updates the framework section
+above. A rule that would serve every project belongs in the plugin template
+instead.

@@ -70,10 +70,10 @@ skill. The skill does the following.
   runs `git init` if needed.
 - writes the project contracts, settings, and environment files under
   `.claude/`, installs the githooks in front of any hooks the repository already
-  has, and adds the needed `.gitignore` entries. Matching `AGENTS.md` files give
-  Claude and Codex the same instructions. The contracts are generated from the
-  plugin's text plus your own rules in `.research-note/rules/`; edit those
-  files, and an update keeps them.
+  has, and adds the needed `.gitignore` entries. Claude reads `CLAUDE.md` and
+  Codex reads `AGENTS.md`; both are views of the same contract. The framework
+  text comes first, followed by a `## Project-specific rules` section where you
+  can write rules for this project. Updates preserve that section.
 - creates the dashboard and runs the acceptance checks. The fixer, the editor
   extensions, the cluster support and the registration with the other agent are
   integrations: each is enabled only when you ask for it, and the choice is kept
@@ -136,13 +136,14 @@ compatibility matrix against real repositories on every change:
 ## Migrating a project set up by an earlier version
 
 Run the update once. It writes `.research-note/project.json` with every
-integration turned on, which is what the project had. It moves anything you
-had added below a contract into `.research-note/rules/`, and regenerates the
-contract with it. It replaces the git hooks with the dispatcher, and your
-project's earlier hooks keep running. The record lock moves out of `.fixer/`
-into `.research-note/state/`. Nothing is deleted. The update prints one
-`conflict:` line for every file it could not resolve on its own, with the
-command to see the difference.
+integration turned on, which is what the project had. It keeps anything you
+had added below a contract's project-rules heading and updates the framework
+text above it. Older projects that used `.research-note/rules/` have those
+appendices carried into the contract once. It replaces the git hooks with the
+dispatcher, and your project's earlier hooks keep running. The record lock
+moves out of `.fixer/` into `.research-note/state/`. Nothing is deleted. The
+update prints one `conflict:` line for every file it could not resolve on its
+own, with the command to see the difference.
 
 Claude Code currently supports a few more setup and configuration steps than
 Codex. Both agents can run jobs and write the research record.
