@@ -688,6 +688,7 @@ needs no reload to be current:
 | `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
 | `gen_dashboard.py`, `watch_dashboard.sh` | the board, a regenerated view |
 | `bootstrap_project.py`, `update_projects.sh`, `doctor.sh` | lay a project down, carry it to a new version, verify every wire either laid (§11) |
+| `project_config.py` | reads and validates the project-owned layout, commit layers and optional features |
 | `projroot.py` | resolves the project root one way for every script, loudly |
 | `hook_dispatch.py` | the engine behind every hook of layer 3 — one process, one switch |
 | `wiki_sources.py` | walks the record once for `wiki-compile`: the `closed` gate, the citation tag and the staleness hash in one pass (§7) |
@@ -730,16 +731,19 @@ needs no reload to be current:
 **Principle: a mechanical step belongs in a script; a judgment call belongs in
 the skill.**
 
-`bootstrap_project.py` lays a complete project in one idempotent run: the layout,
+`bootstrap_project.py` lays down the core project in one idempotent run: the layout,
 the five `.claude/` contract files (four `CLAUDE.md` siblings and
-`framework.json`), `hpc.env` and `settings.json`, the eight contract symlinks
+`framework.json`), core `settings.json`, the eight contract symlinks
 (four files × the two names the two agents look for, §12), the
-submit templates, the githooks with `core.hooksPath` set, the auto-memory wiring,
-`.gitignore`, `_index.md`, the board, the fixer (a detached daemon — earlier
+githooks with `core.hooksPath` set, the auto-memory wiring,
+`.gitignore`, `_index.md`, the board, then the acceptance gate. The versioned
+`.research-note/project.json` enables optional fixer, HPC, editor and
+cross-agent support. Their setup persists the choice instead of changing only
+one bootstrap run. The fixer is a detached daemon — earlier
 versions installed a cron line BESIDE it, and two schedulers for one job
 serialize on the same lock, so the second only ever loses the race, while
-writing the user's global crontab to do it), the editor extensions — then the
-acceptance gate.
+writing the user's global crontab to do it. HPC adds its environment, submit
+templates and remote permissions only when enabled.
 
 It deliberately leaves to the skill everything requiring judgment: the project's
 mission paragraph, which domain libraries belong in log headers, the environment
@@ -825,4 +829,3 @@ re-clone, which is correct for a downloaded marketplace and destructive when the
 marketplace path is an editable checkout of your own repo; the updater advances
 a clean git-backed Claude marketplace with `git pull --ff-only` instead, and
 stops that side rather than cleaning it if it is dirty.
-

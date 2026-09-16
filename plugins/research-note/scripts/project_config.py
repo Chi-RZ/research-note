@@ -73,6 +73,32 @@ def initial_project_config(*, legacy: bool = False) -> dict[str, Any]:
     return config
 
 
+def with_feature_choices(
+    config: dict[str, Any], choices: dict[str, bool]
+) -> dict[str, Any]:
+    """Return a validated copy with explicit setup choices applied."""
+    result = copy.deepcopy(config)
+    for name, enabled in choices.items():
+        if name not in DEFAULT_CONFIG["features"]:
+            raise ConfigError(f"unknown feature {name!r}")
+        if not isinstance(enabled, bool):
+            raise ConfigError(f"feature choice {name!r} must be true or false")
+        result["features"][name] = enabled
+    validate_config(result)
+    return result
+
+
+def write_project_config(root: str | Path, config: dict[str, Any]) -> Path:
+    """Atomically write a validated project configuration."""
+    validate_config(config)
+    path = Path(root).expanduser().resolve() / CONFIG_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+    return path
+
+
 def find_project_root(start: str | Path = ".") -> Path:
     here = Path(start).expanduser().resolve()
     if here.is_file():
@@ -203,6 +229,9 @@ def main(argv: list[str] | None = None) -> int:
     feature.add_argument("name")
     role = sub.add_parser("role")
     role.add_argument("name")
+    set_feature = sub.add_parser("set-feature")
+    set_feature.add_argument("name")
+    set_feature.add_argument("value", choices=("true", "false"))
     args = parser.parse_args(argv)
 
     try:
@@ -219,6 +248,11 @@ def main(argv: list[str] | None = None) -> int:
             if not values:
                 raise ConfigError(f"unknown or empty role {args.name!r}")
             print("\n".join(values))
+        elif args.command == "set-feature":
+            config = with_feature_choices(
+                config, {args.name: args.value == "true"}
+            )
+            print(write_project_config(root, config))
     except ConfigError as exc:
         print(f"project_config: {exc}", file=sys.stderr)
         return 2

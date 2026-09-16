@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from project_config import ConfigError, feature_enabled, load_project_config
+
 PLUGIN = Path(__file__).resolve().parent.parent
 READ_ONLY = re.compile(
     r"^\s*(?:cd [^;&|]*&&\s*)?(?:grep|rg|cat|less|head|tail|sed|awk|ls|find|diff|wc|git)(?:\s|$)"
@@ -29,6 +31,8 @@ def payload() -> dict:
 
 def is_project(path: Path) -> bool:
     return (path / "project_memory").is_dir() and (
+        (path / ".research-note/project.json").is_file()
+        or
         (path / ".claude" / "framework.json").is_file()
         or (path / ".claude" / "roles.json").is_file()
     )
@@ -213,6 +217,12 @@ def session_start(data: dict) -> int:
     if root is None:
         return 0
     worktree({**data, "cwd": str(Path(str(data.get("cwd") or root)).resolve())})
+    try:
+        config = load_project_config(root)
+    except ConfigError:
+        return 0
+    if not feature_enabled(config, "fixer"):
+        return 0
     subprocess.Popen(
         ["bash", str(PLUGIN / "fixer" / "start_fixer_daemon.sh"), str(root)],
         cwd=root,

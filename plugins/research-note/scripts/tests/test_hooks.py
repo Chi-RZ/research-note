@@ -91,3 +91,39 @@ def test_codex_apply_patch_payload_exposes_edited_paths(tmp_path):
         },
     }
     assert edited_paths(data) == [(tmp_path / "project_memory/nodes/x.md").resolve()]
+
+
+def test_session_start_does_not_launch_a_disabled_fixer(tmp_path, monkeypatch):
+    import hook_dispatch
+
+    (tmp_path / "project_memory").mkdir()
+    config = tmp_path / ".research-note/project.json"
+    config.parent.mkdir()
+    config.write_text("{}")
+    monkeypatch.setattr(hook_dispatch, "project_root", lambda _data: tmp_path)
+    monkeypatch.setattr(hook_dispatch, "worktree", lambda _data: 0)
+    launched = []
+    monkeypatch.setattr(
+        hook_dispatch.subprocess, "Popen", lambda *args, **kwargs: launched.append(args)
+    )
+
+    assert hook_dispatch.session_start({}) == 0
+    assert launched == []
+
+
+def test_session_start_keeps_legacy_fixer_behaviour(tmp_path, monkeypatch):
+    import hook_dispatch
+
+    (tmp_path / "project_memory").mkdir()
+    marker = tmp_path / ".claude/framework.json"
+    marker.parent.mkdir()
+    marker.write_text("{}")
+    monkeypatch.setattr(hook_dispatch, "project_root", lambda _data: tmp_path)
+    monkeypatch.setattr(hook_dispatch, "worktree", lambda _data: 0)
+    launched = []
+    monkeypatch.setattr(
+        hook_dispatch.subprocess, "Popen", lambda *args, **kwargs: launched.append(args)
+    )
+
+    assert hook_dispatch.session_start({}) == 0
+    assert len(launched) == 1

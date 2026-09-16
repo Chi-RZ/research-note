@@ -60,6 +60,20 @@ def test_first_schema_config_uses_core_only_defaults_for_new_projects():
     assert cfg["features"] != m.LEGACY_FEATURES
 
 
+def test_feature_choices_are_persisted_without_changing_layout(tmp_path):
+    m = module()
+    root = project(tmp_path)
+    original = m.initial_project_config()
+    changed = m.with_feature_choices(original, {"fixer": True, "editor": True})
+    path = m.write_project_config(root, changed)
+
+    loaded = m.load_project_config(root)
+    assert path == root / m.CONFIG_PATH
+    assert loaded["features"]["fixer"] is True
+    assert loaded["features"]["editor"] is True
+    assert loaded["layers"] == original["layers"]
+
+
 def test_custom_layout_can_keep_existing_code_in_place(tmp_path):
     m = module()
     root = project(tmp_path)

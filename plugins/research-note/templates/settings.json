@@ -5,12 +5,6 @@
   "permissions": {
     "allow": [
       "Bash(git:*)",
-      "Bash(sbatch:*)",
-      "Bash(squeue:*)",
-      "Bash(sacct:*)",
-      "Bash(scancel:*)",
-      "Bash(srun:*)",
-      "Bash(scontrol:*)",
       "Bash(awk:*)",
       "Bash(sed:*)",
       "Bash(stat:*)",
@@ -25,10 +19,7 @@
       "Bash(head:*)",
       "Bash(mkdir:*)",
       "Bash(bash:*)",
-      "Bash(python3:*)",
-      "Bash(ssh:*)",
-      "Bash(scp:*)",
-      "Bash(rsync:*)"
+      "Bash(python3:*)"
     ]
   }
 }

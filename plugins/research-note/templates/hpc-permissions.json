@@ -1,0 +1,11 @@
+[
+  "Bash(sbatch:*)",
+  "Bash(squeue:*)",
+  "Bash(sacct:*)",
+  "Bash(scancel:*)",
+  "Bash(srun:*)",
+  "Bash(scontrol:*)",
+  "Bash(ssh:*)",
+  "Bash(scp:*)",
+  "Bash(rsync:*)"
+]

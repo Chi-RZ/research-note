@@ -88,6 +88,32 @@ def test_bootstrap_only_preserves_old_feature_defaults_for_legacy_projects(tmp_p
     assert not bootstrap.needs_legacy_config(tmp_path)
 
 
+def test_bootstrap_feature_flags_are_persistent_choices():
+    bootstrap = _bootstrap()
+    assert bootstrap.feature_choices(
+        ["--with-fixer", "--no-qdash", "--with-cross-agent"]
+    ) == {"fixer": True, "editor": False, "cross_agent": True}
+    assert bootstrap.feature_choices([], has_remote=True) == {"hpc": True}
+
+    with pytest.raises(bootstrap.ConfigError, match="conflicting"):
+        bootstrap.feature_choices(["--with-fixer", "--no-fixer"])
+    with pytest.raises(bootstrap.ConfigError, match="--remote"):
+        bootstrap.feature_choices(["--no-hpc"], has_remote=True)
+
+
+def test_core_settings_do_not_request_remote_or_scheduler_permissions():
+    bootstrap = _bootstrap()
+    core = json.loads(bootstrap.settings_text(hpc=False))
+    hpc = json.loads(bootstrap.settings_text(hpc=True))
+    core_rules = set(core["permissions"]["allow"])
+    hpc_rules = set(hpc["permissions"]["allow"])
+
+    for command in ("ssh", "scp", "rsync", "sbatch", "srun", "squeue"):
+        rule = f"Bash({command}:*)"
+        assert rule not in core_rules
+        assert rule in hpc_rules
+
+
 def test_contracts_name_shared_memory_as_the_authority():
     root = (PLUGIN / "templates" / "CLAUDE.md").read_text()
     record = (PLUGIN / "templates" / "project_memory-CLAUDE.md").read_text()

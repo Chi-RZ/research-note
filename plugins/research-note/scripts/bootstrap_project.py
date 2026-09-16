@@ -16,10 +16,17 @@ project's qdash copy, board and fixer daemon all come back pointing at the new
 version (everything else reports `kept`).
 
 Usage:
-  bootstrap_project.py [PROJECT_DIR] [--dry-run] [--no-qdash] [--no-fixer]
-                       [--no-cross-agent] [--remote HOST:DIR ...]
+  bootstrap_project.py [PROJECT_DIR] [--dry-run]
+                       [--with-fixer] [--with-editor] [--with-cross-agent]
+                       [--with-hpc | --remote HOST:DIR ...]
 
-ONE command configures BOTH agents. The project-side bindings were always dual
+New projects start with the record workflow only. Fixer, HPC, editor support
+and cross-agent registration are opt-in and the choice is saved in
+`.research-note/project.json`. The old `--no-fixer`, `--no-qdash` and
+`--no-cross-agent` flags remain accepted and now persist their choice. Projects
+created before this configuration existed keep their integrations enabled.
+
+ONE command can configure BOTH agents. The project-side bindings were always dual
 (AGENTS.md per layer, one shared memory dir, one shared skills dir); what was
 not was the machine, because each CLI keeps its own marketplace list and its
 own install pin. So this also registers the plugin with whichever of Claude /
@@ -53,7 +60,15 @@ PLUGIN = HERE.parent
 TEMPLATES = PLUGIN / "templates"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
-from project_config import CONFIG_PATH, initial_project_config
+from project_config import (
+    CONFIG_PATH,
+    ConfigError,
+    feature_enabled,
+    initial_project_config,
+    load_project_config,
+    with_feature_choices,
+    write_project_config,
+)
 
 DIRS = ("src", "tests", "experiments", "experiments/tests", "wiki", ".agent/skills",
         "wiki/knowledge",
@@ -65,9 +80,7 @@ FILES = {"CLAUDE.md": ".claude/CLAUDE.md",
          "experiments-CLAUDE.md": ".claude/experiments-CLAUDE.md",
          "project_memory-CLAUDE.md": ".claude/project_memory-CLAUDE.md",
          "wiki-CLAUDE.md": ".claude/wiki-CLAUDE.md",
-         "framework.json": ".claude/framework.json",
-         "hpc.env": ".claude/hpc.env",
-         "settings.json": ".claude/settings.json"}
+         "framework.json": ".claude/framework.json"}
 #: the per-layer contract views: link -> target, so one file has one home
 LINKS = {"CLAUDE.md": ".claude/CLAUDE.md",
          "AGENTS.md": ".claude/CLAUDE.md",
@@ -151,6 +164,64 @@ def needs_legacy_config(proj: Path) -> bool:
         not (proj / CONFIG_PATH).exists()
         and (proj / ".claude/framework.json").is_file()
     )
+
+
+FEATURE_FLAGS = {
+    "fixer": (("--with-fixer",), ("--no-fixer", "--without-fixer")),
+    "hpc": (("--with-hpc",), ("--no-hpc", "--without-hpc")),
+    "editor": (
+        ("--with-editor", "--with-qdash"),
+        ("--no-editor", "--without-editor", "--no-qdash"),
+    ),
+    "cross_agent": (
+        ("--with-cross-agent",),
+        ("--no-cross-agent", "--without-cross-agent"),
+    ),
+}
+
+
+def feature_choices(argv: list[str], *, has_remote: bool = False) -> dict[str, bool]:
+    """Translate setup flags into persistent project feature choices."""
+    choices: dict[str, bool] = {}
+    for name, (positive, negative) in FEATURE_FLAGS.items():
+        enabled = any(flag in argv for flag in positive)
+        disabled = any(flag in argv for flag in negative)
+        if enabled and disabled:
+            raise ConfigError(f"conflicting flags for {name}")
+        if enabled or disabled:
+            choices[name] = enabled
+    if has_remote:
+        if choices.get("hpc") is False:
+            raise ConfigError("--remote cannot be combined with --no-hpc")
+        choices["hpc"] = True
+    return choices
+
+
+def settings_text(*, hpc: bool) -> str:
+    """Render the smallest settings file needed by the selected features."""
+    settings = json.loads((TEMPLATES / "settings.json").read_text(encoding="utf-8"))
+    if hpc:
+        extra = json.loads(
+            (TEMPLATES / "hpc-permissions.json").read_text(encoding="utf-8")
+        )
+        allowed = settings.setdefault("permissions", {}).setdefault("allow", [])
+        allowed.extend(rule for rule in extra if rule not in allowed)
+    return json.dumps(settings, indent=2) + "\n"
+
+
+def fixer_processes(proj: Path) -> list[tuple[str, str]]:
+    """Return fixer daemon processes whose command names this project."""
+    found = subprocess.run(
+        ["ps", "ax", "-o", "pid=", "-o", "command="],
+        capture_output=True,
+        text=True,
+    )
+    processes = []
+    for line in found.stdout.splitlines():
+        pid, _, command = line.strip().partition(" ")
+        if pid.isdigit() and "lint_fixer_daemon" in command and str(proj) in command:
+            processes.append((pid, command))
+    return processes
 
 
 
@@ -377,6 +448,11 @@ def main() -> int:
         host, _, rdir = spec.partition(":")
         remote_specs.append((host, rdir))
         argv = argv[:i] + argv[i + 2:]
+    try:
+        requested_features = feature_choices(sys.argv[1:], has_remote=bool(remote_specs))
+    except ConfigError as exc:
+        print(f"bootstrap: {exc}", file=sys.stderr)
+        return 2
     args = [a for a in argv if not a.startswith("--")]
     dry = "--dry-run" in sys.argv
     proj = Path(args[0]).resolve() if args else Path.cwd().resolve()
@@ -431,10 +507,71 @@ def main() -> int:
             say("FAIL", dst, f"template missing: {t}")
             continue
         w(proj / dst, t.read_text(encoding="utf-8"), dst)
-    config_text = json.dumps(
-        initial_project_config(legacy=legacy_without_config), indent=2
-    ) + "\n"
-    w(config_path, config_text, str(CONFIG_PATH))
+    try:
+        base_config = (
+            load_project_config(proj, legacy_if_missing=False)
+            if config_path.exists()
+            else initial_project_config(legacy=legacy_without_config)
+        )
+        project_config = with_feature_choices(base_config, requested_features)
+    except ConfigError as exc:
+        say("FAIL", str(CONFIG_PATH), str(exc))
+        return 2
+    if config_path.exists():
+        if project_config == base_config:
+            say("kept", str(CONFIG_PATH))
+        else:
+            if not dry:
+                write_project_config(proj, project_config)
+            changed = ", ".join(
+                f"{name}={'on' if value else 'off'}"
+                for name, value in requested_features.items()
+            )
+            say("ok", str(CONFIG_PATH), changed)
+    else:
+        if not dry:
+            write_project_config(proj, project_config)
+        say("new", str(CONFIG_PATH))
+
+    settings_path = proj / ".claude/settings.json"
+    if not settings_path.exists():
+        w(
+            settings_path,
+            settings_text(hpc=feature_enabled(project_config, "hpc")),
+            ".claude/settings.json",
+        )
+    elif feature_enabled(project_config, "hpc"):
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            extra = json.loads(
+                (TEMPLATES / "hpc-permissions.json").read_text(encoding="utf-8")
+            )
+            allowed = settings.setdefault("permissions", {}).setdefault("allow", [])
+            missing = [rule for rule in extra if rule not in allowed]
+            if missing and not dry:
+                allowed.extend(missing)
+                settings_path.write_text(
+                    json.dumps(settings, indent=2) + "\n", encoding="utf-8"
+                )
+            say(
+                "ok" if missing else "kept",
+                ".claude/settings.json",
+                f"added {len(missing)} HPC permission(s)" if missing else "",
+            )
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
+            say("WARN", ".claude/settings.json", f"cannot merge HPC permissions: {exc}")
+    else:
+        say("kept", ".claude/settings.json")
+
+    if feature_enabled(project_config, "hpc"):
+        hpc_template = TEMPLATES / "hpc.env"
+        w(
+            proj / ".claude/hpc.env",
+            hpc_template.read_text(encoding="utf-8"),
+            ".claude/hpc.env",
+        )
+    else:
+        say("skip", ".claude/hpc.env", "HPC is disabled")
 
     print("\n· page templates (.claude/examples/)")
     for ex in sorted((TEMPLATES.parent / "design").glob("*-template.md")):
@@ -498,7 +635,9 @@ def main() -> int:
     # plugin: a copy here goes stale on every plugin update and, sitting one
     # level shallower than the plugin layout, used to resolve its helper to a
     # path outside the repo.
-    if not st_src.exists():
+    if not feature_enabled(project_config, "hpc"):
+        say("skip", ".claude/hpc-submit", "HPC is disabled")
+    elif not st_src.exists():
         say("WARN", ".claude/hpc-submit", "plugin ships no submit templates")
     elif st_dst.exists():
         stray = st_dst / "launch_bare_gpu.sh"
@@ -595,16 +734,23 @@ def main() -> int:
     # silent. fixer/register_cron.sh stays in the tree for anyone who wants
     # reboot survival and knows they want it.
     #
-    # It stays ON by default because what it does is cheap and nothing else
-    # does it: a whole-record scan catches what the write-time gates cannot see
+    # When enabled, a whole-record scan catches what the write-time gates cannot see
     # — a job that died, a src/ file renamed under a page's links, a follow-up
     # that never joined a plan — none of which touch the page they invalidate.
     # It runs python and nothing else: both agent tiers are disabled in
     # config.json and prompt_analyze.md does not exist, so no LLM is ever
     # invoked; the cycle lints, stamps `attention:`, refreshes the board, and
     # takes one ssh for the remote queue snapshot.
-    if "--no-fixer" in sys.argv:
-        say("skip", "fixer", "--no-fixer")
+    if not feature_enabled(project_config, "fixer"):
+        running = fixer_processes(proj) if not dry else []
+        for pid, _command in running:
+            subprocess.run(["pkill", "-P", pid], check=False)
+            subprocess.run(["kill", pid], check=False)
+        detail = (
+            f"disabled; stopped {len(running)} daemon(s)"
+            if running else "disabled in .research-note/project.json"
+        )
+        say("skip", "fixer", detail)
     elif dry:
         say("new", "fixer", "daemon (10 min)")
     else:
@@ -615,14 +761,8 @@ def main() -> int:
         # a no-op ("already running").
         # ps, not pgrep: macOS pgrep has no -a, and `ps ax -o` is the one
         # spelling procps and BSD both accept.
-        stale = subprocess.run(
-            ["ps", "ax", "-o", "pid=", "-o", "command="],
-            capture_output=True, text=True)
-        for line in stale.stdout.splitlines():
-            pid, _, cmd = line.strip().partition(" ")
-            if "lint_fixer_daemon" not in cmd:
-                continue
-            if str(proj) in cmd and f"{proj}/.fixer/run.sh" not in cmd:
+        for pid, command in fixer_processes(proj):
+            if f"{proj}/.fixer/run.sh" not in command:
                 subprocess.run(["pkill", "-P", pid], check=False)
                 subprocess.run(["kill", pid], check=False)
                 say("ok", "stopped stale fixer daemon", f"pid {pid} (pre-upgrade path)")
@@ -674,12 +814,14 @@ def main() -> int:
             say("ok" if r.returncode == 0 else "FAIL", f"remote.sh setup ({h})",
                 (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0
                 else (r.stderr.strip() or r.stdout.strip())[:200])
-    else:
+    elif feature_enabled(project_config, "hpc"):
         envf = proj / ".claude" / "hpc.env"
         if envf.exists() and "REMOTE_HOST=" in envf.read_text(encoding="utf-8").replace("#REMOTE_HOST=", ""):
             say("kept", "remote HPC (declared in hpc.env)")
         else:
             say("skip", "remote HPC", "none declared (--remote HOST:DIR to add one)")
+    else:
+        say("skip", "remote HPC", "disabled in .research-note/project.json")
 
     print("\n· editor extensions (VS Code)")
     # BOTH dirs can exist on one machine: a local Mac that has ever run the
@@ -691,8 +833,8 @@ def main() -> int:
     # commands are never double-registered.
     ext_roots = [d for d in (Path.home() / ".vscode-server" / "extensions",
                              Path.home() / ".vscode" / "extensions") if d.is_dir()]
-    if "--no-qdash" in sys.argv:
-        say("skip", "editor extensions", "--no-qdash")
+    if not feature_enabled(project_config, "editor"):
+        say("skip", "editor extensions", "disabled in .research-note/project.json")
     elif not ext_roots:
         say("skip", "editor extensions",
             "no ~/.vscode-server or ~/.vscode extensions dir (no VS Code here)")
@@ -717,8 +859,8 @@ def main() -> int:
             say("ok", label, f"{', '.join(dsts)} — RELOAD WINDOW once to load it")
 
     print("\n· the other agent's plugin registry")
-    if "--no-cross-agent" in sys.argv:
-        say("skip", "other agent", "--no-cross-agent")
+    if not feature_enabled(project_config, "cross_agent"):
+        say("skip", "other agent", "disabled in .research-note/project.json")
     else:
         sync_other_agent(dry)
 

@@ -13,7 +13,8 @@ MACHINERY (skills, hooks, linters, fixer, dashboard generator) ships as the
 `research-note` plugin; the project carries only its own bindings.
 
 **The mechanical half is a script** — `scripts/bootstrap_project.py` (Step 2)
-does the layout, bindings, hooks, fixer, viewer and gate in one idempotent run.
+does the layout, bindings, hooks and gate in one idempotent run. Fixer, remote
+HPC, editor support and cross-agent registration are optional project features.
 This skill owns what needs judgment: the roles declaration, the project's
 the env pinning, and (organize mode) how existing code maps onto `src/` +
 `experiments/`.
@@ -119,6 +120,18 @@ When this skill is already running, use the plugin root that contains this
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"      # add --dry-run to preview
 ```
 
+For a new project, add only the integrations the user wants:
+
+```bash
+python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD" \
+  --with-fixer --with-editor --with-cross-agent
+```
+
+These choices are written to `.research-note/project.json`; later runs and
+SessionStart hooks read the same file. `--with-hpc` enables local HPC files,
+and `--remote HOST:DIR` enables HPC while also declaring a host. Projects from
+before this file existed retain their previous enabled behavior on migration.
+
 **If the user named a cluster, pass it here** — `--remote HOST:DIR`, the ssh
 alias and where the project lives on that host (repeatable; the first is the
 default). Declaring it at bootstrap is what reaches the queue-placement
@@ -131,22 +144,24 @@ declaring a host.
 It creates the layout (`src/ tests/ experiments/ project_memory/{nodes,memory/shared,note,objectives}
 wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
 `AGENTS.md` views from the
-plugin templates (contracts, `framework.json`, `hpc.env`, `settings.json` with
+plugin templates (contracts, `framework.json`, `settings.json` with
 `enabledPlugins`), the four contract symlinks, githooks + `core.hooksPath`,
 `autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
-`dashboard.html`, the fixer as a detached daemon (never cron — two schedulers
-race on one lock, and `crontab(1)` on macOS is TCC-gated), the editor extensions (qdash + markdown white preview) into every VS
+`dashboard.html`, and the acceptance gate (self-tests + both linters). When
+selected, it also starts the fixer as a detached daemon (never cron — two schedulers
+race on one lock, and `crontab(1)` on macOS is TCC-gated), installs the editor extensions (qdash + markdown white preview) into every VS
 Code extensions dir that exists (`~/.vscode-server/extensions/` and/or
 `~/.vscode/extensions/` — a local Mac that has run the `code` CLI has both, and
-only the latter is the one its window reads), and finally the acceptance gate
-(self-tests + both linters). It prints one line per step and a
+only the latter is the one its window reads), creates HPC bindings, or registers
+the other agent. It prints one line per step and a
 `needs attention` summary.
 
 **It never overwrites an existing project file** — a re-run reports `kept`, so
 running it again after a plugin update is safe and is how you pick up new
 scaffolding. Flags: `--remote HOST:DIR` (repeatable), `--dry-run`,
-`--no-fixer`, `--no-qdash` (skips the whole editor-extensions step, not just
-qdash), `--no-cross-agent`.
+`--with-fixer`, `--with-hpc`, `--with-editor`, `--with-cross-agent`. The old
+`--no-fixer`, `--no-qdash` and `--no-cross-agent` spellings remain supported
+and persistently disable those features.
 
 **One run configures BOTH agents.** The project side was always dual — an
 `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex` as
@@ -451,10 +466,10 @@ genuine anomaly, not a habit — used routinely it turns the partition off.
 
 ---
 
-## Step 6 — Board + fixer (already done by Step 2 — verify, don't redo)
+## Step 6 — Board + optional fixer and editor support
 
-`bootstrap_project.py` started the fixer and installed the editor extensions.
-Verify and hand over:
+The dashboard is part of the core. If fixer or editor support was selected,
+verify and hand it over:
 
 ```bash
 pgrep -af lint_fixer_daemon               # one loop for this project
@@ -527,8 +542,8 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
-- [ ] editor extensions installed as real copies (not symlinks); user asked to reload window
-- [ ] lint-fixer up — re-running `start_fixer_daemon.sh` prints `already running`, and `doctor.sh` reports the last cycle under thirty minutes old
+- [ ] if editor support is enabled, extensions are real copies (not symlinks) and the user was asked to reload the window
+- [ ] if fixer is enabled, re-running `start_fixer_daemon.sh` prints `already running`, and `doctor.sh` reports the last cycle under thirty minutes old
 - [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and the four contract symlinks print `OK`**
 - [ ] `uv run python -c "import <pkg>"` succeeds
 - [ ] layered commits (`memory:` / `wiki:` / `chore:` …, `agent:` separately); summary printed; `research-note:plan` suggested
