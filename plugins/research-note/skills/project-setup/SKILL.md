@@ -43,6 +43,57 @@ ls -A                                        # existing top-level content
 
 Decide **mode**: empty-ish dir → `new`; existing code/data → `organize`.
 
+Show the layout decision before running bootstrap. The default mapping is:
+
+| role | default directory |
+|---|---|
+| reusable libraries | `src/` |
+| tests | `tests/` |
+| experiment code and runs | `experiments/` |
+| project memory | `project_memory/` |
+| published knowledge | `wiki/` |
+
+For an empty project, show these defaults and continue unless the user changes
+them. For an existing project, scan its top-level folders and propose a mapping
+before creating the framework. For example:
+
+```text
+code, packages  → libraries
+spec             → tests
+trials, notebooks → experiments
+docs             → knowledge
+data, logs       → leave in place
+```
+
+Ask the user to confirm or edit every proposed mapping. Leave unassigned
+folders where they are and say that the framework does not govern them yet.
+After confirmation, write the confirmed `roles` and matching `layers.paths` to
+`.research-note/project.json`, then run bootstrap. Do not run bootstrap first
+and ask about the layout afterwards.
+
+The confirmed file keeps the rest of the shipped defaults. A custom mapping
+looks like this:
+
+```json
+{
+  "roles": {
+    "libraries": ["code", "packages"],
+    "tests": ["spec"],
+    "experiments": ["trials", "notebooks"],
+    "knowledge": ["docs"]
+  },
+  "layers": {
+    "source": {"paths": ["code", "packages", "spec"]},
+    "experiments": {"paths": ["trials", "notebooks"]},
+    "knowledge": {"paths": ["docs"]}
+  }
+}
+```
+
+Merge these values into `templates/project.json`; retain its `schema`, commit
+prefixes, `paths.record`, `layers.record`, `layers.agent`, `layers.root`, and
+`features` fields.
+
 For `organize`, additionally map the terrain:
 - Which dirs are an **importable library** (a package with a stable API,
   internal `from <pkg>...` imports, reused across scripts)? → destined for `src/`.
@@ -54,8 +105,9 @@ For `organize`, additionally map the terrain:
 - Dependencies: `grep -rh "^import\|^from" --include=*.py | sort -u` and note
   external libs the env must provide (e.g. quantax, quimb, jax).
 
-Confirm the migration mapping with the user before the big moves (a table:
-`current → target`). Flag any >1 GB data dir explicitly.
+Confirm the mapping with the user before any move (a table: `current → role`).
+Flag any >1 GB data dir explicitly. Setup itself does not move files; if the
+user later approves a move, do it in a separate, reviewable step.
 
 ---
 
@@ -85,6 +137,10 @@ When this skill is already running, use the plugin root that contains this
 ```bash
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"      # add --dry-run to preview
 ```
+
+For an existing project, this command must run only after the confirmed
+`.research-note/project.json` has been written. Bootstrap creates missing role
+directories from that file and keeps existing directories and files.
 
 For a new project, add only the integrations the user wants:
 
@@ -530,7 +586,7 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
 - [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)
 - [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
-- [ ] every top-level directory is owned by exactly one commit prefix (a `layers` entry in `.research-note/project.json` for each beyond the standard six)
+- [ ] every directory the framework will touch is owned by one commit prefix; explicitly unassigned folders are left outside its scope
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
