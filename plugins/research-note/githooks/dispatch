@@ -1,0 +1,54 @@
+#!/bin/sh
+# research-note git hook dispatcher.
+#
+# Every standard hook name in this directory is a link to this file. For the
+# hook being run it does two things, in order:
+#   1. runs research-note's own check, research-note/<hook>, where one exists
+#      (pre-commit and commit-msg). A refusal there ends the hook with that
+#      exit code and nothing else runs.
+#   2. hands the event on to the hook directory that was active before
+#      research-note took core.hooksPath — arguments, stdin and exit code
+#      intact — so a pre-commit framework, git-lfs or hand-written hook that
+#      was already installed keeps running exactly as before.
+#
+# The forward target is `git config research-note.previousHooksPath` when the
+# project had core.hooksPath set before install, else the repository's own
+# hooks directory (.git/hooks, shared by every linked worktree).
+#
+# Re-entry: the forwarded directory can resolve back to this one (an install
+# run over itself, a symlink cycle), and a forwarded hook can itself run git.
+# RESEARCH_NOTE_HOOK_ACTIVE names the hook in flight; a second entry for the
+# SAME hook name does nothing, so no chain can loop.
+#
+# POSIX sh on purpose: this also runs under macOS /bin/sh (bash 3.2).
+hook=${RESEARCH_NOTE_HOOK:-$(basename "$0")}
+here=$(cd "$(dirname "$0")" && pwd -P) || exit 0
+if [ "${RESEARCH_NOTE_HOOK_ACTIVE:-}" = "$hook" ]; then
+    exit 0
+fi
+RESEARCH_NOTE_HOOK_ACTIVE=$hook
+export RESEARCH_NOTE_HOOK_ACTIVE
+
+own="$here/research-note/$hook"
+if [ -x "$own" ]; then
+    "$own" "$@" || exit $?
+fi
+
+# `rev-parse --git-path hooks` would answer core.hooksPath — this directory —
+# so the repository's own hooks are found under the common dir instead.
+prev=$(git config --get research-note.previousHooksPath 2>/dev/null)
+if [ -z "$prev" ]; then
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+        || common=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0
+    prev="$common/hooks"
+fi
+case "$prev" in
+    /*) ;;
+    *)  top=$(git rev-parse --show-toplevel 2>/dev/null) || top=$PWD
+        prev="$top/$prev" ;;
+esac
+[ -d "$prev" ] || exit 0
+prevabs=$(cd "$prev" && pwd -P) || exit 0
+[ "$prevabs" = "$here" ] && exit 0
+[ -f "$prevabs/$hook" ] && [ -x "$prevabs/$hook" ] || exit 0
+exec "$prevabs/$hook" "$@"

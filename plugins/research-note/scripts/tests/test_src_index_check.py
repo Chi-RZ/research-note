@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 SCRIPTS = Path(__file__).resolve().parent.parent
-HOOK = SCRIPTS.parent / "githooks" / "pre-commit"
+HOOK = SCRIPTS.parent / "githooks" / "research-note" / "pre-commit"
 
 SRC = '''"""a module."""
 

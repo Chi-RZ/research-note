@@ -234,39 +234,17 @@ PY
         done
     fi
 
-    # --- githooks: install a MISSING one, never overwrite an existing one.
-    # A guard that never reached the project is a guard that never fires, so a
-    # hook the project lacks is pure gain. But commit-msg's RULES table maps each
-    # prefix to the top-level dirs it may touch, which makes it a function of the
-    # project's LAYOUT: every project whose tree exceeds the template's five dirs
-    # has extended it legitimately. Copying over that is not a sync, it is a
-    # deletion — the prefixes vanish and every commit touching those dirs is
-    # rejected until someone works out why. Porting a plugin-side change into a
-    # customised hook needs judgment, so the script reports and the skill decides.
-    # A project that has moved its layers into .research-note/project.json has
-    # no such table in its hook any more; for it the hook is framework text
-    # and is synced like one.
-    if [ -d "$CACHE/githooks" ]; then
-        mkdir -p "$P/.claude/githooks"
-        for h in "$CACHE"/githooks/*; do
-            [ -f "$h" ] || continue
-            b=$(basename "$h")
-            if [ ! -e "$P/.claude/githooks/$b" ]; then
-                run cp "$h" "$P/.claude/githooks/$b"; echo "   githook: $b installed (was missing)"; CHANGED+=("$P")
-            elif ! diff -q "$h" "$P/.claude/githooks/$b" >/dev/null 2>&1; then
-                if [ -f "$P/.research-note/project.json" ]; then
-                    # The layer table lives in the declaration now, so the hook
-                    # carries nothing of the project's own: replacing it loses
-                    # nothing and brings the plugin's fixes.
-                    run cp "$h" "$P/.claude/githooks/$b"; echo "   githook: $b synced (rules come from .research-note/project.json)"; CHANGED+=("$P")
-                else
-                    echo "   githook: $b DIFFERS from the template — diff and port by hand"
-                    echo "      diff $h $P/.claude/githooks/$b"
-                fi
-            fi
-        done
-        hp=$(git -C "$P" config core.hooksPath 2>/dev/null)
-        [ -n "$hp" ] || { run git -C "$P" config core.hooksPath .claude/githooks; echo "   githook: core.hooksPath set"; }
+    # --- githooks: the dispatcher and research-note's own checks are framework
+    # text, installed and refreshed by the one module that knows the layout. It
+    # migrates a pre-dispatcher project (real files under the hook names), keeps
+    # forwarding to whatever hooks were active before research-note took
+    # core.hooksPath, and leaves a pre-declaration commit-msg alone with a
+    # warning: that hook carries the project's own layer rows until they move
+    # into .research-note/project.json.
+    if [ -f "$CACHE/scripts/githooks_install.py" ]; then
+        gh_out=$(python3 "$CACHE/scripts/githooks_install.py" install "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        printf '%s\n' "$gh_out" | grep -vE '^kept ' | sed 's/^/   githook: /'
+        printf '%s\n' "$gh_out" | grep -qE '^(new|synced|moved|linked) ' && CHANGED+=("$P")
     fi
 
     # --- pluginRoot is the one git config an update must REPOINT rather than

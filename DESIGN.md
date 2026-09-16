@@ -665,6 +665,25 @@ escape has to be typed, which is the difference.
 | `land_and_launch.sh` | landing and launching in one breath | a dirty branch, main onto itself, a branch that will not rebase cleanly — and it holds one lock across rebase → merge → launch, because main's WORKING TREE is what the launcher reads to build its header (§10, sharing the repo) |
 | `worktree_retire.sh` | retiring a worktree | removal while any process still has its cwd inside. The one gate that is not reached by default: nothing wraps plain `git worktree remove` |
 
+**How the two git hooks reach git without displacing the project's own.**
+Setting `core.hooksPath` is the only way to ship a hook with a project, and it
+has one well-known cost: git then ignores `.git/hooks/` entirely, so a
+pre-commit framework, git-lfs or a hand-written pre-push that was already
+installed stops running, silently. The hook directory therefore holds a
+dispatcher, and every standard hook name in it is a link to that one file. The
+dispatcher runs research-note's own check first — `research-note/pre-commit`,
+`research-note/commit-msg`, a refusal there ends the event — and then hands the
+event on to the hook directory that was active before install, with arguments,
+stdin and exit code intact: `research-note.previousHooksPath` when the project
+had a `core.hooksPath` of its own, else the repository's `.git/hooks/`. A hook
+added there later runs too, because the target is resolved at run time, not at
+install. The hook in flight is marked in the environment, so a forwarded hook
+that runs git cannot re-enter the same hook, and a forward that resolves back to
+the dispatcher's own directory stops. `githooks_install.py` lays all of it,
+migrates the pre-dispatcher layout, `uninstall` puts `core.hooksPath` back, and
+`status` is what doctor prints. The dispatcher is POSIX sh because macOS's
+`/bin/sh` is bash 3.2.
+
 ### 6 · The scanner and the board — after the fact
 
 A fixer (a session-started daemon; state in `.fixer/`) each cycle
@@ -695,6 +714,7 @@ needs no reload to be current:
 | `record_sync.sh` | the record bus — the one write path onto `project_memory/` |
 | `record_submit.py` | the post-submit record for one launched job, called by the launcher |
 | `remote.sh` | the whole cluster bridge (§8) |
+| `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
 | `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
 | `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
 | `gen_dashboard.py`, `watch_dashboard.sh` | the board, a regenerated view |
@@ -746,7 +766,8 @@ the skill.**
 the five `.claude/` contract files (four `CLAUDE.md` siblings and
 `framework.json`), core `settings.json`, the eight contract symlinks
 (four files × the two names the two agents look for, §12), the
-githooks with `core.hooksPath` set, the auto-memory wiring,
+githooks — a dispatcher that runs research-note's gates and then the hooks the
+project already had (§10.5) — with `core.hooksPath` set, the auto-memory wiring,
 `.gitignore`, `_index.md`, the board, then the acceptance gate. The versioned
 `.research-note/project.json` enables optional fixer, HPC, editor and
 cross-agent support. Their setup persists the choice instead of changing only
@@ -764,8 +785,10 @@ pins.
 *verifies by reading the pin file* rather than trusting a success line, syncs the
 contract files, merges the permissions the template gained, then runs doctor and
 the linters. It treats a project's own additions as additions: when the template
-is a byte-prefix of the project's contract file the appendix is left alone, and a
-customised `commit-msg` is reported for hand-porting rather than overwritten.
+is a byte-prefix of the project's contract file the appendix is left alone; the
+git hooks are refreshed through `githooks_install.py`, which keeps forwarding to
+the project's pre-existing hooks and leaves a pre-declaration `commit-msg` alone
+until its layer rows have moved into `.research-note/project.json`.
 `doctor.sh` verifies every wire either script laid and prints the fix for
 whatever is not yet true.
 

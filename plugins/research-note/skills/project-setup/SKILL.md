@@ -250,9 +250,18 @@ Remotes: **local git only** unless the user asks to create a GitHub repo.
 
 ## Step 4 — Main-repo hygiene + the environment contract
 
-**Prefix hook** — one commit = one layer, enforced at commit time:
-`git config core.hooksPath .claude/githooks` (the hook ships with the agent
-clone).
+**Prefix hook** — one commit = one layer, enforced at commit time. Bootstrap
+installs it through `scripts/githooks_install.py`: `.claude/githooks/` holds a
+dispatcher, every standard hook name links to it, and `core.hooksPath` points
+there. **The hooks the project already had keep running** — the dispatcher
+runs research-note's check first, then forwards the event to `.git/hooks/` (or
+to the `core.hooksPath` that was set before, remembered as
+`research-note.previousHooksPath`) with arguments, stdin and exit code intact.
+So a pre-commit framework or git-lfs that was installed BEFORE setup is safe;
+one installed AFTER must go into `.git/hooks/` by hand (`pre-commit install`
+refuses while `core.hooksPath` is set; `git lfs update --manual` prints the
+lines) — the dispatcher picks it up at the next event with no re-install.
+`githooks_install.py uninstall PROJECT` puts everything back.
 
 **`.gitignore`** (monorepo) — keep runtime state and heavy/derived data out.
 `wiki/`, `project_memory/` AND `.claude/` are TRACKED (the project bindings are

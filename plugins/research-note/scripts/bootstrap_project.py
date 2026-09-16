@@ -60,6 +60,7 @@ PLUGIN = HERE.parent
 TEMPLATES = PLUGIN / "templates"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
+import githooks_install  # noqa: E402
 from project_config import (
     CONFIG_PATH,
     ConfigError,
@@ -684,22 +685,12 @@ def main() -> int:
                 shutil.copy2(f, st_dst / f.name)
         say("new", ".claude/hpc-submit", "fill partition/gres for YOUR cluster")
 
-    print("\n· githooks (prefix <-> layer check)")
-    gh_src, gh_dst = PLUGIN / "githooks", proj / ".claude" / "githooks"
-    if gh_dst.exists():
-        say("kept", ".claude/githooks")
-    elif gh_src.exists():
-        if not dry:
-            shutil.copytree(gh_src, gh_dst)
-            for f in gh_dst.iterdir():
-                f.chmod(0o755)
-        say("new", ".claude/githooks")
+    print("\n· githooks (dispatcher: research-note's gates, then the hooks that were there)")
+    if (PLUGIN / "githooks" / "dispatch").is_file():
+        githooks_install.install(proj, PLUGIN, dry=dry, say=say)
     else:
         say("WARN", ".claude/githooks", "not shipped by this plugin version")
-    if not dry and gh_dst.exists():
-        subprocess.run(["git", "-C", str(proj), "config", "core.hooksPath",
-                        ".claude/githooks"], check=False)
-        say("ok", "core.hooksPath", ".claude/githooks")
+    if not dry:
         subprocess.run(["git", "-C", str(proj), "config", "research-note.pluginRoot",
                         str(PLUGIN)], check=False)
         say("ok", "research-note.pluginRoot", str(PLUGIN))

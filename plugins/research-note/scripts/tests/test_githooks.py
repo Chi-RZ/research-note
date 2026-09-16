@@ -12,8 +12,9 @@ from pathlib import Path
 
 import pytest
 
-HOOKS = Path(__file__).resolve().parents[2] / "githooks"
-PLUGIN = HOOKS.parent
+HOOKS = Path(__file__).resolve().parents[2] / "githooks" / "research-note"
+PLUGIN = HOOKS.parents[1]
+GITHOOKS = HOOKS.parent
 
 
 @pytest.fixture()

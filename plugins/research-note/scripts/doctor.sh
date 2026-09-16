@@ -74,15 +74,26 @@ def="$(git -C "$PROJ" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/nu
 cur="$(git -C "$main_root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 [ "$cur" = "$def" ] && ok "main checkout on $def" \
   || bad "main checkout is on '$cur', not '$def'" "the bus refuses to write the record off the default branch"
-hp="$(git -C "$PROJ" config core.hooksPath)"
-# a relative hooksPath is relative to the REPO, so test it there — testing it
-# against this shell's cwd reported the wrong verdict whenever doctor ran from
-# anywhere but the project root
-hpabs="$hp"; [ -n "$hp" ] && [ "${hp#/}" = "$hp" ] && hpabs="$PROJ/$hp"
-if [ -n "$hp" ] && [ -f "$hpabs/pre-commit" ] || [ -f "$PROJ/.claude/githooks/pre-commit" ]; then
+# The hook layout is the install module's to know: the dispatcher, research-note's
+# own checks under it, one link per hook name, and the previous hook directory
+# every event is forwarded to. It reports what is missing and the one command
+# that lays it.
+if [ -f "$HERE/githooks_install.py" ]; then
+    while IFS="$(printf '\t')" read -r level message fix; do
+        [ -n "$level" ] || continue
+        case "$level" in
+            OK)   ok "$message" ;;
+            WARN) warn "$message" "$fix" ;;
+            *)    bad "$message" "$fix" ;;
+        esac
+    done <<EOF_HOOKS
+$(python3 "$HERE/githooks_install.py" status "$PROJ" 2>/dev/null)
+EOF_HOOKS
+else
+    hp="$(git -C "$PROJ" config core.hooksPath)"
     [ -n "$hp" ] && ok "githooks installed (core.hooksPath=$hp)" \
-      || bad "githooks present but core.hooksPath unset" "git -C $PROJ config core.hooksPath .claude/githooks"
-else bad "no pre-commit hook" "copy the plugin's githooks/ into .claude/githooks and set core.hooksPath"; fi
+      || bad "core.hooksPath unset" "re-run bootstrap_project.py"
+fi
 
 echo
 echo "local launch venue"

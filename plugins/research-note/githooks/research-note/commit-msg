@@ -42,7 +42,7 @@ def project_rules() -> tuple[dict[str, set[str]], list[str]]:
     candidates = [
         os.environ.get("RESEARCH_NOTE_PLUGIN"),
         configured,
-        str(Path(__file__).resolve().parent.parent),
+        str(Path(__file__).resolve().parents[2]),
     ]
     for candidate in candidates:
         scripts = Path(candidate).expanduser() / "scripts" if candidate else None
