@@ -57,8 +57,8 @@ codex plugin add research-note@rzchi
 Open the directory you want to become your research project — new or existing
 — and tell the agent:
 
-> set up this project with research-note — with a remote HPC and a GitHub
-> repo, if you want
+> set up this project with research-note — you can add a remote HPC and a
+> GitHub repo too
 
 That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md)
 skill. In one pass it:
@@ -66,39 +66,27 @@ skill. In one pass it:
 - lays out `src/ tests/ experiments/ project_memory/ wiki/`, and `git init`s if
   there is no repo yet;
 - writes the four contract files into `.claude/` and links them into the
-  subtrees they govern, with an `AGENTS.md` beside every `CLAUDE.md` so both
-  agents read one text and not two;
+  subtrees they govern, with an `AGENTS.md` beside every `CLAUDE.md`, so both
+  agents read the same text;
 - installs the githooks — one commit may touch one layer, and a record page
   that does not lint is not committed;
-- generates the roster and the dashboard, and starts the scanner that keeps
-  them current;
+- generates the dashboard, and starts the background scanner that keeps it
+  current;
 - registers the plugin with whichever of Claude and Codex is installed and
-  lacks it, so a project set up from one agent is usable from the other;
-- ends on an acceptance gate: the framework self-tests and both linters, with
-  whatever still needs attention named in the output.
-
-A re-run never overwrites what you already have — it reports `kept` and moves
-on. That is how a project picks up new scaffolding after an update. How you pin
-your environment stays your choice.
+  lacks it, so a project set up from one agent is usable from the other.
 
 **If you run jobs on a cluster**, name it in the same sentence: the ssh host,
 and where the project should live there — `hpc:/scratch/you/myproject`.
 
 Setup asks once for that cluster's queue placement — partition, reservation,
 charge account — and writes it into `.claude/hpc.env`. Every submission reads it
-from there, so no submit file carries it and none can forget it.
+from there.
 
-It then clones the project onto the cluster, leaving out `project_memory/` and
-`wiki/`. The record lives in one place only; a stale copy on the cluster would
-be found and believed. Nothing else is installed there.
+Setup then clones the project onto the cluster, leaving out `project_memory/`
+and `wiki/`: the record lives in one place only.
 
-**A cluster needs a git remote** — GitHub, GitLab, your own server, anything it
-can `git clone`. Code travels by `git pull` on the far side, never by copying
-files. That is also what lets a launch refuse to start until both sides sit on
-the same clean, pushed commit.
-
-No remote, no channel: the cluster step stops and says so. If the project has
-none yet, say so and the agent will set one up with you first.
+**A cluster needs a git remote.** Code reaches the far side by `git pull`, never
+by copying files.
 
 ## Updating
 
@@ -116,13 +104,8 @@ resolves to.
 Nothing moves silently — read the output; it names whatever it refuses to
 touch, and why.
 
-## Where to read next
-
-| | |
-|---|---|
-| **Why it has this shape** | [`DESIGN.md`](DESIGN.md) — what a node, a page and an entry are, why each gate sits where it does, why there are two agents |
-| **The skills** | [`plugins/research-note/skills/`](plugins/research-note/skills/) — eleven, one per moment: `plan` `objective` `analyze` `correct` `hpc-submit` `lift` `wiki-compile` `memory-lift` `reorg` `project-setup` `update` |
-| **The record's exact format** | [`templates/project_memory-CLAUDE.md`](plugins/research-note/templates/project_memory-CLAUDE.md) — every field, and the linters are the final word |
-| **Changing any of it** | [`CONTRIBUTING.md`](CONTRIBUTING.md) — 375 tests, `pip install pytest pyyaml`, about 30 seconds |
+Setup and configuration are best driven from Claude Code — a few things are
+not yet fully supported in Codex. Running jobs and writing the record work
+from either.
 
 MIT licensed.
