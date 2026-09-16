@@ -9,16 +9,17 @@ source code and knowledge as the work proceeds.
 
 ## What it is for
 
-A record of computational results. The commit, recipe, machine and motivation
-for each result are kept together.
+- A formatted structure that records computational results faithfully — the
+  commit, the recipe, the machine and the question all resolve from the record
+  alone.
 
-A long run you supervise from a page, with each calculation tied to its goal.
-Sessions may end and get compacted, but the page remains, and you review and close each
-entry.
+- A long run you supervise from a page, not from a transcript. Sessions end and
+  get compacted; the page is what survives them, and only you close an entry.
 
-A growing record of your source code, project memory and knowledge. Your agent will grow together with you. 
+- An auto-evolving code memory and knowledge base that grows with your project.
+  The agent grows with you.
 
-A short, shareable record for collaborating with others later.
+- An easily shareable distilled layer for collaborating with other people later.
 
 ## A typical run
 
