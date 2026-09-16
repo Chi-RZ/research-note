@@ -51,16 +51,27 @@ legacy Claude project-scope rows. Bootstrap maintains the neutral registry, so
 a Codex-only machine has the same update path. An explicit project works before
 either registry exists.
 
-The script then performs, in order:
+The script then performs, per project and in order:
 
-1. refresh each selected agent's own marketplace;
-2. update its own plugin pin using its native selector and command;
-3. read both registries back and require the same plugin version and source
-   commit (the cache paths are intentionally different);
-4. update every Claude project-scope pin, where Claude has one;
-5. sync the four contract files, page templates and missing hooks; merge new
-   permissions, report `hpc.env` and `.slurm` drift, repoint
-   `research-note.pluginRoot`, then run doctor and cross-lint.
+1. **migrate once** — a project from before the declaration gets
+   `.research-note/project.json` with every integration ON (exactly what it
+   had) and the core state directory's ignore; an update never disables
+   anything. Under `--dry-run` it first prints the **ownership table**: who owns
+   each managed path and what this run may do to it (step 3 below is that table
+   in prose);
+2. update the Claude project-scope pin, where Claude has one;
+3. regenerate the four contracts (`contracts.py`), copy the page templates,
+   refresh the git hooks (`githooks_install.py`), repoint
+   `research-note.pluginRoot`, merge the permission rules the template gained —
+   the cluster's commands only for a project that enables `hpc`;
+4. for a project that enables `hpc`: report `hpc.env` keys it lacks and a
+   `.slurm` that differs; for one that does not, say so and touch none of it;
+5. count the `conflict:` / `CONFLICT` lines — each is a file whose two halves a
+   person must sort — and say how many; nothing there was overwritten;
+6. run doctor (the core plus what the project enables) and both linters.
+
+Then, for the selected agents: refresh each one's own marketplace, update its
+plugin pin, and require the same plugin version and source commit on both.
 
 It prints the commit line per project and stops there — staging is yours.
 
@@ -125,8 +136,9 @@ skills still follow each agent's own installed pin until its session reloads.
 
 ## 3. Sync the framework files, never the personalized ones
 
-For every project on the framework, compare `.claude/<file>` against
-`<cache>/templates/<file>`:
+Every managed path has one owner, and the owner decides what an update may
+do. `update_projects.sh --dry-run PROJECT` prints this table for the project
+(`project_config.py ownership` is the source); the steps follow it:
 
 | File | Treatment |
 |---|---|

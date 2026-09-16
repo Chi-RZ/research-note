@@ -77,6 +77,73 @@ def state_dir(root: str | Path) -> Path:
     return base
 
 
+#: Who owns each managed path, and what an update may therefore do to it. The
+#: updater prints this under --dry-run and each step follows its own row; the
+#: update skill's table is this list in prose. `feature` names the integration
+#: a row belongs to — a disabled one is left exactly as it is.
+OWNERSHIP: tuple[tuple[str, str, str, str], ...] = (
+    # path, owner, what an update does, feature ("" = core)
+    (".research-note/project.json", "project (declaration)",
+     "created once when missing — a pre-declaration project gets every integration ON; never rewritten", ""),
+    (".research-note/rules/*.md", "project",
+     "never touched after creation; an appendix from the old contract scheme is carried in once", ""),
+    (".research-note/state/", "runtime state (core)",
+     "never synced, never committed", ""),
+    (".claude/CLAUDE.md, experiments-, project_memory-, wiki-CLAUDE.md", "framework (generated)",
+     "regenerated from the template plus the rules file; a pre-generation file that fits no shipped template is a conflict", ""),
+    (".claude/framework.json", "state + policy",
+     "never copied; a record marker behind the linter is reported", ""),
+    (".claude/examples/*.md", "framework",
+     "copied over", ""),
+    (".claude/githooks/dispatch, research-note/*", "framework",
+     "synced; a pre-declaration commit-msg that differs is a conflict until its layers are declared", ""),
+    (".claude/githooks/<hook> links", "framework",
+     "relinked; forwarding to the project's pre-existing hooks kept", ""),
+    (".claude/settings.json", "mixed",
+     "permission rules the template gained are added; everything the project has is kept", ""),
+    (".claude/hpc.env", "project (machine facts)",
+     "keys the template documents and the project lacks are reported; no value is ever written", "hpc"),
+    (".claude/hpc-submit/*.slurm", "mixed (derived + personalised)",
+     "a difference from the plugin's is a conflict to port by hand; never copied over", "hpc"),
+    (".fixer/", "runtime state (fixer)",
+     "untouched", "fixer"),
+    ("git config research-note.pluginRoot", "framework",
+     "repointed to the version being installed, every update", ""),
+    ("git config core.hooksPath", "framework",
+     "set to .claude/githooks; the previous value is remembered and forwarded to", ""),
+)
+
+
+def ownership_rows(config: dict[str, Any]) -> list[tuple[str, str, str]]:
+    """(path, owner, action) for this project — a disabled integration's rows
+    say so instead of describing an action that will not happen."""
+    rows = []
+    for path, owner, action, feature in OWNERSHIP:
+        if feature and not feature_enabled(config, feature):
+            action = f"{feature} is disabled in project.json — left exactly as it is"
+        rows.append((path, owner, action))
+    return rows
+
+
+def init_project_config(root: str | Path, *, dry: bool = False) -> tuple[str, str]:
+    """Write the declaration ONCE for a project that has none, and lay the core
+    state directory's ignore. A project from before the declaration gets every
+    integration on — what it had — so nothing is disabled by an update.
+    Returns (state, detail): kept · migrated · new."""
+    project = Path(root).expanduser().resolve()
+    path = project / CONFIG_PATH
+    if path.is_file():
+        return "kept", str(CONFIG_PATH)
+    legacy = (project / ".claude/framework.json").is_file() or (project / ".claude/roles.json").is_file()
+    config = initial_project_config(legacy=legacy)
+    if not dry:
+        write_project_config(project, config)
+        state_dir(project)
+    if legacy:
+        return "migrated", f"{CONFIG_PATH} written — pre-declaration project, every integration on, as it was"
+    return "new", f"{CONFIG_PATH} written with the defaults (integrations off)"
+
+
 class ConfigError(ValueError):
     """A project configuration is ambiguous or unsafe to apply."""
 
@@ -251,12 +318,22 @@ def main(argv: list[str] | None = None) -> int:
     set_feature = sub.add_parser("set-feature")
     set_feature.add_argument("name")
     set_feature.add_argument("value", choices=("true", "false"))
+    init = sub.add_parser("init", help="write the declaration once if missing (migration)")
+    init.add_argument("--dry-run", action="store_true")
+    sub.add_parser("ownership", help="who owns each managed path, and what an update does to it")
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "init":
+            state, detail = init_project_config(args.project, dry=args.dry_run)
+            print(f"{state:<9} {detail}")
+            return 0
         root = find_project_root(args.project)
         config = load_project_config(root)
-        if args.command == "validate":
+        if args.command == "ownership":
+            for path, owner, action in ownership_rows(config):
+                print(f"{path}\t{owner}\t{action}")
+        elif args.command == "validate":
             print(root / CONFIG_PATH)
         elif args.command == "show":
             print(json.dumps(config, indent=None if args.compact else 2, sort_keys=True))

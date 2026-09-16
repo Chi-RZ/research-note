@@ -341,3 +341,112 @@ def test_the_project_scope_update_targets_the_INSTALLED_marketplace(tmp_path):
     calls = (home / ".calls").read_text() if (home / ".calls").exists() else ""
     assert "plugin update research-note@acme-labs --scope project" in calls, calls
     assert "claude-setup" not in calls, calls
+
+
+# --------------------------------------------------------------------------
+# P7 — ownership-aware update: migrate once, preview, retain what is disabled,
+# leave conflicts for a person. Real runs use --agents none so no CLI is touched.
+# --------------------------------------------------------------------------
+
+def _project(tmp_path, name="proj", declaration=None, framework=True):
+    proj = tmp_path / name
+    (proj / ".claude").mkdir(parents=True)
+    (proj / "project_memory").mkdir()
+    if framework:
+        (proj / ".claude" / "framework.json").write_text('{"framework": "research-note", "record": "v3"}')
+    if declaration is not None:
+        (proj / ".research-note").mkdir()
+        (proj / ".research-note" / "project.json").write_text(json.dumps(declaration))
+    subprocess.run(["git", "init", "-q", str(proj)], check=True)
+    return proj
+
+
+def run_real(home, *args):
+    return subprocess.run(
+        ["bash", str(SCRIPT), "--agents", "none", *map(str, args)],
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin:/usr/local/bin"},
+        capture_output=True, text=True, timeout=180)
+
+
+def _declaration(**features):
+    config = json.loads((PLUGIN / "templates" / "project.json").read_text())
+    config["features"].update(features)
+    return config
+
+
+def test_a_pre_declaration_project_is_migrated_once_with_every_integration_on(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path)
+    r = run_real(home, proj)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "migrated  .research-note/project.json" in r.stdout
+    config = json.loads((proj / ".research-note/project.json").read_text())
+    assert all(config["features"].values()), "an update must not disable what the project had"
+    assert (proj / ".research-note/.gitignore").read_text() == "state/\n"
+    r = run_real(home, proj)
+    assert "migrated" not in r.stdout, "once"
+
+
+def test_a_project_declared_but_without_framework_json_is_a_framework_project(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration(), framework=False)
+    r = run(home, proj)
+    assert "not a framework project" not in r.stdout
+    assert f"=== {proj}" in r.stdout
+
+
+def test_dry_run_prints_the_ownership_table_before_touching_anything(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration())
+    r = run(home, proj)
+    assert "ownership — what this update may touch, and how:" in r.stdout
+    for path in (".claude/settings.json", ".claude/hpc.env", "git config core.hooksPath"):
+        assert path in r.stdout
+    assert "hpc is disabled in project.json — left exactly as it is" in r.stdout
+    assert not (proj / ".claude/CLAUDE.md").exists()
+
+
+def test_a_disabled_hpc_is_retained_not_repaired(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration(hpc=False))
+    (proj / ".claude/settings.json").write_text(json.dumps({"permissions": {"allow": []}}))
+    r = run_real(home, proj)
+    assert "hpc: disabled in .research-note/project.json" in r.stdout
+    allowed = json.loads((proj / ".claude/settings.json").read_text())["permissions"]["allow"]
+    assert "Bash(git:*)" in allowed, "core permissions still merge"
+    assert not any("sbatch" in rule or "ssh" in rule for rule in allowed), \
+        "a project without a cluster gets no cluster permissions"
+
+
+def test_an_enabled_hpc_gets_the_cluster_permissions_and_its_files_checked(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration(hpc=True))
+    (proj / ".claude/settings.json").write_text(json.dumps({"permissions": {"allow": []}}))
+    (proj / ".claude/hpc.env").write_text("REMOTE_HOST=hpc\n")
+    r = run_real(home, proj)
+    allowed = json.loads((proj / ".claude/settings.json").read_text())["permissions"]["allow"]
+    assert "Bash(sbatch:*)" in allowed and "Bash(ssh:*)" in allowed
+    assert "hpc.env: template documents keys this project lacks" in r.stdout
+    assert "hpc: disabled" not in r.stdout
+
+
+def test_conflicts_are_counted_and_nothing_there_is_overwritten(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration(hpc=True))
+    slurm = proj / ".claude/hpc-submit/cpu_batch.slurm"
+    slurm.parent.mkdir(parents=True)
+    slurm.write_text("#!/bin/bash\n#SBATCH --partition=mine\nthe project's own\n")
+    (proj / ".claude/framework.json").write_text('{"framework": "research-note", "record": "v2"}')
+    r = run_real(home, proj)
+    assert "conflict: submit template cpu_batch.slurm differs" in r.stdout
+    assert "conflict: framework.json record 'v2'" in r.stdout
+    assert "2 item(s) above need a person — nothing was overwritten there" in r.stdout
+    assert slurm.read_text().endswith("the project's own\n")
+    assert json.loads((proj / ".claude/framework.json").read_text())["record"] == "v2"
+
+
+def test_a_clean_project_reports_no_conflicts(tmp_path):
+    home = tmp_path / "home"; home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration())
+    r = run_real(home, proj)
+    assert "need a person" not in r.stdout

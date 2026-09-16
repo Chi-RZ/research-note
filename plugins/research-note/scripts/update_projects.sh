@@ -138,10 +138,30 @@ for P in "${WANT[@]}"; do
     # in installed_plugins.json. Gated only on `.claude` existing, this loop
     # then wrote contract files into $HOME and rewrote the enclosing repo's
     # hooksPath — found by a cluster session one command before doing it.
-    if [ ! -d "$P/project_memory" ] || { [ ! -f "$P/.claude/framework.json" ] \
-            && [ ! -f "$P/.claude/roles.json" ]; }; then
-        echo "   not a framework project (needs project_memory/ + .claude/framework.json) — skipped"
+    if [ ! -d "$P/project_memory" ] || { [ ! -f "$P/.research-note/project.json" ] \
+            && [ ! -f "$P/.claude/framework.json" ] && [ ! -f "$P/.claude/roles.json" ]; }; then
+        echo "   not a framework project (needs project_memory/ + .research-note/project.json or .claude/framework.json) — skipped"
         continue
+    fi
+
+    # --- migrate once, then read what this project enables. A project from
+    # before the declaration gets .research-note/project.json with every
+    # integration ON — exactly what it had — and the core state dir's ignore;
+    # an update never disables anything. Under --dry-run the ownership table
+    # says, before any step runs, who owns each managed path and what may
+    # happen to it.
+    CONFLICTS=0
+    HPC_ON=true
+    if [ -f "$CACHE/scripts/project_config.py" ]; then
+        init_out=$(python3 "$CACHE/scripts/project_config.py" --project "$P" init $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        printf '%s\n' "$init_out" | grep -vE '^kept ' | sed 's/^/   /'
+        printf '%s\n' "$init_out" | grep -qE '^(migrated|new) ' && CHANGED+=("$P")
+        if [ "$DRY" = 1 ]; then
+            echo "   ownership — what this update may touch, and how:"
+            python3 "$CACHE/scripts/project_config.py" --project "$P" ownership 2>/dev/null \
+                | awk -F'\t' '{ printf "      %-58s %-30s %s\n", $1, $2, $3 }'
+        fi
+        HPC_ON=$(python3 "$CACHE/scripts/project_config.py" --project "$P" feature hpc 2>/dev/null || echo true)
     fi
 
     # Claude has project-scoped plugin pins; Codex installs plugins at machine
@@ -188,6 +208,7 @@ PY
         ct_out=$(python3 "$CACHE/scripts/contracts.py" sync "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
         printf '%s\n' "$ct_out" | grep -vE '^same ' | sed 's/^/   contract: /'
         printf '%s\n' "$ct_out" | grep -qE '^(new|migrated|generated|regenerated) ' && CHANGED+=("$P")
+        CONFLICTS=$(( CONFLICTS + $(printf '%s\n' "$ct_out" | grep -c '^CONFLICT ') ))
     fi
 
     # --- framework.json is STATE + policy, never synced wholesale: `record` is
@@ -198,7 +219,8 @@ PY
         pr=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('record',''))" "$P/.claude/framework.json" 2>/dev/null)
         tr_=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('record',''))" "$CACHE/templates/framework.json" 2>/dev/null)
         if [ "$pr" != "$tr_" ]; then
-            echo "   framework.json: record '$pr' (template '$tr_') — LEFT ALONE; migrate the record, then bump the marker"
+            echo "   conflict: framework.json record '$pr' (template '$tr_') — LEFT ALONE; migrate the record, then bump the marker"
+            CONFLICTS=$(( CONFLICTS + 1 ))
         fi
     fi
 
@@ -225,6 +247,7 @@ PY
         gh_out=$(python3 "$CACHE/scripts/githooks_install.py" install "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
         printf '%s\n' "$gh_out" | grep -vE '^kept ' | sed 's/^/   githook: /'
         printf '%s\n' "$gh_out" | grep -qE '^(new|synced|moved|linked) ' && CHANGED+=("$P")
+        CONFLICTS=$(( CONFLICTS + $(printf '%s\n' "$gh_out" | grep -c '^WARN ') ))
     fi
 
     # --- pluginRoot is the one git config an update must REPOINT rather than
@@ -246,10 +269,14 @@ PY
     # --- permissions merge one way only: what the TEMPLATE gained is a new
     # mechanism's requirement; what the PROJECT has is a machine fact and stays.
     if [ -f "$CACHE/templates/settings.json" ] && [ -f "$P/.claude/settings.json" ]; then
-        added=$(DRY=$DRY python3 - "$CACHE/templates/settings.json" "$P/.claude/settings.json" <<'PY'
+        hpc_perms=""
+        [ "$HPC_ON" = true ] && [ -f "$CACHE/templates/hpc-permissions.json" ] && hpc_perms="$CACHE/templates/hpc-permissions.json"
+        added=$(DRY=$DRY python3 - "$CACHE/templates/settings.json" "$P/.claude/settings.json" "$hpc_perms" <<'PY'
 import json, os, sys
-tpl, proj = sys.argv[1], sys.argv[2]
+tpl, proj, hpc = sys.argv[1], sys.argv[2], sys.argv[3]
 t = json.load(open(tpl)).get("permissions", {}).get("allow", [])
+if hpc:
+    t = t + [r for r in json.load(open(hpc)) if r not in t]   # the cluster's commands, for a project that has a cluster
 s = json.load(open(proj)); a = s.setdefault("permissions", {}).setdefault("allow", [])
 new = [k for k in t if k not in a]
 if new and os.environ.get("DRY") != "1":
@@ -261,21 +288,29 @@ PY
         [ -n "$added" ] && { echo "   permissions added: $added"; CHANGED+=("$P"); }
     fi
 
-    # --- hpc.env: KEYS only, never values. A key the template documents and the
-    # project lacks is a capability the project silently does not have.
-    if [ -f "$CACHE/templates/hpc.env" ] && [ -f "$P/.claude/hpc.env" ]; then
-        miss=$(grep -oE '^#?[A-Z_]+=' "$CACHE/templates/hpc.env" | tr -d '#=' | sort -u | while read -r k; do
-                   grep -qE "^$k=" "$P/.claude/hpc.env" || echo "$k"; done | tr '\n' ' ')
-        [ -n "${miss// /}" ] && echo "   hpc.env: template documents keys this project lacks — $miss (values are yours to give)"
+    if [ "$HPC_ON" = true ]; then
+        # --- hpc.env: KEYS only, never values. A key the template documents and the
+        # project lacks is a capability the project silently does not have.
+        if [ -f "$CACHE/templates/hpc.env" ] && [ -f "$P/.claude/hpc.env" ]; then
+            miss=$(grep -oE '^#?[A-Z_]+=' "$CACHE/templates/hpc.env" | tr -d '#=' | sort -u | while read -r k; do
+                       grep -qE "^$k=" "$P/.claude/hpc.env" || echo "$k"; done | tr '\n' ' ')
+            [ -n "${miss// /}" ] && echo "   hpc.env: template documents keys this project lacks — $miss (values are yours to give)"
+        fi
+
+        # --- derived submit templates: report, never overwrite. The log header is
+        # the framework's; the resources and the script/args lines are the node's.
+        for s in cpu_batch.slurm gpu_batch.slurm; do
+            [ -f "$P/.claude/hpc-submit/$s" ] && [ -f "$CACHE/skills/hpc-submit/scripts/$s" ] || continue
+            diff -q "$CACHE/skills/hpc-submit/scripts/$s" "$P/.claude/hpc-submit/$s" >/dev/null 2>&1 || {
+                echo "   conflict: submit template $s differs from the plugin's — port the header block by hand (see the skill)"
+                CONFLICTS=$(( CONFLICTS + 1 )); }
+        done
+    else
+        # a disabled integration is retained, not repaired: its files stay as they are
+        echo "   hpc: disabled in .research-note/project.json — hpc.env, submit templates and cluster permissions left as they are"
     fi
 
-    # --- derived submit templates: report, never overwrite. The log header is
-    # the framework's; the resources and the script/args lines are the node's.
-    for s in cpu_batch.slurm gpu_batch.slurm; do
-        [ -f "$P/.claude/hpc-submit/$s" ] && [ -f "$CACHE/skills/hpc-submit/scripts/$s" ] || continue
-        diff -q "$CACHE/skills/hpc-submit/scripts/$s" "$P/.claude/hpc-submit/$s" >/dev/null 2>&1 || \
-            echo "   submit template $s differs from the plugin's — port the header block by hand (see the skill)"
-    done
+    [ "$CONFLICTS" -gt 0 ] && echo "   $CONFLICTS item(s) above need a person — nothing was overwritten there"
 
     # --- verify: the machinery, then the pages.
     if [ "$DRY" != 1 ]; then
