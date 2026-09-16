@@ -48,8 +48,10 @@ CMD=${1:-status}; shift || true
 
 PROJ="${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 while [ "$PROJ" != "/" ] && [ ! -f "$PROJ/.claude/framework.json" ] \
-      && [ ! -f "$PROJ/.claude/roles.json" ]; do PROJ=$(dirname "$PROJ"); done
-if [ ! -f "$PROJ/.claude/framework.json" ] && [ ! -f "$PROJ/.claude/roles.json" ]; then
+      && [ ! -f "$PROJ/.claude/roles.json" ] \
+      && [ ! -f "$PROJ/.research-note/project.json" ]; do PROJ=$(dirname "$PROJ"); done
+if [ ! -f "$PROJ/.claude/framework.json" ] && [ ! -f "$PROJ/.claude/roles.json" ] \
+        && [ ! -f "$PROJ/.research-note/project.json" ]; then
     echo "remote.sh: not inside a framework project (and project-dir overrides unset)" >&2
     exit 2
 fi
@@ -57,6 +59,19 @@ fi
 [ -f "$PROJ/.claude/hpc.env" ] && . "$PROJ/.claude/hpc.env"
 [ -f "$PROJ/.claude/hpc.local.env" ] && . "$PROJ/.claude/hpc.local.env"
 . "$(dirname "${BASH_SOURCE[0]}")/lib_paths.sh"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KNOWLEDGE_ROOTS=wiki
+EXPERIMENT_ROOTS=experiments
+if [ -f "$PROJ/.research-note/project.json" ]; then
+    KNOWLEDGE_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge) || exit 2
+    EXPERIMENT_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role experiments) || exit 2
+fi
+SPARSE_PATTERNS="'/*' '!/project_memory/'"
+SPARSE_EXCLUDES="'/project_memory/'"
+for root in $KNOWLEDGE_ROOTS; do
+    SPARSE_PATTERNS="$SPARSE_PATTERNS '!/$root/'"
+    SPARSE_EXCLUDES="$SPARSE_EXCLUDES '/$root/'"
+done
 if [ -z "${REMOTE_HOST:-}" ] || [ -z "${REMOTE_DIR:-}" ]; then
     echo "remote.sh: REMOTE_HOST / REMOTE_DIR not declared in $PROJ/.claude/hpc.env" >&2
     exit 2
@@ -106,7 +121,7 @@ case "$CMD" in
 setup)
     URL=$(git -C "$PROJ" remote get-url origin) || { echo "remote.sh: local repo has no origin — the cluster syncs FROM GitHub" >&2; exit 1; }
     if ! rssh "test -d '$REMOTE_DIR/.git'"; then
-        echo "remote.sh: sparse-cloning $URL -> $REMOTE_HOST:$REMOTE_DIR (everything except project_memory/ and wiki/)"
+        echo "remote.sh: sparse-cloning $URL -> $REMOTE_HOST:$REMOTE_DIR (without project_memory/ and $KNOWLEDGE_ROOTS)"
         # SPARSE by default, expressed as an EXCLUDE list rather than a cone.
         # What the cluster must not carry is the record: project_memory/ and
         # wiki/ have no effect on a job and every effect on a reader, who finds a
@@ -123,15 +138,15 @@ setup)
         # ff-merge is undisturbed.
         rssh "git clone -q --no-checkout '$URL' '$REMOTE_DIR' && cd '$REMOTE_DIR' && \
               git config core.sparseCheckout true && \
-              printf '%s\n' '/*' '!/project_memory/' '!/wiki/' > .git/info/sparse-checkout && \
-              printf '%s\n' '/project_memory/' '/wiki/' >> .git/info/exclude && \
+              printf '%s\n' $SPARSE_PATTERNS > .git/info/sparse-checkout && \
+              printf '%s\n' $SPARSE_EXCLUDES >> .git/info/exclude && \
               git checkout -q '$BR'" || exit 1
     fi
     # MIGRATION: a clone made before sparse was the default (or by hand) still
-    # carries project_memory/ and wiki/. Rewriting the pattern file is idempotent
+    # carries project_memory/ or a knowledge root. Rewriting the pattern file is idempotent
     # and never removes anything else, so setup repairs it on every run.
     rssh "cd '$REMOTE_DIR' && git config core.sparseCheckout true && \
-          printf '%s\n' '/*' '!/project_memory/' '!/wiki/' > .git/info/sparse-checkout && \
+          printf '%s\n' $SPARSE_PATTERNS > .git/info/sparse-checkout && \
           git read-tree -mu HEAD" || true
     rssh "cd '$REMOTE_DIR' && git fetch -q origin && git checkout -q '$BR' && git merge -q --ff-only 'origin/$BR'" || {
         echo "remote.sh: remote checkout/ff failed — remote working copy diverged? Fix by hand (it must stay a pure mirror)" >&2; exit 1; }
@@ -459,26 +474,31 @@ pull)
     for RH in $LOOP_HOSTS; do
         REMOTE_DIR=$(host_dir "$RH") || { RC=1; continue; }
         REMOTE_HOST=$RH
-        # A remote clone that has never run anything has no experiments/ tree (its
-        # contents are gitignored), and rsync exits 23 on the missing dir — which
-        # made every fixer cycle of a freshly-set-up project print a failure. Not
-        # an error: nothing to bring back yet.
-        if ! rssh "test -d '$REMOTE_DIR/experiments'"; then
-            echo "remote.sh pull: $REMOTE_HOST:$REMOTE_DIR has no experiments/ yet — nothing to pull"
-            continue
-        fi
         # -e: rsync spawns its own ssh, which would otherwise miss SSH_OPTS and
         # keep printing the banner into the fixer's log — the half of the noise
         # that survives fixing rssh.
-        # logs: everything (they are small and are the record's evidence)
-        rsync -azu -e "ssh ${SSH_OPTS[*]}" --prune-empty-dirs --backup --backup-dir="$BAK" \
-            --include='*/' --include='*/*/logs/***' --exclude='*' \
-            "$REMOTE_HOST:$REMOTE_DIR/experiments/" "$PROJ/experiments/" || { RC=1; continue; }
-        # data: capped per file — the big artifacts stay on the cluster by design
-        if [ "$MAX" != "0" ]; then
-            rsync -azu -e "ssh ${SSH_OPTS[*]}" --prune-empty-dirs --max-size="${MAX}m" --backup --backup-dir="$BAK" \
-                --include='*/' --include='*/*/data/***' --exclude='*' \
-                "$REMOTE_HOST:$REMOTE_DIR/experiments/" "$PROJ/experiments/" || { RC=1; continue; }
+        found_experiments=0
+        for experiment_root in $EXPERIMENT_ROOTS; do
+            # A fresh clone may have no ignored output tree yet. Missing output
+            # is an empty result, not an rsync failure.
+            if ! rssh "test -d '$REMOTE_DIR/$experiment_root'"; then
+                continue
+            fi
+            found_experiments=1
+            # logs: everything (they are small and are the record's evidence)
+            rsync -azu -e "ssh ${SSH_OPTS[*]}" --prune-empty-dirs --backup --backup-dir="$BAK" \
+                --include='*/' --include='*/*/logs/***' --exclude='*' \
+                "$REMOTE_HOST:$REMOTE_DIR/$experiment_root/" "$PROJ/$experiment_root/" || { RC=1; continue; }
+            # data: capped per file — the big artifacts stay on the cluster by design
+            if [ "$MAX" != "0" ]; then
+                rsync -azu -e "ssh ${SSH_OPTS[*]}" --prune-empty-dirs --max-size="${MAX}m" --backup --backup-dir="$BAK" \
+                    --include='*/' --include='*/*/data/***' --exclude='*' \
+                    "$REMOTE_HOST:$REMOTE_DIR/$experiment_root/" "$PROJ/$experiment_root/" || { RC=1; continue; }
+            fi
+        done
+        if [ "$found_experiments" -eq 0 ]; then
+            echo "remote.sh pull: $REMOTE_HOST:$REMOTE_DIR has no configured experiment output yet — nothing to pull"
+            continue
         fi
         echo "pulled logs (+data <= ${MAX}MB) from $REMOTE_HOST"
     done

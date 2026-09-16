@@ -17,6 +17,7 @@ committed INDEX.md. These tests pin both spellings and the precedence.
 """
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -281,6 +282,28 @@ def test_src_flag_writes_only_the_src_index(tmp_path):
     assert r.returncode == 0, r.stderr
     assert (root / "src" / "INDEX.md").exists()
     assert not (root / "project_memory" / "_index.md").exists()
+
+
+def test_src_index_uses_the_configured_library_roots(tmp_path):
+    root = _scratch_project(tmp_path)
+    config = json.loads(
+        (SCRIPTS.parent / "templates/project.json").read_text(encoding="utf-8")
+    )
+    config["roles"]["libraries"] = ["code"]
+    config["roles"]["tests"] = ["spec"]
+    config["layers"]["source"]["paths"] = ["code", "spec"]
+    path = root / ".research-note/project.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(config), encoding="utf-8")
+    code = root / "code/pkg.py"
+    code.parent.mkdir()
+    code.write_text('def public():\n    """A public capability."""\n', encoding="utf-8")
+
+    r = _run_cli(root, "--src")
+    assert r.returncode == 0, r.stderr
+    assert (root / "code/INDEX.md").is_file()
+    assert not (root / "src/INDEX.md").exists()
+    assert "code/pkg.py" in (root / "code/INDEX.md").read_text(encoding="utf-8")
 
 
 def test_no_flag_still_writes_both(tmp_path):

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -128,6 +129,8 @@ def _top_level(value: object, where: str) -> str:
     path = Path(value)
     if path.is_absolute() or len(path.parts) != 1 or value.startswith("../"):
         raise ConfigError(f"{where} must be a repo-relative top-level path: {value!r}")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", value):
+        raise ConfigError(f"{where} contains unsafe path characters: {value!r}")
     return value
 
 

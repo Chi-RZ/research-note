@@ -16,15 +16,24 @@
 # record, which must never happen and aborts red.
 set -uo pipefail
 PROJ="${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$PWD}}"
-[ -f "$PROJ/.claude/framework.json" ] || exit 0
+[ -f "$PROJ/.research-note/project.json" ] || [ -f "$PROJ/.claude/framework.json" ] || exit 0
 MAIN="$(dirname "$(git -C "$PROJ" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")" || exit 0
 [ -d "$MAIN/project_memory" ] || exit 0
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KNOWLEDGE_ROOTS=wiki
+if [ -f "$PROJ/.research-note/project.json" ]; then
+    configured=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge 2>/dev/null) || exit 0
+    [ -n "$configured" ] && KNOWLEDGE_ROOTS="$configured"
+fi
 
 make_sparse() {
     w=$1
     [ "$w" = "$MAIN" ] && return 0
     git -C "$w" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
-    git -C "$w" sparse-checkout set --no-cone '/*' '!/project_memory/' '!/wiki/' 2>/dev/null || return 0
+    local patterns root
+    patterns=('/*' '!/project_memory/')
+    for root in $KNOWLEDGE_ROOTS; do patterns+=("!/$root/"); done
+    git -C "$w" sparse-checkout set --no-cone "${patterns[@]}" 2>/dev/null || return 0
 }
 
 if [ "${1:-}" = "--current" ]; then

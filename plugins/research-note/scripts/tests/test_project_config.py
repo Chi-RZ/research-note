@@ -116,3 +116,19 @@ def test_role_path_must_have_an_owner(tmp_path):
     path.write_text(json.dumps({"roles": {"libraries": ["unowned"]}}))
     with pytest.raises(m.ConfigError, match="no owning layer"):
         m.load_project_config(root)
+
+
+def test_configured_roots_are_safe_for_git_and_shell_consumers(tmp_path):
+    m = module()
+    root = project(tmp_path)
+    path = root / m.CONFIG_PATH
+    path.parent.mkdir()
+    path.write_text(json.dumps({
+        "roles": {"libraries": ["code space"]},
+        "layers": {
+            "source": {"paths": ["code space", "tests"],
+                       "prefixes": ["feat", "fix", "refactor"]},
+        },
+    }))
+    with pytest.raises(m.ConfigError, match="unsafe path"):
+        m.load_project_config(root)

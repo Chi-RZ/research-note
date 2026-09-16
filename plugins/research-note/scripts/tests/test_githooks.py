@@ -6,12 +6,14 @@ Same doctrine as test_hooks.py: only running a hook shows what it refuses.
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
 HOOKS = Path(__file__).resolve().parents[2] / "githooks"
+PLUGIN = HOOKS.parent
 
 
 @pytest.fixture()
@@ -94,6 +96,36 @@ def test_commit_msg_escape_hatch(repo):
                        env={**os.environ, "SKIP_PREFIX_CHECK": "1"},
                        capture_output=True, text=True)
     assert r.returncode == 0
+
+
+def test_commit_msg_reads_custom_layout_from_project_config(repo):
+    config = json.loads((PLUGIN / "templates/project.json").read_text())
+    config["roles"]["libraries"] = ["code"]
+    config["roles"]["tests"] = ["spec"]
+    config["roles"]["experiments"] = ["trials"]
+    config["layers"]["source"]["paths"] = ["code", "spec"]
+    config["layers"]["experiments"]["paths"] = ["trials"]
+    path = repo / ".research-note/project.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(config))
+    subprocess.run(
+        ["git", "-C", repo, "config", "research-note.pluginRoot", str(PLUGIN)],
+        check=True,
+    )
+    subprocess.run(["git", "-C", repo, "add", str(path.relative_to(repo))], check=True)
+    subprocess.run(
+        ["git", "-C", repo, "commit", "-q", "-m", "agent: configure layout"],
+        check=True,
+        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+    )
+
+    assert commit_msg(repo, ["code/pkg.py", "spec/test_pkg.py"], "feat: add pkg").returncode == 0
+    subprocess.run(["git", "-C", repo, "reset", "--hard", "-q", "HEAD"], check=True)
+    assert commit_msg(repo, ["trials/n/impl/run.py"], "exp(n): add run").returncode == 0
+    subprocess.run(["git", "-C", repo, "reset", "--hard", "-q", "HEAD"], check=True)
+    wrong = commit_msg(repo, ["src/old.py"], "feat: old path")
+    assert wrong.returncode == 1 and "src" in wrong.stderr
 
 
 def pre_commit(repo: Path, env_extra: dict | None = None) -> subprocess.CompletedProcess:

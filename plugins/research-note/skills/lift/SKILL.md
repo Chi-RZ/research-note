@@ -5,7 +5,10 @@ description: Use when a capability implemented inside one or more experiments sh
 
 # Lift Skill
 
-You are promoting a **capability** into `src/`. The experiment's existing
+You are promoting a **capability** into `src/`. (`src/` here is the
+project's declared library root — `project_config.py role libraries` —
+and `experiments/` its declared experiment root; the standard names are
+used throughout.) The experiment's existing
 implementation is a reference for correctness, not the artifact being
 moved. The deliverable is a new `src/` module plus a mirrored test —
 nothing else changes.

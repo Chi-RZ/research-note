@@ -13,8 +13,12 @@
 set -uo pipefail
 
 PROJ="${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$PWD}}"
-while [ "$PROJ" != "/" ] && [ ! -f "$PROJ/.claude/framework.json" ]; do PROJ=$(dirname "$PROJ"); done
-[ -f "$PROJ/.claude/framework.json" ] || { echo "doctor: not inside a framework project" >&2; exit 2; }
+while [ "$PROJ" != "/" ] && [ ! -f "$PROJ/.research-note/project.json" ] \
+      && [ ! -f "$PROJ/.claude/framework.json" ]; do PROJ=$(dirname "$PROJ"); done
+if [ ! -f "$PROJ/.research-note/project.json" ] && [ ! -f "$PROJ/.claude/framework.json" ]; then
+    echo "doctor: not inside a framework project" >&2
+    exit 2
+fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$PROJ/.claude/hpc.env" ] && . "$PROJ/.claude/hpc.env"
 [ -f "$PROJ/.claude/hpc.local.env" ] && . "$PROJ/.claude/hpc.local.env"
@@ -34,6 +38,29 @@ if [ -n "$plugin_root" ] && [ -f "$plugin_root/.codex-plugin/plugin.json" ] \
 else
     bad "shared plugin root is not configured" \
         "re-run bootstrap_project.py from the installed research-note plugin"
+fi
+
+EXPERIMENT_ROOTS=experiments
+KNOWLEDGE_ROOTS=wiki
+if [ -f "$PROJ/.research-note/project.json" ]; then
+    if python3 "$HERE/project_config.py" --project "$PROJ" validate >/dev/null; then
+        ok "project configuration is valid"
+        EXPERIMENT_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role experiments)
+        KNOWLEDGE_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge)
+        for role in libraries tests experiments knowledge; do
+            roots=$(python3 "$HERE/project_config.py" --project "$PROJ" role "$role")
+            for root in $roots; do
+                [ -d "$PROJ/$root" ] && ok "$role root: $root/" \
+                  || bad "$role root is missing: $root/" "create it or correct .research-note/project.json"
+            done
+        done
+    else
+        bad "project configuration is invalid" \
+            "python3 $HERE/project_config.py --project $PROJ validate"
+    fi
+else
+    warn "legacy project has no .research-note/project.json" \
+         "re-run bootstrap_project.py once to record its layout and enabled integrations"
 fi
 
 echo
@@ -60,7 +87,7 @@ else bad "no pre-commit hook" "copy the plugin's githooks/ into .claude/githooks
 echo
 echo "local launch venue"
 if command -v sbatch >/dev/null 2>&1; then
-    ok "local Slurm (submit_slurm.sh; submit files under experiments/<node>/<group>/submit/)"
+    ok "local Slurm (submit_slurm.sh; submit files under $EXPERIMENT_ROOTS/<node>/<group>/submit/)"
     [ -n "${REMOTE_PARTITION:-}${REMOTE_RESERVATION:-}${REMOTE_ACCOUNT:-}" ] \
       && ok "queue placement declared" \
       || warn "no queue placement for the LOCAL cluster" \
@@ -189,13 +216,15 @@ for RH in ${REMOTE_HOSTS:-${REMOTE_HOST:-}}; do
     # that carried none, twice sending a session to investigate nothing. What the
     # check is actually about is whether the record is materialised there, so it
     # looks: the directory's absence IS the answer, on every git ever shipped.
-    if ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" "test ! -e '$RD/project_memory' && test ! -e '$RD/wiki'" 2>/dev/null; then
+    sparse_test="test ! -e '$RD/project_memory'"
+    for root in $KNOWLEDGE_ROOTS; do sparse_test="$sparse_test && test ! -e '$RD/$root'"; done
+    if ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" "$sparse_test" 2>/dev/null; then
         ok "sparse (no record copy on the cluster)"
-    else warn "the clone carries a record copy — project_memory/ or wiki/ is materialised on $RH" \
+    else warn "the clone carries a record copy — project_memory/ or $KNOWLEDGE_ROOTS is materialised on $RH" \
               "a stale record on a cluster is a page someone eventually reads and believes; remote.sh setup --host $RH excludes both and keeps everything else"; fi
     sched=$(ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" 'command -v sbatch >/dev/null && echo slurm || { command -v qsub >/dev/null && echo pbs || { command -v bsub >/dev/null && echo lsf || echo bare; }; }' 2>/dev/null)
     case "$sched" in
-        slurm) ok "scheduler: Slurm (submit files under experiments/<node>/<group>/submit/)" ;;
+        slurm) ok "scheduler: Slurm (submit files under $EXPERIMENT_ROOTS/<node>/<group>/submit/)" ;;
         bare)  ok "scheduler: none — bare remote (remote.sh submit ships the launcher)" ;;
         *)     bad "scheduler: $sched — not supported" "only Slurm and bare remotes have a submit path; remote.sh would fail" ;;
     esac

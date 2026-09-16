@@ -18,6 +18,11 @@ refuses a mismatch.
 | `wiki/` | the published knowledge base, self-contained | `wiki:` |
 | `.claude/` | this project's bindings | `agent:` |
 
+The paths above are the standard layout. A project whose code already lives
+elsewhere declares its roots and layers once in `.research-note/project.json`;
+the hooks, the index and the linters read that declaration, and the rules
+here apply to the declared roots unchanged.
+
 A lift lands as a `feat:` plus an `exp(<node>):` — there is no cross-layer
 commit. `chore:` is for root-level files and nothing else. Two layers in one
 change means two commits, the second naming the first. Record commits carry id

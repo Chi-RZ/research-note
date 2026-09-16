@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 # prefix -> set of top-level dirs it may touch. Root-level files (.gitignore,
 # pyproject.toml, ...) are allowed under any prefix.
@@ -22,9 +23,45 @@ RULES = {
     "wiki": {"wiki"},
     # "lift" retired: a lift is a feat: + an exp(<node>):, tied by a `Lift:` trailer
     "chore": set(),                            # root-level repo plumbing only
-    "agent": {".agent", ".agents", ".claude", ".codex"},
+    "agent": {".research-note", ".agent", ".agents", ".claude", ".codex"},
 }
 PASS_RE = re.compile(r"^(Merge|Revert|fixup!|squash!)\b")
+
+
+def project_rules() -> tuple[dict[str, set[str]], list[str]]:
+    """Load schema-1 rules, or preserve the pre-schema layout."""
+    config_path = Path(".research-note/project.json")
+    if not config_path.is_file():
+        return RULES, ["experiments"]
+
+    configured = subprocess.run(
+        ["git", "config", "--get", "research-note.pluginRoot"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    candidates = [
+        os.environ.get("RESEARCH_NOTE_PLUGIN"),
+        configured,
+        str(Path(__file__).resolve().parent.parent),
+    ]
+    for candidate in candidates:
+        scripts = Path(candidate).expanduser() / "scripts" if candidate else None
+        if scripts and (scripts / "project_config.py").is_file():
+            sys.path.insert(0, str(scripts))
+            break
+    try:
+        from project_config import load_project_config, prefix_rules
+
+        config = load_project_config(Path.cwd(), legacy_if_missing=False)
+        return prefix_rules(config), list(config["roles"]["experiments"])
+    except (ImportError, ValueError, OSError) as exc:
+        print(
+            f"commit-msg: cannot load .research-note/project.json: {exc}.\n"
+            "Fix the configuration or research-note.pluginRoot; refusing to "
+            "guess which layer owns this commit.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
 def main() -> int:
     if os.environ.get("SKIP_PREFIX_CHECK"):
@@ -39,10 +76,11 @@ def main() -> int:
     if subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"],
                       capture_output=True).returncode != 0:
         return 0
+    rules, experiment_roots = project_rules()
     m = re.match(r"^([a-z]+)(\([^)]*\))?:", subject)
-    if not m or m.group(1) not in RULES:
+    if not m or m.group(1) not in rules:
         print(f"commit-msg: subject `{subject}` has no legal layer prefix.\n"
-              f"Legal: {', '.join(sorted(RULES))} (see root CLAUDE.md Commit "
+              f"Legal: {', '.join(sorted(rules))} (see root CLAUDE.md Commit "
               f"Rules). SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
         return 1
     staged = subprocess.run(["git", "diff", "--cached", "--name-only"],
@@ -61,16 +99,21 @@ def main() -> int:
         # shapes have happened: exp(all), a hyphenated typo, and a literal
         # glob covering several nodes at once. The node must exist — or be
         # created by this very commit.
-        if (not os.path.isdir(os.path.join("experiments", node))
-                and not any(f.startswith(f"experiments/{node}/") for f in staged)):
-            print(f"commit-msg: `exp({node}):` names no node — experiments/{node}/ "
+        roots = [root.rstrip("/") for root in experiment_roots]
+        if (not any(os.path.isdir(os.path.join(root, node)) for root in roots)
+                and not any(
+                    f.startswith(f"{root}/{node}/")
+                    for root in roots for f in staged
+                )):
+            expected = " or ".join(f"{root}/{node}/" for root in roots)
+            print(f"commit-msg: `exp({node}):` names no node — {expected} "
                   f"neither exists nor is created by this commit.\n"
                   f"The scope is the retrieval key (`git log --grep=<node>` is a "
                   f"node's whole code history); a wrong name hides this commit from "
                   f"it silently. One node per commit — split a sweep. "
                   f"SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
             return 1
-    allowed = RULES[m.group(1)]
+    allowed = rules[m.group(1)]
     dirs = {p.split("/", 1)[0] for p in staged if "/" in p}
     bad = dirs - allowed
     if bad:

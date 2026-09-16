@@ -799,7 +799,7 @@ def test_n2_missing_impl_fires(tmp_path, monkeypatch):
     nodes = tmp_path / "project_memory" / "nodes"
     write_node_md(nodes, "tanner_gnn_ln", NODE)
     monkeypatch.setattr(C, "NODES_DIR", nodes)
-    monkeypatch.setattr(C, "EXPERIMENTS_DIR", tmp_path / "experiments")
+    monkeypatch.setattr(C, "ROOT", tmp_path)
     assert any(e.startswith("N2") for e in C.impl_errors())
 
 
@@ -810,7 +810,30 @@ def test_n2_silent_when_an_impl_exists_in_any_language(tmp_path, monkeypatch):
     impl.mkdir(parents=True)
     (impl / "model.jl").write_text("")
     monkeypatch.setattr(C, "NODES_DIR", nodes)
-    monkeypatch.setattr(C, "EXPERIMENTS_DIR", tmp_path / "experiments")
+    monkeypatch.setattr(C, "ROOT", tmp_path)
+    assert C.impl_errors() == []
+
+
+def test_n2_reads_the_declared_experiment_root(tmp_path, monkeypatch):
+    """A project that keeps its nodes under `trials/` declares it once; the
+    linter looks there and names that root, not `experiments/`, when it fails."""
+    import json
+    nodes = tmp_path / "project_memory" / "nodes"
+    write_node_md(nodes, "tanner_gnn_ln", NODE)
+    config = json.loads(
+        (Path(C.__file__).resolve().parent.parent / "templates/project.json").read_text())
+    config["roles"]["experiments"] = ["trials"]
+    config["layers"]["experiments"]["paths"] = ["trials"]
+    (tmp_path / ".research-note").mkdir()
+    (tmp_path / ".research-note/project.json").write_text(json.dumps(config))
+    monkeypatch.setattr(C, "NODES_DIR", nodes)
+    monkeypatch.setattr(C, "ROOT", tmp_path)
+
+    errs = C.impl_errors()
+    assert len(errs) == 1 and "trials/tanner_gnn_ln/impl/" in errs[0], errs
+    impl = tmp_path / "trials" / "tanner_gnn_ln" / "impl"
+    impl.mkdir(parents=True)
+    (impl / "model.py").write_text("")
     assert C.impl_errors() == []
 
 

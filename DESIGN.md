@@ -64,9 +64,20 @@ separation mechanical rather than aspirational:
 | `agent:` | `.claude/` `.agents/` `.agent/` `.codex/` — one prefix for every agent-binding directory (§12) |
 | `chore:` | nothing but root-level files — `.gitignore`, `pyproject.toml`, `uv.lock`, a root doc. The bucket for a commit that belongs to no layer |
 
-A project extends this table for its own top-level directories (adds
-`code:`, `plot:`, `paper:`, `data:`) — the hook that enforces it is a function of
-the project's layout, which is why an update never overwrites it.
+The table is the default, not a requirement. A project declares its own
+roots and layers in `.research-note/project.json` — `roles` (which directories
+are the library, the tests, the experiments, the knowledge base) and `layers`
+(which top-level paths each commit prefix may touch), every managed path owned
+by exactly one layer, and `project_config.py` is the single reader every
+consumer goes through: the commit-msg partition, the pre-commit index gate,
+`gen_index.py`, the linters' N2 cross-check, doctor, the sparse clone and the
+worktree patterns, `remote.sh pull`. An existing project therefore keeps
+`code/` and `trials/` where they are and declares them, rather than moving
+them to earn the checks. Because the rules live in the declaration, the hook
+that enforces them is framework text again and an update can replace it — the
+earlier design put the table INSIDE `commit-msg`, which made every project's
+hook a hand-edited fork that updates had to diff and port around. A project
+with no declaration reads as the standard layout.
 
 ---
 

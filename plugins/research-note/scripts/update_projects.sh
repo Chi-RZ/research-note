@@ -243,6 +243,9 @@ PY
     # deletion — the prefixes vanish and every commit touching those dirs is
     # rejected until someone works out why. Porting a plugin-side change into a
     # customised hook needs judgment, so the script reports and the skill decides.
+    # A project that has moved its layers into .research-note/project.json has
+    # no such table in its hook any more; for it the hook is framework text
+    # and is synced like one.
     if [ -d "$CACHE/githooks" ]; then
         mkdir -p "$P/.claude/githooks"
         for h in "$CACHE"/githooks/*; do
@@ -251,8 +254,15 @@ PY
             if [ ! -e "$P/.claude/githooks/$b" ]; then
                 run cp "$h" "$P/.claude/githooks/$b"; echo "   githook: $b installed (was missing)"; CHANGED+=("$P")
             elif ! diff -q "$h" "$P/.claude/githooks/$b" >/dev/null 2>&1; then
-                echo "   githook: $b DIFFERS from the template — diff and port by hand"
-                echo "      diff $h $P/.claude/githooks/$b"
+                if [ -f "$P/.research-note/project.json" ]; then
+                    # The layer table lives in the declaration now, so the hook
+                    # carries nothing of the project's own: replacing it loses
+                    # nothing and brings the plugin's fixes.
+                    run cp "$h" "$P/.claude/githooks/$b"; echo "   githook: $b synced (rules come from .research-note/project.json)"; CHANGED+=("$P")
+                else
+                    echo "   githook: $b DIFFERS from the template — diff and port by hand"
+                    echo "      diff $h $P/.claude/githooks/$b"
+                fi
             fi
         done
         hp=$(git -C "$P" config core.hooksPath 2>/dev/null)

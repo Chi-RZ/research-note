@@ -8,9 +8,9 @@ Resolution order:
      if it validates.
   4. Hard exit 2 with a diagnosis on stderr.
 
-A directory "validates" when it carries the two framework markers:
-`project_memory/` and `.claude/framework.json` (roles.json, its pre-v0.4
-predecessor, is still accepted).
+A directory "validates" when it carries `project_memory/` and the public
+`.research-note/project.json` marker. Legacy `.claude/framework.json` and its
+pre-v0.4 `roles.json` predecessor are still accepted.
 The old `parents[N]` idiom silently produced a wrong ROOT the moment a script
 moved — a plugin install is exactly such a move — and one linter then passed
 vacuously on an empty glob. Hence: never guess silently, never exit 0 on a
@@ -25,7 +25,8 @@ from pathlib import Path
 
 def is_project_root(p: Path) -> bool:
     return (p / "project_memory").is_dir() and (
-        (p / ".claude" / "framework.json").is_file()
+        (p / ".research-note" / "project.json").is_file()
+        or (p / ".claude" / "framework.json").is_file()
         or (p / ".claude" / "roles.json").is_file())   # pre-v0.4 projects
 
 
@@ -52,7 +53,7 @@ def resolve_root(legacy: Path | None = None) -> Path:
             return p
     print(
         "projroot: cannot find the project root — need a directory containing "
-        "project_memory/ and .claude/framework.json.\n"
+        "project_memory/ and .research-note/project.json (or a legacy marker).\n"
         f"  tried project-dir env={env!r}, cwd walk-up from {Path.cwd()}, "
         f"legacy layout {str(legacy) if legacy else '(none)'}.\n"
         "  Run from inside the project or export RESEARCH_NOTE_PROJECT_DIR.",

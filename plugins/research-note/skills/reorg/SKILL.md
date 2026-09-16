@@ -5,7 +5,10 @@ description: Use when a capability already in src/ belongs somewhere else — it
 
 # Reorg Skill
 
-You are **moving** a capability to a better home inside `src/`. Nothing
+You are **moving** a capability to a better home inside `src/`. (`src/` here is the
+project's declared library root — `project_config.py role libraries` —
+and `experiments/` its declared experiment root; the standard names are
+used throughout.) Nothing
 changes about what it does. The deliverable is: real code at the new path, a
 re-export at the old path, updated tests, a regenerated `src/INDEX.md` — and a
 passing test suite.

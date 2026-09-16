@@ -58,7 +58,7 @@ if [ -z "$SKIP_RECORD_LINT" ]; then
         fi
     fi
 fi
-# --- 3. src/INDEX.md is current whenever src/ moves -------------------------
+# --- 3. the source INDEX.md is current whenever a library root moves --------
 # The index is a generated view and the discovery rule reads it before any new
 # code is written ("look in src/INDEX.md, then experiments/"). Regenerating it
 # is a step AFTER a branch lands, in the MAIN checkout — a different place from
@@ -69,7 +69,20 @@ fi
 # A linked worktree is sparse here, and generating there produces a short
 # index; the check still runs (it only compares) and its message says where to
 # regenerate.
-if [ -z "$SKIP_SRC_INDEX" ] && git diff --cached --name-only | grep -q '^src/'; then
+PLUGIN_ROOT="${RESEARCH_NOTE_PLUGIN:-$(git config --get research-note.pluginRoot 2>/dev/null)}"
+LIB_ROOTS="src"
+if [ -f .research-note/project.json ] && [ -f "$PLUGIN_ROOT/scripts/project_config.py" ]; then
+    configured=$(python3 "$PLUGIN_ROOT/scripts/project_config.py" --project "$PWD" role libraries 2>/dev/null)
+    [ -n "$configured" ] && LIB_ROOTS="$configured"
+fi
+source_staged=0
+for source_root in $LIB_ROOTS; do
+    if git diff --cached --name-only | grep -q "^${source_root}/"; then
+        source_staged=1
+        break
+    fi
+done
+if [ -z "$SKIP_SRC_INDEX" ] && [ "$source_staged" -eq 1 ]; then
     GEN=""
     root=$(git config --get research-note.pluginRoot 2>/dev/null)
     [ -n "$root" ] && [ -f "$root/scripts/gen_index.py" ] && GEN="$root/scripts/gen_index.py"
@@ -84,7 +97,7 @@ if [ -z "$SKIP_SRC_INDEX" ] && git diff --cached --name-only | grep -q '^src/'; 
         python3 "$GEN" --check
         rc=$?
         if [ "$rc" -eq 1 ]; then
-            echo "pre-commit: this commit touches src/ but src/INDEX.md is behind it." >&2
+            echo "pre-commit: this commit touches $LIB_ROOTS but its source INDEX.md is behind it." >&2
             echo "  Regenerate, stage it, and commit again. SKIP_SRC_INDEX=1 to override." >&2
             exit 1
         fi

@@ -70,10 +70,6 @@ from project_config import (
     write_project_config,
 )
 
-DIRS = ("src", "tests", "experiments", "experiments/tests", "wiki", ".agent/skills",
-        "wiki/knowledge",
-        "project_memory/nodes", "project_memory/memory/shared",
-        "project_memory/note", "project_memory/objectives")
 #: template -> where it lands in the project (project-OWNED copies from here on;
 #: the plugin's templates are the seed, not a live mirror)
 FILES = {"CLAUDE.md": ".claude/CLAUDE.md",
@@ -81,15 +77,6 @@ FILES = {"CLAUDE.md": ".claude/CLAUDE.md",
          "project_memory-CLAUDE.md": ".claude/project_memory-CLAUDE.md",
          "wiki-CLAUDE.md": ".claude/wiki-CLAUDE.md",
          "framework.json": ".claude/framework.json"}
-#: the per-layer contract views: link -> target, so one file has one home
-LINKS = {"CLAUDE.md": ".claude/CLAUDE.md",
-         "AGENTS.md": ".claude/CLAUDE.md",
-         "experiments/CLAUDE.md": "../.claude/experiments-CLAUDE.md",
-         "experiments/AGENTS.md": "../.claude/experiments-CLAUDE.md",
-         "project_memory/CLAUDE.md": "../.claude/project_memory-CLAUDE.md",
-         "project_memory/AGENTS.md": "../.claude/project_memory-CLAUDE.md",
-         "wiki/CLAUDE.md": "../.claude/wiki-CLAUDE.md",
-         "wiki/AGENTS.md": "../.claude/wiki-CLAUDE.md"}
 # Both agent-specific discovery locations are views onto one canonical skill
 # directory. Targets are relative to each link's parent directory.
 SKILL_LINKS = {
@@ -149,11 +136,20 @@ EDITOR_EXTENSIONS = (
 # (ignored) contents to make room for the symlink, silently: it cost a project
 # 105 GB of checkpoints and 50 logs in one merge. These forms match files,
 # directories and symlinks alike.
-GITIGNORE_LINES = (".fixer", ".venv", "__pycache__/", "*.egg-info/",
-                   "experiments/*/*/logs", "experiments/*/*/data",
-                   "experiments/*/*/checkpoint",
-                   "experiments/*/logs", "experiments/*/data",
-                   "experiments/*/checkpoint")
+GITIGNORE_BASE = (".fixer", ".venv", "__pycache__/", "*.egg-info/")
+
+
+def gitignore_lines(config: dict) -> tuple[str, ...]:
+    lines = list(GITIGNORE_BASE)
+    for root in config["roles"]["experiments"]:
+        for depth in ("*/*", "*"):
+            for kind in ("logs", "data", "checkpoint"):
+                lines.append(f"{root}/{depth}/{kind}")
+    return tuple(lines)
+
+
+# Public default retained for the setup contract and its distribution test.
+GITIGNORE_LINES = gitignore_lines(initial_project_config())
 
 report: list[tuple[str, str, str]] = []       # (state, what, detail)
 
@@ -164,6 +160,41 @@ def needs_legacy_config(proj: Path) -> bool:
         not (proj / CONFIG_PATH).exists()
         and (proj / ".claude/framework.json").is_file()
     )
+
+
+def layout_dirs(config: dict) -> tuple[str, ...]:
+    """Directories the configured roles need, in stable creation order."""
+    paths = [
+        *config["roles"]["libraries"],
+        *config["roles"]["tests"],
+        *config["roles"]["experiments"],
+        *config["roles"]["knowledge"],
+        ".agent/skills",
+        "project_memory/nodes",
+        "project_memory/memory/shared",
+        "project_memory/note",
+        "project_memory/objectives",
+    ]
+    paths.extend(f"{root}/tests" for root in config["roles"]["experiments"])
+    paths.extend(f"{root}/knowledge" for root in config["roles"]["knowledge"])
+    return tuple(dict.fromkeys(paths))
+
+
+def contract_links(config: dict) -> dict[str, str]:
+    """Agent contract views for the configured semantic directories."""
+    links = {
+        "CLAUDE.md": ".claude/CLAUDE.md",
+        "AGENTS.md": ".claude/CLAUDE.md",
+        "project_memory/CLAUDE.md": "../.claude/project_memory-CLAUDE.md",
+        "project_memory/AGENTS.md": "../.claude/project_memory-CLAUDE.md",
+    }
+    for root in config["roles"]["experiments"]:
+        links[f"{root}/CLAUDE.md"] = "../.claude/experiments-CLAUDE.md"
+        links[f"{root}/AGENTS.md"] = "../.claude/experiments-CLAUDE.md"
+    for root in config["roles"]["knowledge"]:
+        links[f"{root}/CLAUDE.md"] = "../.claude/wiki-CLAUDE.md"
+        links[f"{root}/AGENTS.md"] = "../.claude/wiki-CLAUDE.md"
+    return links
 
 
 FEATURE_FLAGS = {
@@ -467,6 +498,16 @@ def main() -> int:
     # from the smaller core and opts into integrations explicitly.
     config_path = proj / CONFIG_PATH
     legacy_without_config = needs_legacy_config(proj)
+    try:
+        base_config = (
+            load_project_config(proj, legacy_if_missing=False)
+            if config_path.exists()
+            else initial_project_config(legacy=legacy_without_config)
+        )
+        project_config = with_feature_choices(base_config, requested_features)
+    except ConfigError as exc:
+        say("FAIL", str(CONFIG_PATH), str(exc))
+        return 2
 
     def w(path: Path, text: str, label: str) -> None:
         """Write only when absent — an existing file is the user's."""
@@ -479,7 +520,7 @@ def main() -> int:
         say("new", label)
 
     print("\n· layout")
-    for d in DIRS:
+    for d in layout_dirs(project_config):
         p = proj / d
         if p.is_dir():
             say("kept", d)
@@ -507,16 +548,6 @@ def main() -> int:
             say("FAIL", dst, f"template missing: {t}")
             continue
         w(proj / dst, t.read_text(encoding="utf-8"), dst)
-    try:
-        base_config = (
-            load_project_config(proj, legacy_if_missing=False)
-            if config_path.exists()
-            else initial_project_config(legacy=legacy_without_config)
-        )
-        project_config = with_feature_choices(base_config, requested_features)
-    except ConfigError as exc:
-        say("FAIL", str(CONFIG_PATH), str(exc))
-        return 2
     if config_path.exists():
         if project_config == base_config:
             say("kept", str(CONFIG_PATH))
@@ -579,7 +610,7 @@ def main() -> int:
           ex.read_text(encoding="utf-8"), f".claude/examples/{ex.name}")
 
     print("\n· contract views (symlinks)")
-    for link, target in LINKS.items():
+    for link, target in contract_links(project_config).items():
         p = proj / link
         if p.is_symlink() or p.exists():
             state = "kept" if (p.exists() or p.is_symlink()) else "new"
@@ -695,9 +726,10 @@ def main() -> int:
         say("kept", ".gitignore", "project-owned; template lines not enforced")
     else:
         if not dry:
+            lines = gitignore_lines(project_config)
             gi.write_text("# framework runtime + build artifacts\n"
-                          + "\n".join(GITIGNORE_LINES) + "\n", encoding="utf-8")
-        say("new", ".gitignore", f"{len(GITIGNORE_LINES)} line(s)")
+                          + "\n".join(lines) + "\n", encoding="utf-8")
+        say("new", ".gitignore", f"{len(gitignore_lines(project_config))} line(s)")
 
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(proj),
            "RESEARCH_NOTE_PROJECT_DIR": str(proj)}

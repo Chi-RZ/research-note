@@ -3,7 +3,7 @@
 
 Codes (record v3 — DESIGN.md §10):
   N1 node.md exists, entries only, first is the gate
-  N2 an implementation exists under experiments/<node>/   (--cross)
+  N2 an implementation exists under <experiments root>/<node>/ (--cross)
   N3 the regenerated roster matches the tree              (--cross)
   FW record version matches the linter (exit 3 on mismatch)
   E1 id unique, in Date order          E2 status in the four states
@@ -43,10 +43,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from projroot import nth_parent, resolve_root  # noqa: E402
+from project_config import (  # noqa: E402
+    ConfigError,
+    initial_project_config,
+    load_project_config,
+)
 
 ROOT = resolve_root(nth_parent(Path(__file__), 2))
 NODES_DIR = ROOT / "project_memory" / "nodes"
+#: Default kept for older importers; the N2 check reads experiment_roots().
 EXPERIMENTS_DIR = ROOT / "experiments"
+
+
+def experiment_roots() -> list[Path]:
+    """The experiment roots this project declares (`.research-note/project.json`),
+    or the standard layout when it declares nothing."""
+    try:
+        config = load_project_config(ROOT)
+    except ConfigError:
+        config = initial_project_config(legacy=True)
+    return [ROOT / path for path in config["roles"]["experiments"]]
 
 #: The record schema this linter enforces. A project declares the version it
 #: was migrated to in .claude/framework.json; a mismatch means either the
@@ -1276,12 +1292,15 @@ def impl_errors() -> list[str]:
     """N2 — the record's node and the code's node are the same node: an
     implementation EXISTS under the matching name, in any language."""
     errs = []
+    roots = experiment_roots()
     for p in sorted(NODES_DIR.glob("*/node.md")):
         node = p.parent.name
-        impl = EXPERIMENTS_DIR / node / "impl"
-        if not (impl.is_dir() and any(impl.iterdir())):
+        impls = [root / node / "impl" for root in roots]
+        if not any(impl.is_dir() and any(impl.iterdir()) for impl in impls):
+            expected = " or ".join(
+                f"{impl.relative_to(ROOT).as_posix()}/" for impl in impls)
             errs.append(f"N2 node `{node}` has no implementation — "
-                        f"experiments/{node}/impl/ is missing or empty")
+                        f"{expected} is missing or empty")
     return errs
 
 

@@ -394,6 +394,16 @@ Run Python as `uv run python -u ...` everywhere (per root CLAUDE.md).
 
 Preserve import paths; `git mv` in the **main** repo; symlink big data.
 
+**Moving is optional.** A project that already keeps its library in `code/`,
+its tests in `spec/` or its runs in `trials/` declares those roots instead of
+moving them — `roles` in `.research-note/project.json`, each root owned by
+exactly one layer. Every consumer reads the declaration: the commit-msg
+partition, the pre-commit index gate, `gen_index.py`, the N2 cross-check,
+doctor, the sparse clone and worktree patterns, `remote.sh pull`. Confirm
+`python3 "$PLUGIN/scripts/project_config.py" validate` passes and re-run
+bootstrap so the layout, contract views and `.gitignore` follow the declared
+roots. The steps below are for a project that WANTS the standard layout.
+
 1. **Library → `src/`.** Keep the package name (src-layout preserves
    `import <pkg>`): `git mv <old>/<pkg> src/<pkg>`. Zero code edits needed.
    Add its src-tests to `tests/` mirroring `src/`.
@@ -416,11 +426,11 @@ then infra (`pyproject.toml` + `.gitignore` + `INDEX.md`). Prefixes: `refactor:`
 ### A top-level directory the six layers cannot absorb — declare a new layer
 
 The commit-msg hook partitions the monorepo: staged top-level dirs minus the
-prefix's allowed set, non-empty rejects. A directory outside
-`src tests experiments project_memory wiki .claude` therefore cannot be
-committed under any prefix until it is declared — loudly, at commit time, which
-is the point: "which layer is this" gets answered explicitly instead of a new
-directory drifting into whichever layer's commits happen to touch it.
+prefix's allowed set, non-empty rejects. A directory outside the declared
+layers therefore cannot be committed under any prefix until it is declared —
+loudly, at commit time, which is the point: "which layer is this" gets answered
+explicitly instead of a new directory drifting into whichever layer's commits
+happen to touch it.
 
 Answer it in this order:
 
@@ -430,35 +440,28 @@ Answer it in this order:
    answer more often than it feels.
 2. **Otherwise it is a NEW layer with its OWN prefix — one prefix, one
    directory set.** Never widen an existing prefix's set instead (no
-   `"wiki": {"wiki", "paper"}`): the layer table's whole value is that a
-   prefix names exactly one region of the tree, so `git log --grep` and a
-   change's blast radius read straight off the prefix. A prefix touching two
-   top-level dirs is the partition starting to dissolve — the cheap widening
-   today is the mush someone else debugs later.
+   `"knowledge": {"paths": ["wiki", "paper"]}`): the layer table's whole value
+   is that a prefix names exactly one region of the tree, so `git log --grep`
+   and a change's blast radius read straight off the prefix. A prefix touching
+   two top-level dirs is the partition starting to dissolve — the cheap
+   widening today is the mush someone else debugs later.
 
-Declaring one is three edits in one `agent:` commit (the commit touches only
-`.claude/` and the root contract, so the existing rules admit it — no
-bootstrap problem):
+Declaring one is one edit in one `agent:` commit — `.research-note/project.json`
+gains a layer; the hook reads the file, so the hook itself is never edited:
 
-```python
-# .claude/githooks/commit-msg — RULES gains a row, own prefix, own dir
-    "agent": {".claude"},
-    # <project>-specific layers
-    "paper": {"paper"},
+```json
+"layers": {
+  "paper": { "paths": ["paper"], "prefixes": ["paper"] }
+}
 ```
 
-```
-| `paper/` | manuscript and submission material | `paper:` |   <- root CLAUDE.md layer table
-```
-
-A live precedent: one project absorbed a legacy multi-repo as `"code": {"code"}`,
-`"plot": {"results_plot"}` and siblings — twelve top-level dirs that a blind
-template copy would have made uncommittable, which is why `update_projects.sh`
-diff-and-ports githooks instead of overwriting: your rows survive a plugin
-update, and the plugin's own hook changes get ported INTO your copy by hand.
-Adding rows to the root contract has the same consequence — the update reports
-it DRIFTED and leaves the merge to you. Both are the designed cost of a
-project-shaped tree, not a problem.
+`project_config.py validate` refuses a path or prefix claimed by two layers.
+Because the rules live in the declaration and not in the hook, the plugin's
+`commit-msg` is framework text again: an update replaces it freely and your
+layers survive, where the old hand-edited `RULES` table had to be diffed and
+ported by hand at every update. A project still on that pre-declaration hook
+keeps working — the hook falls back to its built-in table when no
+`project.json` exists — and gains the declaration the next time bootstrap runs.
 
 Two non-answers: `chore` is not the junk layer (its set is EMPTY, root-level
 files only, on purpose), and `SKIP_PREFIX_CHECK=1` is the escape hatch for a

@@ -24,13 +24,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from projroot import nth_parent, resolve_root  # noqa: E402
+from project_config import (  # noqa: E402
+    ConfigError,
+    initial_project_config,
+    load_project_config,
+)
 
 ROOT = resolve_root(nth_parent(Path(__file__), 2))
 NODES = ROOT / "project_memory" / "nodes"
 OBJECTIVES = ROOT / "project_memory" / "objectives"
 INDEX = ROOT / "project_memory" / "_index.md"
+# Compatibility names for project tests and older importers. Runtime path
+# selection comes from configured_role().
 SRC = ROOT / "src"
 SRC_INDEX = SRC / "INDEX.md"
+
+
+def configured_role(role: str) -> list[Path]:
+    try:
+        config = load_project_config(ROOT)
+    except ConfigError:
+        config = initial_project_config(legacy=True)
+    return [ROOT / path for path in config["roles"][role]]
 
 #: An existing roster row: `| 07 | [name](nodes/name/node.md) | ... |`.
 ROSTER_ROW_RE = re.compile(r"^\|\s*(\d+)\s*\|\s*\[`?([A-Za-z0-9_.-]+)`?\]", re.M)
@@ -118,7 +133,14 @@ def one_liner(name: str) -> str:
     accepts every spelling (one line, parenthesised, triple-quoted) and ignores
     a DESCRIPTION that is not a module-level string literal.
     """
-    impl = ROOT / "experiments" / name / "impl" / "__init__.py"
+    impl = next(
+        (
+            root / name / "impl" / "__init__.py"
+            for root in configured_role("experiments")
+            if (root / name / "impl" / "__init__.py").exists()
+        ),
+        configured_role("experiments")[0] / name / "impl" / "__init__.py",
+    )
     if not impl.exists():
         return "—"
     src = impl.read_text(encoding="utf-8")
@@ -208,10 +230,13 @@ def gen_node_roster() -> None:
 
 
 def gen_src_index(check: bool = False) -> bool:
-    if not SRC.is_dir():
+    sources = configured_role("libraries")
+    existing = [source for source in sources if source.is_dir()]
+    if not existing:
         return
+    source_index = sources[0] / "INDEX.md"
     rows = []
-    for py in sorted(SRC.rglob("*.py")):
+    for py in sorted(path for source in existing for path in source.rglob("*.py")):
         if py.name.startswith("_"):
             continue
         rel = py.relative_to(ROOT)
@@ -242,18 +267,24 @@ def gen_src_index(check: bool = False) -> bool:
         # drift. Stale means: src/ has capabilities this file does not list, so
         # the discovery rule ("read src/INDEX.md before writing anything new")
         # silently stops finding them and the next agent writes a duplicate.
-        if SRC_INDEX.exists() and SRC_INDEX.read_text(encoding="utf-8") == text:
+        if source_index.exists() and source_index.read_text(encoding="utf-8") == text:
             return True
-        have = sum(1 for ln in (SRC_INDEX.read_text(encoding="utf-8").split("\n")
-                                if SRC_INDEX.exists() else [])
-                   if ln.startswith("| `"))
-        print(f"gen_index: src/INDEX.md is STALE — it lists {have} "
-              f"capabilit(y/ies), src/ has {len(rows)}. Run "
+        have = sum(
+            1
+            for ln in (
+                source_index.read_text(encoding="utf-8").split("\n")
+                if source_index.exists() else []
+            )
+            if ln.startswith("| `")
+        )
+        roots = ", ".join(str(path.relative_to(ROOT)) for path in sources)
+        print(f"gen_index: {source_index.relative_to(ROOT)} is STALE — it lists {have} "
+              f"capabilit(y/ies), {roots} has {len(rows)}. Run "
               f"`gen_index.py --src` IN THE MAIN CHECKOUT (a worktree is "
               f"sparse and generates a short index).", file=sys.stderr)
         return False
-    SRC_INDEX.write_text(text, encoding="utf-8")
-    print(f"src/INDEX.md: {len(rows)} capabilit(y/ies) — {SRC_INDEX}")
+    source_index.write_text(text, encoding="utf-8")
+    print(f"{source_index.relative_to(ROOT)}: {len(rows)} capabilit(y/ies) — {source_index}")
     return True
 
 

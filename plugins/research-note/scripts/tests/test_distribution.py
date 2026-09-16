@@ -24,6 +24,17 @@ def test_both_manifests_name_the_same_plugin_version():
     assert claude["version"] == codex["version"]
 
 
+def test_the_claude_marketplace_entry_carries_the_plugin_version():
+    """The marketplace entry is what `claude plugin install` reads; it sat at
+    0.1.9 while both plugin manifests said 0.2.0 and nothing noticed."""
+    if not HAS_MARKETPLACE:
+        pytest.skip("installed plugin cache intentionally excludes marketplace roots")
+    claude = read(PLUGIN / ".claude-plugin" / "plugin.json")
+    market = read(REPO / ".claude-plugin" / "marketplace.json")
+    entries = [e for e in market["plugins"] if e["name"] == "research-note"]
+    assert entries and entries[0]["version"] == claude["version"]
+
+
 def test_both_marketplaces_point_at_the_one_real_core():
     if not HAS_MARKETPLACE:
         pytest.skip("installed plugin cache intentionally excludes marketplace roots")
@@ -112,6 +123,30 @@ def test_core_settings_do_not_request_remote_or_scheduler_permissions():
         rule = f"Bash({command}:*)"
         assert rule not in core_rules
         assert rule in hpc_rules
+
+
+def test_bootstrap_layout_artifacts_follow_configured_roles():
+    bootstrap = _bootstrap()
+    config = json.loads((PLUGIN / "templates/project.json").read_text())
+    config["roles"].update({
+        "libraries": ["code"],
+        "tests": ["spec"],
+        "experiments": ["trials"],
+        "knowledge": ["docs"],
+    })
+    config["layers"]["source"]["paths"] = ["code", "spec"]
+    config["layers"]["experiments"]["paths"] = ["trials"]
+    config["layers"]["knowledge"]["paths"] = ["docs"]
+
+    dirs = bootstrap.layout_dirs(config)
+    assert all(path in dirs for path in ("code", "spec", "trials", "docs"))
+    assert "src" not in dirs and "experiments" not in dirs and "wiki" not in dirs
+    links = bootstrap.contract_links(config)
+    assert links["trials/AGENTS.md"] == "../.claude/experiments-CLAUDE.md"
+    assert links["docs/CLAUDE.md"] == "../.claude/wiki-CLAUDE.md"
+    ignored = bootstrap.gitignore_lines(config)
+    assert "trials/*/logs" in ignored
+    assert not any(line.startswith("experiments/") for line in ignored)
 
 
 def test_contracts_name_shared_memory_as_the_authority():

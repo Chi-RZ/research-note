@@ -93,12 +93,13 @@ def test_the_parse_warnings_of_the_source_do_not_reach_the_gate(proj, capsys):
     assert "SyntaxWarning" not in capsys.readouterr().err
 
 
-def test_the_hook_only_runs_the_check_when_src_is_staged(tmp_path):
+def test_the_hook_only_runs_the_check_when_a_library_root_is_staged(tmp_path):
     """Every other commit must be untouched — a record commit, a wiki commit
     and an agent commit pay nothing for this gate."""
     text = HOOK.read_text()
     assert "SKIP_SRC_INDEX" in text
     gate = text.split("--- 3.")[1]
-    assert "grep -q '^src/'" in gate, gate
+    assert "role libraries" in gate
+    assert 'grep -q "^${source_root}/"' in gate
     r = subprocess.run(["sh", "-n", str(HOOK)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
