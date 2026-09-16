@@ -77,26 +77,28 @@ skill. In one pass it:
 - ends on an acceptance gate: the framework self-tests and both linters, with
   whatever still needs attention named in the output.
 
-It never overwrites a file you already have — a re-run reports `kept`, which is
-how a project picks up new scaffolding after an update. How you pin your
-environment is left to you on purpose.
+A re-run never overwrites what you already have — it reports `kept` and moves
+on. That is how a project picks up new scaffolding after an update. How you pin
+your environment stays your choice.
 
-**If you run jobs on a cluster**, name it in the same sentence — the ssh host
-and where the project should live on it, say `hpc:/scratch/you/myproject`.
-Setup then asks once for that cluster's queue placement — partition,
-reservation, charge account — and writes them into `.claude/hpc.env`, so no
-submit file has to carry them and none can forget them. It clones the project
-onto the cluster sparsely: everything except `project_memory/` and `wiki/`,
-because the record lives in exactly one place and a stale copy on the cluster
-is worse than none. Nothing is installed there.
+**If you run jobs on a cluster**, name it in the same sentence: the ssh host,
+and where the project should live there — `hpc:/scratch/you/myproject`.
 
-That clone is why a cluster needs **a git remote the cluster can reach** —
-GitHub, GitLab, your own server, anything it can `git clone`. Code travels to
-the cluster by `git pull` on the far side, never by copying files, which is
-also what lets a launch refuse to start until both sides sit on the same clean,
-pushed commit. Without a remote there is no channel, and the cluster step stops
-with that message. If the project has no remote yet, say so and the agent will
-set one up with you first.
+Setup asks once for that cluster's queue placement — partition, reservation,
+charge account — and writes it into `.claude/hpc.env`. Every submission reads it
+from there, so no submit file carries it and none can forget it.
+
+It then clones the project onto the cluster, leaving out `project_memory/` and
+`wiki/`. The record lives in one place only; a stale copy on the cluster would
+be found and believed. Nothing else is installed there.
+
+**A cluster needs a git remote** — GitHub, GitLab, your own server, anything it
+can `git clone`. Code travels by `git pull` on the far side, never by copying
+files. That is also what lets a launch refuse to start until both sides sit on
+the same clean, pushed commit.
+
+No remote, no channel: the cluster step stops and says so. If the project has
+none yet, say so and the agent will set one up with you first.
 
 ## Updating
 
