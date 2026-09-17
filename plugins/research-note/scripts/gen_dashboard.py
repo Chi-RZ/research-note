@@ -26,6 +26,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import check_node_page as cn                    # reuse parser + linter
 from projroot import nth_parent, resolve_root   # noqa: E402
+from project_config import (  # noqa: E402
+    ConfigError, feature_enabled, initial_project_config, load_project_config)
 
 ROOT = resolve_root(nth_parent(HERE, 1))
 PM = ROOT / "project_memory"
@@ -328,20 +330,28 @@ def main() -> int:
     except Exception:
         pass
 
-    # fixer heartbeat: cron dying silently is the one gap nothing else surfaces
-    hb = ROOT / ".fixer" / "last_run"
-    if hb.exists():
-        age_min = (time.time() - hb.stat().st_mtime) / 60
-        if age_min > 30:
-            attention.append(f"fixer heartbeat stale — last cron cycle {age_min:.0f} min ago "
-                             "(crontab dead? wrong login node?)")
-    else:
-        attention.append("fixer heartbeat missing — cron never ran (.fixer/last_run)")
-    # fixer crash: heartbeat alive but the cycle itself blew up (detector exception etc.)
-    le = ROOT / ".fixer" / "last_error"
-    if le.exists() and le.stat().st_size:
-        first = le.read_text(encoding="utf-8").strip().splitlines()[-1]
-        attention.append(f"fixer crashed last cycle: {first} — see .fixer/last_error")
+    # fixer heartbeat: the daemon dying silently is the one gap nothing else
+    # surfaces — for a project that RUNS one. A project with the fixer disabled
+    # has no heartbeat to miss, and saying so on its board would report a
+    # disabled integration as broken (the compatibility policy's one rule).
+    try:
+        fixer_on = feature_enabled(load_project_config(ROOT), "fixer")
+    except ConfigError:
+        fixer_on = feature_enabled(initial_project_config(legacy=True), "fixer")
+    if fixer_on:
+        hb = ROOT / ".fixer" / "last_run"
+        if hb.exists():
+            age_min = (time.time() - hb.stat().st_mtime) / 60
+            if age_min > 30:
+                attention.append(f"fixer heartbeat stale — last cycle {age_min:.0f} min ago "
+                                 "(daemon dead? see fixer/start_fixer_daemon.sh)")
+        else:
+            attention.append("fixer heartbeat missing — the daemon never ran (.fixer/last_run)")
+        # fixer crash: heartbeat alive but the cycle itself blew up (detector exception etc.)
+        le = ROOT / ".fixer" / "last_error"
+        if le.exists() and le.stat().st_size:
+            first = le.read_text(encoding="utf-8").strip().splitlines()[-1]
+            attention.append(f"fixer crashed last cycle: {first} — see .fixer/last_error")
 
     n_entries = sum(len(pg["entries"]) for pg in pages)
     data = dict(generated=time.strftime("%Y-%m-%d %H:%M"),

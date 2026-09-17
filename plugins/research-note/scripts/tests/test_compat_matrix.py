@@ -305,3 +305,18 @@ def test_an_existing_repos_own_claude_md_is_merged_into_one_file(existing, home)
     assert (existing / "CLAUDE.md").read_text() == text
     assert (existing / "AGENTS.md").read_text() == text
     assert commit_all(existing, home, "agent: research-note setup").returncode == 0
+
+
+def test_setup_tells_a_local_only_project_nothing_about_integrations_it_lacks(empty, home):
+    """bootstrap's closing to-do list named hpc.env and VS Code for every
+    project — a disabled integration reported as work left to do."""
+    r = bootstrap(empty, home)
+    todo = r.stdout.split("Next (the judgment calls")[1]
+    assert "hpc.env" not in todo and "VS Code" not in todo, todo
+    assert "pyproject.toml" in todo and "doctor.sh" in todo
+
+
+def test_setup_names_the_integration_to_dos_when_they_are_enabled(empty, home):
+    r = bootstrap(empty, home, "--with-hpc", "--with-editor")
+    todo = r.stdout.split("Next (the judgment calls")[1]
+    assert "hpc.env" in todo and "VS Code" in todo, todo

@@ -93,7 +93,7 @@ python3 -c 'import fcntl, signal, sys
 signal.signal(signal.SIGALRM, lambda *_: sys.exit(1))
 signal.alarm(60)
 fcntl.flock(9, fcntl.LOCK_EX)' \
-    || { echo "ERROR: record.lock still held after 60s — is the fixer wedged?" >&2; exit 1; }
+    || { echo "ERROR: record.lock still held after 60s — another writer is wedged (a launcher recording, another session, or this project's fixer if it runs one)" >&2; exit 1; }
 
 # put: optimistic-concurrency check INSIDE the lock — the caller names the
 # page version it started from (sha256, or "new" for a page it is creating);

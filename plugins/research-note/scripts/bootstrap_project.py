@@ -941,15 +941,20 @@ def main() -> int:
           f"{len(bad)} needing attention")
     if bad:
         print("  needs attention: " + "; ".join(bad))
+    # Only what THIS project has: an item about hpc.env or VS Code on a project
+    # that enabled neither is an integration reported as a to-do.
+    todo = ["pyproject.toml — pin the env however this project prefers\n"
+            "     (see the project-setup skill)"]
+    if feature_enabled(project_config, "hpc"):
+        todo.append(".claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
+                    "     in log headers")
+    if feature_enabled(project_config, "editor"):
+        todo.append("Reload Window in VS Code, then: Open Q Dashboard")
+    todo.append("Run the plugin's scripts/doctor.sh — it verifies every wire this\n"
+                "     script laid (and every one it could not), and prints the fix for\n"
+                "     whatever is not yet true")
     print("\nNext (the judgment calls this script deliberately leaves to you):\n"
-          "  1. .claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
-          "     in log headers\n"
-          "  2. pyproject.toml — pin the env however this project prefers\n"
-          "     (see the project-setup skill)\n"
-          "  3. Reload Window in VS Code, then: Open Q Dashboard\n"
-          "  4. Run the plugin's scripts/doctor.sh — it verifies every wire this\n"
-          "     script laid (and every one it could not), and prints the fix for\n"
-          "     whatever is not yet true")
+          + "\n".join(f"  {i}. {item}" for i, item in enumerate(todo, 1)))
     return 1 if any(s == "FAIL" for s, _, _ in report) else 0
 
 
