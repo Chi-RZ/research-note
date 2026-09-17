@@ -63,6 +63,7 @@ if str(HERE) not in sys.path:
 import githooks_install  # noqa: E402
 import contracts  # noqa: E402
 from project_config import (
+    contract_views,
     CONFIG_PATH,
     ConfigError,
     feature_enabled,
@@ -181,19 +182,18 @@ def layout_dirs(config: dict) -> tuple[str, ...]:
 
 
 def contract_links(config: dict) -> dict[str, str]:
-    """Agent contract views for the configured semantic directories."""
-    links = {
-        "CLAUDE.md": ".claude/CLAUDE.md",
-        "AGENTS.md": ".claude/CLAUDE.md",
-        "project_memory/CLAUDE.md": "../.claude/project_memory-CLAUDE.md",
-        "project_memory/AGENTS.md": "../.claude/project_memory-CLAUDE.md",
-    }
-    for root in config["roles"]["experiments"]:
-        links[f"{root}/CLAUDE.md"] = "../.claude/experiments-CLAUDE.md"
-        links[f"{root}/AGENTS.md"] = "../.claude/experiments-CLAUDE.md"
-    for root in config["roles"]["knowledge"]:
-        links[f"{root}/CLAUDE.md"] = "../.claude/wiki-CLAUDE.md"
-        links[f"{root}/AGENTS.md"] = "../.claude/wiki-CLAUDE.md"
+    """Agent contract views for the configured semantic directories.
+
+    One entry per (contract, agent name, declared root); the target is relative
+    to the link's own directory. `project_config.contract_views` decides WHICH
+    paths exist, so bootstrap and `contracts.py` cannot disagree about where a
+    contract is read through — `contracts.py` adopts a project's own file
+    standing at one of them.
+    """
+    links: dict[str, str] = {}
+    for contract, views in contract_views(config).items():
+        for view in views:
+            links[view] = "../" * view.count("/") + f".claude/{contract}"
     return links
 
 

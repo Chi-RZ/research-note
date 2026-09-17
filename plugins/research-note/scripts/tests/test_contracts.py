@@ -5,6 +5,8 @@ compatibility, but new projects write directly below the project-rules heading.
 """
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -241,3 +243,93 @@ def test_the_cli_syncs_and_renders(proj):
     r = subprocess.run([sys.executable, str(SCRIPTS / "contracts.py"), "render", str(proj),
                         "CLAUDE.md", "--plugin", str(PLUGIN)], capture_output=True, text=True)
     assert r.returncode == 0 and r.stdout == (proj / ".claude/CLAUDE.md").read_text()
+
+
+# --- a project's own contract file at a view path ----------------------------
+# A directory holds ONE contract. Claude's own docs give `./CLAUDE.md` and
+# `./.claude/CLAUDE.md` as two locations for one project file, so leaving both
+# risks the framework half going unread — and two files instructing one
+# directory is the wrong shape regardless of which one an agent picks up.
+
+def test_a_projects_own_root_contract_becomes_the_project_section(proj):
+    (proj.parent / "proj/CLAUDE.md").write_text("# House rules\n\nAlways run make test.\n")
+    said = said_of(proj)
+    assert ("adopted", "CLAUDE.md") in {(s, w) for s, w, _ in said}, said
+    assert ("view", "CLAUDE.md") in {(s, w) for s, w, _ in said}, said
+
+    root = proj / "CLAUDE.md"
+    assert root.is_symlink() and os.readlink(root) == ".claude/CLAUDE.md"
+    text = (proj / ".claude/CLAUDE.md").read_text()
+    assert text.startswith(HEAD), "the framework half still comes first"
+    assert text.rstrip().endswith("Always run make test.")
+    assert ct.BOUNDARY in text
+
+
+def test_adoption_is_idempotent_and_reports_nothing_the_second_time(proj):
+    (proj / "CLAUDE.md").write_text("# House rules\n")
+    said_of(proj)
+    before = (proj / ".claude/CLAUDE.md").read_text()
+    said = said_of(proj)
+    assert not any(s in ("adopted", "view") for s, _, _ in said), said
+    assert (proj / ".claude/CLAUDE.md").read_text() == before
+
+
+def test_a_subtree_contract_of_its_own_is_adopted_under_the_declared_root(proj):
+    config = json.loads((PLUGIN / "templates/project.json").read_text())
+    config["roles"]["experiments"] = ["trials"]
+    config["layers"]["experiments"]["paths"] = ["trials"]
+    (proj / ".research-note").mkdir(exist_ok=True)
+    (proj / ".research-note/project.json").write_text(json.dumps(config))
+    (proj / "trials").mkdir()
+    (proj / "trials/CLAUDE.md").write_text("Runs here are named after the rig.\n")
+
+    said = said_of(proj)
+    assert ("adopted", "trials/CLAUDE.md") in {(s, w) for s, w, _ in said}, said
+    assert (proj / "trials/CLAUDE.md").is_symlink()
+    assert "named after the rig" in (proj / ".claude/experiments-CLAUDE.md").read_text()
+    assert "named after the rig" not in (proj / ".claude/CLAUDE.md").read_text()
+
+
+def test_the_second_agents_view_is_a_conflict_when_it_says_something_else(proj):
+    """Both root names present with DIFFERENT text: one becomes the project
+    section, the other is left alone and reported — merging two texts is the
+    user's call, not a guess."""
+    (proj / "CLAUDE.md").write_text("# For Claude\n")
+    (proj / "AGENTS.md").write_text("# For Codex, and different\n")
+    said = said_of(proj)
+    assert ("adopted", "CLAUDE.md") in {(s, w) for s, w, _ in said}
+    assert any(s == "CONFLICT" and w == "AGENTS.md" for s, w, _ in said), said
+    assert (proj / "AGENTS.md").is_file() and not (proj / "AGENTS.md").is_symlink()
+    assert (proj / "AGENTS.md").read_text() == "# For Codex, and different\n"
+
+
+def test_the_same_text_under_both_names_is_adopted_once(proj):
+    (proj / "CLAUDE.md").write_text("# One set of rules\n")
+    (proj / "AGENTS.md").write_text("# One set of rules\n")
+    said = said_of(proj)
+    assert [w for s, w, _ in said if s == "adopted"] == ["CLAUDE.md"]
+    assert not any(s == "CONFLICT" for s, _, _ in said), said
+    assert (proj / "AGENTS.md").is_symlink()
+    assert (proj / ".claude/CLAUDE.md").read_text().count("One set of rules") == 1
+
+
+def test_a_copied_generated_contract_contributes_only_its_own_section(proj):
+    """Someone copied the contract instead of linking it, then wrote a rule in
+    the copy. The framework text must not be folded into the project section."""
+    said_of(proj)                                    # generate first
+    generated = (proj / ".claude/CLAUDE.md").read_text()
+    (proj / "CLAUDE.md").unlink(missing_ok=True)
+    (proj / "CLAUDE.md").write_text(generated + "\nOne local rule.\n")
+
+    said = said_of(proj)
+    assert ("adopted", "CLAUDE.md") in {(s, w) for s, w, _ in said}, said
+    text = (proj / ".claude/CLAUDE.md").read_text()
+    assert text.count("path authority") == 1, "the framework half was duplicated"
+    assert text.rstrip().endswith("One local rule.")
+
+
+def test_dry_run_adopts_nothing(proj):
+    (proj / "CLAUDE.md").write_text("# House rules\n")
+    said_of(proj, dry=True)
+    assert (proj / "CLAUDE.md").read_text() == "# House rules\n"
+    assert not (proj / ".claude/CLAUDE.md").exists()

@@ -205,7 +205,12 @@ summary.
 
 **It preserves existing project files.** A re-run reports `kept` for ordinary
 project files. It may update a managed contract's framework section while
-preserving the `## Project-specific rules` section.
+preserving the `## Project-specific rules` section. **A `CLAUDE.md` or
+`AGENTS.md` the project already had where a contract view belongs is not kept
+beside the contract** — a directory holds one contract, so its text is adopted
+into that section (`adopted`) and the path becomes the view (`view`). Two such
+files that disagree leave the second in place with a `CONFLICT` line: merging
+two texts is the user's call.
 
 **One run configures BOTH agents.** The project side is dual by construction
 (an `AGENTS.md` beside every `CLAUDE.md`, `memory/claude` and `memory/codex`
@@ -265,7 +270,8 @@ declaration is the only moment the facts are known and the file is unwritten.
 **The four contracts have two parts.** The framework template comes first.
 Project-specific rules go below the `## Project-specific rules` heading in the
 same contract. Claude reads the `CLAUDE.md` view and Codex reads the matching
-`AGENTS.md` view. Updates replace only the framework section and preserve the
+`AGENTS.md` view — one file, two names; a project's own `CLAUDE.md` that was
+adopted at setup is now that section, so look there for what it said. Updates replace only the framework section and preserve the
 project section. Write there only what has nowhere else to live: a convention
 the linters cannot check, a binding to this project's tools. A commit prefix is
 a layer in `.research-note/project.json`, not prose. Prose about what this

@@ -77,7 +77,10 @@ skill. The skill does the following.
   has, and adds the needed `.gitignore` entries. Claude reads `CLAUDE.md` and
   Codex reads `AGENTS.md`; both are views of the same contract. The framework
   text comes first, followed by a `## Project-specific rules` section where you
-  can write rules for this project. Updates preserve that section.
+  can write rules for this project. Updates preserve that section. A `CLAUDE.md`
+  or `AGENTS.md` the project already had becomes that section, and the file
+  becomes the view: one merged contract, never two files instructing one
+  directory.
 - creates the dashboard and runs the acceptance checks. The fixer, the editor
   extensions, the cluster support and the registration with the other agent are
   integrations: each is enabled only when you ask for it, and the choice is kept
@@ -147,6 +150,8 @@ compatibility matrix against real repositories on every change:
 - an existing repository's git hooks — a pre-commit framework, git-lfs, a
   hand-written pre-push — all still run after setup and after update, with
   their arguments, stdin and exit codes intact.
+- an existing repository's own `CLAUDE.md` is merged: the framework text first,
+  their rules below it, one file read through both agent names.
 - a machine with one agent, or none on PATH, completes setup.
 - the fixer and the cluster support are present only when asked for.
 - running setup or update a second time changes nothing.
@@ -157,7 +162,9 @@ Run the update once. It writes `.research-note/project.json` with every
 integration turned on, which is what the project had. It keeps anything you
 had added below a contract's project-rules heading and updates the framework
 text above it. Older projects that used `.research-note/rules/` have those
-appendices carried into the contract once. It replaces the git hooks with the
+appendices carried into the contract once, and so does a `CLAUDE.md` or
+`AGENTS.md` of your own standing where a contract view belongs — its text moves
+into the project-rules section and the path becomes the view. It replaces the git hooks with the
 dispatcher, and your project's earlier hooks keep running. The record lock
 moves out of `.fixer/` into `.research-note/state/`. Nothing is deleted. The
 update prints one `conflict:` line for every file it could not resolve on its

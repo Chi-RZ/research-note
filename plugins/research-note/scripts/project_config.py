@@ -66,6 +66,27 @@ LEGACY_FEATURES = {
 }
 
 
+#: Claude reads `CLAUDE.md`, Codex reads `AGENTS.md`. They are two VIEWS of one
+#: contract file, never two sets of rules: a directory holds one contract, so a
+#: file a project wrote at one of these paths is that project's own rules and
+#: belongs in the contract's project section, not beside it.
+AGENT_VIEW_NAMES = ("CLAUDE.md", "AGENTS.md")
+
+
+def contract_views(config: dict[str, Any]) -> dict[str, list[str]]:
+    """contract file -> the repo-relative paths it is read through."""
+    views = {
+        "CLAUDE.md": list(AGENT_VIEW_NAMES),
+        "project_memory-CLAUDE.md": [f"project_memory/{n}" for n in AGENT_VIEW_NAMES],
+    }
+    for role, contract in (("experiments", "experiments-CLAUDE.md"),
+                           ("knowledge", "wiki-CLAUDE.md")):
+        views[contract] = [f"{root}/{name}"
+                           for root in config["roles"][role]
+                           for name in AGENT_VIEW_NAMES]
+    return views
+
+
 def state_dir(root: str | Path) -> Path:
     """The project's core runtime state directory, created on first use with the
     nested .gitignore that keeps it out of the record's commits."""

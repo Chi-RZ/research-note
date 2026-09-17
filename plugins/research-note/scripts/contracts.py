@@ -10,6 +10,10 @@ the project's rules. Older releases kept the project appendix in
     contracts.py sync    PROJECT [--plugin DIR] [--dry-run] [--force]
     contracts.py render  PROJECT NAME          (print the generated text)
 
+A project that already had its own `CLAUDE.md` (or `AGENTS.md`) where a view
+belongs keeps ONE file: that text moves into the project-rules section and the
+path becomes the view, so no directory ends up with two files instructing it.
+
 ``sync`` updates the framework portion only when it can identify it. Text below
 the project-rules heading is preserved. If the framework portion was edited in
 place and the project text cannot be separated safely, the file is left alone
@@ -23,8 +27,17 @@ import json
 import re
 import subprocess
 import sys
+import os
 from pathlib import Path
 from typing import Callable
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from project_config import (  # noqa: E402
+    ConfigError,
+    contract_views,
+    initial_project_config,
+    load_project_config,
+)
 
 #: contract file -> (template, legacy rules filename)
 CONTRACTS = {
@@ -201,12 +214,79 @@ def _existing_appendix(existing: str, template: str, contract: str,
     return None
 
 
+def _project_views(proj: Path) -> dict[str, list[str]]:
+    try:
+        config = load_project_config(proj)
+    except ConfigError:
+        config = initial_project_config(legacy=True)
+    return contract_views(config)
+
+
+def _adopt_views(proj: Path, contract: str, views: list[str], appendix: str,
+                 template: str, templates: Path, *, dry: bool, say: Say
+                 ) -> tuple[str, list[str], bool]:
+    """Fold a project's own contract file into the appendix and make its path a view.
+
+    A directory holds ONE contract. When a project already has a `CLAUDE.md`
+    where a view belongs, keeping both leaves two files claiming to instruct the
+    same directory — and Claude documents `./CLAUDE.md` and `./.claude/CLAUDE.md`
+    as two locations for one project file, so the framework's half could go
+    unread. The project's text is therefore its rules: it moves below the
+    project-rules heading of the generated contract and the path becomes the
+    view, leaving one merged file.
+
+    Returns (appendix, paths to replace with a symlink, changed).
+    """
+    replace: list[str] = []
+    changed = False
+    for view in views:
+        path = proj / view
+        if path.is_symlink() or not path.is_file():
+            continue                      # already a view, or nothing there
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            say("WARN", view, "unreadable — left alone")
+            continue
+        # A copied generated file contributes only ITS appendix; anything else
+        # is the project's own text from end to end.
+        framework = _existing_appendix(text, template, contract, templates)
+        body = _clean_appendix(framework if framework is not None else text)
+        if not body:
+            replace.append(view)          # empty or framework-only: just link it
+            changed = True
+            continue
+        if not appendix:
+            appendix = body
+            replace.append(view)
+            changed = True
+            say("adopted", view, f"{len(body.splitlines())} line(s) became the "
+                                 f"project section of .claude/{contract}")
+        elif body in appendix or body == appendix:
+            replace.append(view)          # already adopted on an earlier run
+            changed = True
+        else:
+            say("CONFLICT", view,
+                f".claude/{contract} already carries different project rules — "
+                f"merge this file's text into its `{BOUNDARY}` section by hand, "
+                f"then delete it; it is left alone for now")
+    return appendix, replace, changed
+
+
+def _link_view(proj: Path, view: str, contract: str) -> None:
+    path = proj / view
+    target = os.path.relpath(proj / CONTRACT_DIR / contract, path.parent)
+    path.unlink()
+    path.symlink_to(target)
+
+
 def sync(proj: Path, plugin: Path, *, dry: bool = False, force: bool = False,
          say: Say = _print_say) -> bool:
     """Update every contract while preserving its editable project appendix."""
     proj = proj.resolve()
     templates = plugin / "templates"
     changed = False
+    views = _project_views(proj)
     for contract, (template_name, rules_name) in CONTRACTS.items():
         template_path = templates / template_name
         if not template_path.is_file():
@@ -245,16 +325,28 @@ def sync(proj: Path, plugin: Path, *, dry: bool = False, force: bool = False,
         if existing is None:
             appendix = legacy
             migrated = bool(legacy)
+
+        # A project's own file standing where a view belongs is its rules.
+        appendix, replace, adopted = _adopt_views(
+            proj, contract, views.get(contract, []), appendix, template,
+            templates, dry=dry, say=say)
+        changed = changed or adopted
+
         wanted = render(template, appendix, contract)
-        if existing == wanted:
+        if existing != wanted:
+            if not dry:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(wanted, encoding="utf-8")
+            say("migrated" if migrated else state, f".claude/{contract}",
+                "" if existing is None else f"{_differing(existing, wanted)} line(s) differed")
+            changed = True
+        elif not replace:
             say("same", f".claude/{contract}")
-            continue
         if not dry:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(wanted, encoding="utf-8")
-        say("migrated" if migrated else state, f".claude/{contract}",
-            "" if existing is None else f"{_differing(existing, wanted)} line(s) differed")
-        changed = True
+            for view in replace:
+                _link_view(proj, view, contract)
+        for view in replace:
+            say("view", view, f"-> .claude/{contract}")
     return changed
 
 
