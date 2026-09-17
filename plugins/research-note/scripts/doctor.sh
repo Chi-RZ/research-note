@@ -92,8 +92,9 @@ KNOWLEDGE_ROOTS=wiki
 if [ -f "$PROJ/.research-note/project.json" ]; then
     if python3 "$HERE/project_config.py" --project "$PROJ" validate >/dev/null; then
         ok "project configuration is valid"
-        EXPERIMENT_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role experiments)
-        KNOWLEDGE_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge)
+        # one line each: these go into messages and into a test built for ssh
+        EXPERIMENT_ROOTS=$(printf '%s ' $(python3 "$HERE/project_config.py" --project "$PROJ" role experiments))
+        KNOWLEDGE_ROOTS=$(printf '%s ' $(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge))
         for role in libraries tests experiments knowledge; do
             roots=$(python3 "$HERE/project_config.py" --project "$PROJ" role "$role")
             for root in $roots; do
@@ -101,6 +102,31 @@ if [ -f "$PROJ/.research-note/project.json" ]; then
                   || bad "$role root is missing: $root/" "create it or correct .research-note/project.json"
             done
         done
+        # Every top-level directory belongs to a layer, or is ignored. Nothing
+        # enforced this until the first commit touching an unowned folder,
+        # which is refused under every prefix — months after setup, and far
+        # from the declaration that would have prevented it.
+        owned=$(python3 - "$PROJ" <<'PY'
+import json, sys
+from pathlib import Path
+cfg = json.loads((Path(sys.argv[1]) / ".research-note/project.json").read_text())
+print("\n".join(sorted({p for l in cfg["layers"].values() for p in l["paths"]})))
+PY
+)
+        unowned=""
+        for d in "$PROJ"/*/; do
+            [ -d "$d" ] || continue
+            b=$(basename "$d")
+            printf '%s\n' "$owned" | grep -qx "$b" && continue
+            git -C "$PROJ" check-ignore -q "$b" 2>/dev/null && continue
+            unowned="$unowned $b"
+        done
+        if [ -z "${unowned# }" ]; then
+            ok "every top-level directory belongs to a layer"
+        else
+            warn "no layer owns:$unowned" \
+                 "a commit touching one is refused under EVERY prefix — give each its own layer in .research-note/project.json, move it under a declared root, or .gitignore it"
+        fi
     else
         bad "project configuration is invalid" \
             "python3 $HERE/project_config.py --project $PROJ validate"
@@ -124,9 +150,20 @@ if [ -z "$def" ]; then
     elif git -C "$main_root" show-ref -q --verify refs/heads/master; then def=master
     else def=main; fi
 fi
-cur="$(git -C "$main_root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-[ "$cur" = "$def" ] && ok "main checkout on $def" \
-  || bad "main checkout is on '$cur', not '$def'" "the bus refuses to write the record off the default branch"
+# symbolic-ref first: it answers on an UNBORN branch, where rev-parse says
+# "HEAD" and the check then reported a fresh `git init` as being on the wrong
+# branch — the state every new project is in between bootstrap and its first
+# commit. It returns non-zero on a genuinely detached HEAD, which is what the
+# rev-parse fallback is for.
+cur="$(git -C "$main_root" symbolic-ref -q --short HEAD 2>/dev/null)" \
+  || cur="$(git -C "$main_root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+if ! git -C "$main_root" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    ok "main checkout on $cur (no commits yet — the first commit settles the record branch)"
+elif [ "$cur" = "$def" ]; then
+    ok "main checkout on $def"
+else
+    bad "main checkout is on '$cur', not '$def'" "the bus refuses to write the record off the default branch"
+fi
 # The hook layout is the install module's to know: the dispatcher, research-note's
 # own checks under it, one link per hook name, and the previous hook directory
 # every event is forwarded to. It reports what is missing and the one command

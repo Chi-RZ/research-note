@@ -1,17 +1,16 @@
 ---
 name: project-setup
-description: Use when starting a NEW research project, or bringing an OLD/messy one under the framework — layout, editable contracts, bindings, hooks, environment, and (organize mode) a conservative migration of existing code into src/ and experiments/.
+description: Use when starting a new research project or bringing an existing one under the framework. Sets the confirmed directory roles, editable contracts, hooks, environment, and optional integrations; migration to the standard layout is optional.
 ---
 
 # research-note:project-setup
 
-Turn any directory into a project that follows the root agent contract
-(`CLAUDE.md` and `AGENTS.md` are two views of one file): ONE monorepo — `src/`
-+ `tests/` + `experiments/` + `project_memory/` + `wiki/` + a project-side
-`.claude/`, layers told apart by commit prefixes — a live dashboard, and a
-reproducible env. The framework MACHINERY (skills, hooks, linters, fixer,
-dashboard generator) ships as the `research-note` plugin, used identically by
-Claude and Codex; the project carries only its own bindings. Scripts resolve
+Turn any directory into one monorepo with confirmed semantic roots, a fixed
+`project_memory/` record, project-side `.claude/` bindings, commit layers, a
+live dashboard, and a reproducible environment. `CLAUDE.md` and `AGENTS.md`
+are two views of the same contract. The framework machinery ships in the
+`research-note` plugin and the project carries its configuration and bindings.
+Scripts resolve
 the project from the hook payload, `$RESEARCH_NOTE_PROJECT_DIR` or
 `$CLAUDE_PROJECT_DIR`, and hard-fail outside a framework project (marker:
 `project_memory/` + `.research-note/project.json`).
@@ -19,8 +18,8 @@ the project from the hook payload, `$RESEARCH_NOTE_PROJECT_DIR` or
 **The mechanical half is a script** — `scripts/bootstrap_project.py` (Step 2)
 does the layout, bindings, hooks and gate in one idempotent run. Fixer, remote
 HPC, editor support and cross-agent registration are optional features. This
-skill owns what needs judgment: the roles declaration, the env pinning, and
-(organize mode) how existing code maps onto `src/` + `experiments/`.
+skill owns what needs judgment: the roles declaration, the environment, and
+whether an existing project keeps its layout or moves to the standard one.
 
 **Two modes** (auto-detected in Step 0, or force with an arg):
 - `new` — greenfield directory (empty or just a git remote).
@@ -45,13 +44,17 @@ Decide **mode**: empty-ish dir → `new`; existing code/data → `organize`.
 
 Show the layout decision before running bootstrap. The default mapping is:
 
-| role | default directory |
-|---|---|
-| reusable libraries | `src/` |
-| tests | `tests/` |
-| experiment code and runs | `experiments/` |
-| project memory | `project_memory/` |
-| published knowledge | `wiki/` |
+| role | default directory | declared in |
+|---|---|---|
+| reusable libraries | `src/` | `roles.libraries` |
+| tests | `tests/` | `roles.tests` |
+| experiment code and runs | `experiments/` | `roles.experiments` |
+| published knowledge | `wiki/` | `roles.knowledge` |
+| the record | `project_memory/` | fixed — schema 1 keeps it there |
+| agent bindings | `.claude/` + the other agents' views | fixed |
+
+Only the four declared roles are the user's to change; offering the record or
+the bindings as a choice invites a configuration that cannot validate.
 
 For an empty project, show these defaults and ask the user to confirm them. For
 an existing project, scan every project-owned top-level folder and propose a
@@ -184,8 +187,9 @@ passed. `remote.sh setup` clones FROM the project's `origin`, so a project
 with no remote stops there: settle the remote with the user before declaring
 a host.
 
-It creates the layout (`src/ tests/ experiments/ project_memory/{nodes,memory/shared,note,objectives}
-wiki/`), `git init` if needed, the project-side `.claude/` bindings plus shared
+It creates the configured role directories and
+`project_memory/{nodes,memory/shared,note,objectives}`, runs `git init` if
+needed, and writes the project-side `.claude/` bindings plus shared
 `AGENTS.md` views from the plugin templates (contracts, `framework.json`,
 `settings.json` with `enabledPlugins`), the contract views, githooks +
 `core.hooksPath`, `autoMemoryDirectory`, `.gitignore` lines, `_index.md` +
@@ -277,12 +281,13 @@ bootstrap writes documents every key in its own comments.
 quirks, data locations, dependency versions) as one-fact-per-file memories +
 `MEMORY.md` index lines. Domain lesson files arrive when a real lesson does.
 
-**`src/INDEX.md`** — the capability index every skill checks first; its
+**`<first library root>/INDEX.md`** — the capability index every skill checks
+first; its
 `## Domain libraries` section is what keeps the agent layer from hardcoding
 which library a project uses:
 
 ```markdown
-# src/ Capability Index
+# Capability Index
 
 One row per module. Search this BEFORE writing new code (see root CLAUDE.md
 Discovery rule). `research-note:lift` adds rows here when promoting a capability.
@@ -321,21 +326,21 @@ lines) — the dispatcher picks it up at the next event with no re-install.
 `githooks_install.py uninstall PROJECT` puts everything back.
 
 **`.gitignore`** (monorepo) — keep runtime state and heavy/derived data out.
-`wiki/`, `project_memory/` AND `.claude/` are TRACKED (the project bindings are
-part of the monorepo, `agent:` prefix); experiment data is not. These are the
-lines `bootstrap_project.py` writes, and only when no `.gitignore` exists — an
-existing one is project property and is never appended to:
+The configured knowledge roots, `project_memory/`, and `.claude/` are tracked;
+experiment data is not. `bootstrap_project.py` writes the following patterns
+for every configured experiment root, and only when no `.gitignore` exists. An
+existing file belongs to the project and is left alone.
 ```
 .fixer
 .venv
 __pycache__/
 *.egg-info/
-experiments/*/logs
-experiments/*/data
-experiments/*/checkpoint
-experiments/*/*/logs
-experiments/*/*/data
-experiments/*/*/checkpoint
+<experiment-root>/*/logs
+<experiment-root>/*/data
+<experiment-root>/*/checkpoint
+<experiment-root>/*/*/logs
+<experiment-root>/*/*/data
+<experiment-root>/*/*/checkpoint
 ```
 
 Slash-LESS on purpose (except the two pure-directory patterns): `dir/`
@@ -353,7 +358,7 @@ once; the ignore rule alone does not untrack it.
 
 (Adapt to what already exists; never un-ignore real data.)
 
-**`pyproject.toml`** — src-layout so `src/<pkg>/` stays importable.
+**`pyproject.toml`** — point package discovery at the confirmed library root.
 **Every project gets its OWN uv-managed environment** (`.venv/` created by
 `uv sync`) — never point the project at a shared pre-existing venv. The venv
 is per MACHINE, never synced: it holds architecture-bound binaries, so each
@@ -440,13 +445,13 @@ dependencies = [
 # mylib = { git = "ssh://git@github.com/user/mylib.git", rev = "<sha>" }
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["<library-root>"]
 ```
 
 Then `uv sync`, and verify (BARE server: run directly; Slurm: inside srun):
 ```bash
 uv run python -c "import jax; print(jax.devices())"  # must show CudaDevice
-uv run pytest tests/ -x -q
+uv run pytest <test-root>/ -x -q
 ```
 Run Python as `uv run python -u ...` everywhere (per root CLAUDE.md).
 
@@ -569,8 +574,13 @@ Setup is **not complete** until it reports zero `FAIL` and the contract
 symlinks resolve (a dangling symlink loads as nothing, silently):
 
 ```bash
-for f in CLAUDE.md experiments/CLAUDE.md project_memory/CLAUDE.md wiki/CLAUDE.md; do
+for f in CLAUDE.md project_memory/CLAUDE.md; do
   test -e "$f" && echo "OK  $f" || echo "DANGLING  $f"
+done
+for role in experiments knowledge; do
+  python3 "$PLUGIN/scripts/project_config.py" role "$role" | while read -r root; do
+    test -e "$root/CLAUDE.md" && echo "OK  $root/CLAUDE.md" || echo "DANGLING  $root/CLAUDE.md"
+  done
 done
 ```
 
@@ -594,8 +604,8 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] project marker in place — `test -f .research-note/project.json`
 - [ ] four contracts resolve — the `DANGLING` loop in Step 7 prints four `OK`
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
-- [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)
-- [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
+- [ ] scaffold complete — every configured role root and `project_memory/{nodes,memory/shared,note,objectives}` exists
+- [ ] the first configured library root contains `INDEX.md` with its `## Domain libraries` section filled in (or explicitly "none")
 - [ ] every project-owned top-level directory is confirmed as one Git layer or local ignored state; no folder is unassigned
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done

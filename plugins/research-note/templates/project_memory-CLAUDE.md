@@ -63,7 +63,7 @@ Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
   order. Both zero-padded, assigned at creation, never reused.
 - **Status** (E2): the four states, nothing else. **Date** (E3): creation,
   never changes.
-- **Code** (E4): the newest commit at submission touching `src/`, the node's
+- **Code** (E4): the newest commit at submission touching `<library-root>`, the node's
   `impl/` and the env's run script — one `<repo>@<sha>` per repo. Excludes
   `plot_*.py` and `figures/`.
 - **Motivation** (E5): the source is checkable without agreeing with an

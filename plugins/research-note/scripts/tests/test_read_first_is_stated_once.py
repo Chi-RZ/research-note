@@ -26,7 +26,12 @@ MENTION = re.compile(r"read[- ]first", re.IGNORECASE)
 # The four sources the base names. Naming them here is the point: if the
 # contract drops one, this test says so rather than the record quietly
 # losing a layer the way objective's copy lost the memories.
-BASE = ["`_index.md`", "conclusions", "MEMORY.md", "wiki/knowledge/index.md"]
+#
+# `knowledge/index.md` without its root: the knowledge ROOT is declared per
+# project (`roles.knowledge`, `wiki/` by default) so the contract writes
+# `<knowledge-root>/knowledge/index.md`; the path INSIDE that root is the
+# framework's and is what this test holds.
+BASE = ["`_index.md`", "conclusions", "MEMORY.md", "knowledge/index.md"]
 
 
 def bullet() -> str:

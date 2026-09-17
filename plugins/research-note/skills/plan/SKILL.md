@@ -14,6 +14,16 @@ How to bring a node or a page into existence so every join key lines up.
 The consequence specific to planning: a page that already covers the task is
 a page you do not open.
 
+Resolve the experiment roots before creating a node:
+
+```bash
+python3 "$PLUGIN/scripts/project_config.py" role experiments
+```
+
+Use the root that already contains the node. For a new node, follow the
+project's existing placement; if several roots are equally plausible, ask the
+user. Call the selected path `<experiment-root>` below.
+
 ## Open a new node
 
 When the identity criterion (root contract: does some knob setting reproduce
@@ -22,11 +32,12 @@ entries close on the new node the split is permanent.
 
 1. **Name it after the mechanism**, not the experiment or the result:
    `peps_sma_clifford`, not `peps_v2` or `clifford_test`. The name is the
-   global join key (node folder, page folder, `experiments/`), and it names the
+   global join key (node folder, page folder, experiment root), and it names the
    algorithm — the problem instance it runs on names the group.
-2. **Create the impl and the first group** — `experiments/<node>/impl/` and
-   `experiments/<node>/<group>/` with the run script, laid out per
-   `experiments/CLAUDE.md`. Pre-declare the knobs you mean to explore, so
+2. **Create the impl and the first group** —
+   `<experiment-root>/<node>/impl/` and
+   `<experiment-root>/<node>/<group>/` with the run script, laid out per the
+   contract linked at `<experiment-root>/CLAUDE.md`. Pre-declare the knobs, so
    small variants stay recipe-space. The group exists from the start, so the
    node's outputs sit at their final path before the record cites them.
 3. **Create `project_memory/nodes/<node>/node.md`** — frontmatter (`node:`
@@ -70,7 +81,7 @@ Create the page at the level its task lives on:
 
 - **Grouped task** (a scan or campaign belonging to one problem instance) →
   `project_memory/nodes/<node>/<group>/<page>.md`, under the same group name the
-  instance carries in `experiments/`.
+  instance carries in the selected experiment root.
 - **Node-level task** (a cross-group comparison) →
   `project_memory/nodes/<node>/<page>.md`. A comparison page is owned by the
   node at its centre; its own entries run only that node — a rival needing a

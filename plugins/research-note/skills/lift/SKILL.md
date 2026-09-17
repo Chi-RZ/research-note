@@ -1,16 +1,24 @@
 ---
 name: lift
-description: Use when a capability inside one or more experiments should become a designed, tested interface in src/ — a second consumer appeared, or discovery found prior art to canonicalize before another local helper is written. Strictly additive.
+description: Use when a capability inside one or more experiments should become a designed, tested interface in the project's reusable library layer. A second consumer appeared, or discovery found prior art before another local helper was written. Strictly additive.
 ---
 
 # Lift Skill
 
-You are promoting a **capability** into `src/` — the project's declared
-library root (`project_config.py role libraries`); `experiments/` is its
-declared experiment root, and the standard names are used throughout. The
-experiment's implementation is a reference for correctness, not the artifact
-being moved. The deliverable is a new `src/` module plus a mirrored test —
-nothing else changes.
+You are promoting a **capability** into the project's reusable library layer.
+Resolve the declared library, test, and experiment roots before choosing any
+path:
+
+```bash
+python3 "$PLUGIN/scripts/project_config.py" role libraries
+python3 "$PLUGIN/scripts/project_config.py" role tests
+python3 "$PLUGIN/scripts/project_config.py" role experiments
+```
+
+Select the roots that contain the relevant code and its existing test
+convention. The experiment implementation is a correctness reference, not the
+artifact being moved. The deliverable is one new library module plus its
+mirrored test.
 
 This skill prescribes no domain vocabulary and no language. Where it needs a
 convention — where tests live, how they are named and run, how two results are
@@ -20,15 +28,15 @@ Read one before you write one.
 ## Core Rules
 
 1. **Lift the capability, not the code.** The experiment script is a
-   correctness reference. The src implementation is designed for reuse,
+   correctness reference. The library implementation is designed for reuse,
    so its API may differ from any single experiment's local form.
 2. **Strictly additive.** No experiment script is modified and the
    experiment's local copy stays — it is the reference the test pinned
    against; it may drift later, which is fine because the canonical
-   implementation now lives in `src/`. Migration happens later,
+   implementation now lives in the declared library root. Migration happens later,
    opportunistically, as its own `exp(<node>):` commit naming this one (the
    root contract's `feat:` + `exp:` pair).
-3. **1-to-1 src↔test mirroring**, in whatever spelling the project already
+3. **1-to-1 library↔test mirroring**, in whatever spelling the project already
    uses — one test file per source file, at the mirrored path, named the way
    its siblings are named.
 4. **Equivalence-pinned tests.** Every lift's test suite includes at least one
@@ -41,8 +49,8 @@ Read one before you write one.
 5. **Dispatch discipline.** Tests follow the venue (root contract): on a
    Slurm cluster through the scheduler on a compute partition; on a bare
    server a quick foreground run.
-6. **One `feat:` commit**: `feat: lift <capability> → src/<path>` adds
-   src + test (+ regenerated `src/INDEX.md`) together.
+6. **One `feat:` commit** adds the library code, test, and regenerated
+   capability index together.
 
 ## Workflow
 
@@ -68,16 +76,17 @@ split it.
 List every place the capability currently appears, in this order:
 
 1. **Third-party libraries already in the project.** Especially the project's
-   **domain library** — the dependency named at the top of `src/INDEX.md`,
+   **domain library** — the dependency named at the top of the capability index,
    which holds canonical machinery that often subsumes whatever an experiment
    hand-rolled. Grep its source for the concept's vocabulary. If it provides a
    clean realization, the "lift" reduces to a convenience wrapper or — better
    — a one-line caller-side change that uses the library directly.
 
-2. **`src/`** — grep for any existing realization, and read `src/INDEX.md`
-   for the function index.
+2. **Declared library roots** — grep for any existing realization, and read
+   the first library root's `INDEX.md` for the function index.
 
-3. **`experiments/`** — every place the capability appears, across all nodes.
+3. **Declared experiment roots** — every place the capability appears, across
+   all nodes.
 
 For each occurrence record:
 - File and approximate line range
@@ -91,7 +100,7 @@ not papered over.
 Halt if:
 - A canonical realization exists in the **domain library** (or another
   already-installed one) — the lift collapses to a thin wrapper or no wrapper.
-- The capability already exists in `src/` with a stable API → this is a
+- The capability already exists in a library root with a stable API → this is a
   *consolidation*, not a lift.
 - The "capability" is really multiple distinct things → split into
   separate lifts.
@@ -103,7 +112,7 @@ Propose:
 - Parameter list: explicit arguments, no closures over experiment-level state
 - Return type
 - Defaults and conventions, stated rather than implied
-- Target path. `src/INDEX.md` is the authority on where each capability lives
+- Target path. The capability index is the authority on where each capability lives
   in THIS project — the framework prescribes no module taxonomy. Put the new
   capability where its siblings already are; if it has no siblings, that is a
   question for the user, not a new directory you create quietly.
@@ -112,7 +121,7 @@ Propose:
 high-leverage moment of the lift — five minutes of design review prevents
 weeks of API churn.
 
-### Step 4 — IMPLEMENT in src/
+### Step 4 — IMPLEMENT in the selected library root
 
 Write the agreed API at the agreed path. Implementation may borrow
 freely from the experiment's existing form, but:
@@ -125,7 +134,7 @@ freely from the experiment's existing form, but:
   are exactly the ones to write down. One-line comments only where a
   well-named identifier does not already say it.
 
-Regenerate `src/INDEX.md` (`gen_index.py`) — a generated view; the new
+Regenerate the capability index (`gen_index.py --src`) — a generated view; the new
 function's docstring first line becomes its row.
 
 ### Step 5 — TEST (mirrored, with equivalence check)
@@ -137,7 +146,7 @@ reference: a conserved quantity, a documented shape or type, a round trip that
 returns what it started from, a known input whose answer is known.
 
 **(b) Equivalence test (REQUIRED)** — at the smallest input the capability
-accepts, compute the same quantity via the new src API and via a
+accepts, compute the same quantity via the new library API and via a
 self-contained inline reference (the relevant lines copied from the
 experiment, or a minimal known-good implementation), then assert they agree.
 
@@ -152,10 +161,10 @@ reason for the divergence (documented in the docstring).
 ### Step 6 — COMMIT
 
 One commit, in the main repo, staging the new source file, its test, and the
-regenerated `src/INDEX.md`:
+regenerated capability index:
 
 ```
-feat: lift <capability description> → src/<path>
+feat: lift <capability description> → <library-root>/<path>
 ```
 
 No experiment-side changes. Stop.

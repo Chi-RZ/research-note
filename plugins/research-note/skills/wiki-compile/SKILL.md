@@ -10,13 +10,22 @@ TOPIC (not by source, not by time), maintained by the agent. Sources stay
 where they live and are never edited. The human reads, asks, and reviews;
 the agent files, merges, cross-links, and flags. The invariants every page
 holds — grounding, view-never-authority, self-containment, `Status:`,
-`⚠ Contested:`, the five types, admission, linking — are `wiki/CLAUDE.md`'s;
-this skill is the procedure that satisfies them.
+`⚠ Contested:`, the five types, admission, linking — are the configured
+knowledge root's contract; this skill is the procedure that satisfies them.
+
+Resolve the knowledge roots first:
+
+```bash
+python3 "$PLUGIN/scripts/project_config.py" role knowledge
+```
+
+Use the root whose contract applies to the material. Call it
+`<knowledge-root>` below.
 
 ## Layout
 
 ```
-wiki/knowledge/
+<knowledge-root>/knowledge/
 ├── SCHEMA.md     the declared page taxonomy — which pages exist and what each covers
 ├── index.md      the topic tree — the only entry point; every page listed
 ├── <topic>.md    one page per topic
@@ -101,7 +110,7 @@ written down with the reason.
   source you just used.
 - Body: prose sections; **every paragraph carries its source citation(s)**,
   as plain-text tags — `<node>`, `<node>/<group>: <entry name>`,
-  `note/<topic>`, `experiments/<node>/impl/`.
+  `note/<topic>`, `<experiment-root>/<node>/impl/`.
 - `⚠ Contested:` blocks present BOTH sides with citations and never resolve.
 - `Open:` section holds boundaries and unanswered questions.
 

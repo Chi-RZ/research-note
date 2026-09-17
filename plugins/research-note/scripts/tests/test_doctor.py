@@ -125,3 +125,51 @@ def test_a_pre_declaration_project_checks_every_integration(proj):
 def test_an_unknown_flag_is_refused(proj):
     rc, out = doctor(proj, "--frobnicate")
     assert rc == 2 and "unknown argument" in out
+
+
+def test_a_project_with_no_commits_yet_is_green(tmp_path):
+    """bootstrap runs `git init` and the user commits afterwards, so an unborn
+    branch is the state every new project passes through. rev-parse answers
+    "HEAD" there, which read as the wrong branch."""
+    root = tmp_path / "fresh"
+    for d in ("src", "tests", "experiments", "wiki", "project_memory/nodes",
+              ".claude", ".research-note"):
+        (root / d).mkdir(parents=True)
+    (root / ".research-note/project.json").write_text(
+        (PLUGIN / "templates/project.json").read_text())
+    (root / ".research-note/.gitignore").write_text("state/\n")
+    (root / ".claude/framework.json").write_text((PLUGIN / "templates/framework.json").read_text())
+    venv = root / ".venv/bin"
+    venv.mkdir(parents=True)
+    (venv / "python").write_text("#!/bin/sh\necho Python 3.12.0\n")
+    (venv / "python").chmod(0o755)
+    subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "research-note.pluginRoot", str(PLUGIN)], check=True)
+    subprocess.run(["python3", str(SCRIPTS / "githooks_install.py"), "install", str(root),
+                    "--plugin", str(PLUGIN)], check=True, capture_output=True)
+
+    rc, out = doctor(root, "--core")
+    assert "no commits yet" in out, out
+    assert rc == 0, out
+
+
+def test_doctor_names_the_top_level_directories_no_layer_owns(proj):
+    """The state a project drifts into: a folder appears, nothing objects, and
+    the first commit touching it is refused under every prefix months later."""
+    rc, out = doctor(proj, "--core")
+    assert "every top-level directory belongs to a layer" in out, out
+
+    (proj / "packages").mkdir()
+    (proj / "notebooks").mkdir()
+    rc, out = doctor(proj, "--core")
+    assert "no layer owns: notebooks packages" in out, out
+    assert ".research-note/project.json" in out
+    assert rc == 0, "a warning, not a failure — the folder may be legitimate"
+
+    # ignored is a fine answer, and so is declared
+    (proj / ".gitignore").write_text("notebooks/\n")
+    config = json.loads((proj / ".research-note/project.json").read_text())
+    config["layers"]["packaging"] = {"paths": ["packages"], "prefixes": ["pkg"]}
+    (proj / ".research-note/project.json").write_text(json.dumps(config))
+    rc, out = doctor(proj, "--core")
+    assert "every top-level directory belongs to a layer" in out, out

@@ -126,6 +126,21 @@ def main() -> int:
     dirs = {p.split("/", 1)[0] for p in staged if "/" in p}
     bad = dirs - allowed
     if bad:
+        # A directory no layer claims is refused under EVERY prefix, so "fix the
+        # prefix" names a fix that does not exist — there is no prefix, and the
+        # answer is to declare the directory. Told apart here because the two
+        # cases read identically from inside the hook's old message.
+        declared = set().union(*rules.values()) if rules else set()
+        unowned = sorted(d for d in bad if d not in declared)
+        if unowned:
+            print(f"commit-msg: no layer owns {unowned} — every prefix refuses "
+                  f"it, so this is a declaration to make, not a prefix to fix.\n"
+                  f"Give each one its own layer in .research-note/project.json "
+                  f'("layers": {{"<name>": {{"paths": {unowned}, "prefixes": '
+                  f'["<prefix>"]}}}}), or move the files under a declared root. '
+                  f"`chore:` is root-level files only and owns no directory. "
+                  f"SKIP_PREFIX_CHECK=1 to override.", file=sys.stderr)
+            return 1
         print(f"commit-msg: prefix `{m.group(1)}:` may touch {sorted(allowed)} "
               f"but the commit stages {sorted(bad)} — one commit = one layer "
               f"(root CLAUDE.md). Split the commit, fix the prefix, or "

@@ -4,10 +4,15 @@ The code a result came from, and how it is invoked. The root contract holds the
 doctrine — node identity, where a job may run, what preserves a result; this
 file holds the layout and the conventions.
 
+`<experiment-root>` below is the directory this file is linked into —
+`experiments/`, or whatever `roles.experiments` declares in
+`.research-note/project.json`. Everything INSIDE a node is the framework's and
+never moves.
+
 ## Layout
 
 ```
-experiments/<node>/
+<experiment-root>/<node>/
   impl/            the node's implementation: the callable functions a run
                    script invokes
     __init__.py            a module-level DESCRIPTION = "..." is the node's
@@ -39,7 +44,7 @@ under it. Keep the surface thin: a mechanism of any size splits into modules
 behind it. The framework fixes neither the language nor the file.
 
 **`<group>/run.py`** (or its equivalent) is composition, not a library: it names one
-recipe and hands off to `src/`. A sweep needs no new script — the same frozen node
+recipe and hands off to `<library-root>` (`roles.libraries`). A sweep needs no new script — the same frozen node
 moves to another point through its knobs. `plot_*.py` reads `data/`, writes
 `figures/`, and never triggers computation. A plot that spans groups sits at the
 node root beside `impl/`, like the node-level page that reports it.

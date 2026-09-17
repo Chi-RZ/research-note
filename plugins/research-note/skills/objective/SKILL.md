@@ -106,7 +106,8 @@ Each iteration:
    is the decision — and you make it without narrating it: the entry's
    Motivation IS where the reasoning lands. `research-note:plan` only to
    CREATE a node (gate included) or a page; a new entry on an open page needs
-   no skill; every launch via hpc-submit. `src/` changes, node-or-not the
+   no skill; every launch via hpc-submit. Changes to a declared library root,
+   node-or-not the
    criterion does not settle, and budget overruns STOP the loop and ask.
 3. **The entry line is written by the launcher.** Given `PHASE=P<n>` and
    `ROLE="<the role it plays>"`, `record_submit` writes

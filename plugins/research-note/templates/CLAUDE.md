@@ -13,23 +13,31 @@ refuses a mismatch.
 
 | path | holds | prefix |
 |---|---|---|
-| `src/` `tests/` | capabilities that outlive one experiment, each with a test | `feat:` `fix:` `refactor:` |
-| `experiments/<node>/` | `impl/` the implementation · `<group>/` how it is invoked, and its outputs | `exp(<node>):` |
+| `<library-root>` `<test-root>` | capabilities that outlive one experiment, each with a test | `feat:` `fix:` `refactor:` |
+| `<experiment-root>/<node>/` | `impl/` the implementation · `<group>/` how it is invoked, and its outputs | `exp(<node>):` |
 | `project_memory/` | the record: `nodes/` facts · `objectives/` intent · `note/` understanding · `memory/shared/` shared agent memory | `memory:` |
-| `wiki/` | the published knowledge base, self-contained | `wiki:` |
+| `<knowledge-root>/` | the published knowledge base, self-contained | `wiki:` |
 | `.claude/` | this project's bindings | `agent:` |
+| root-level files only | `.gitignore`, `pyproject.toml`, a root doc — never a directory | `chore:` |
 
-A project whose code already lives elsewhere declares its roots and layers once
-in `.research-note/project.json`; the hooks, the index and the linters read that
-declaration, and the rules here apply to the declared roots unchanged.
+**`.research-note/project.json` is the path authority, and it decides only the
+four placeholders above.** They are whatever `roles.libraries`, `roles.tests`,
+`roles.experiments` and `roles.knowledge` declare — `src/`, `tests/`,
+`experiments/` and `wiki/` for a project that declares nothing, one or several
+directories each, printed by `python3 "$PLUGIN/scripts/project_config.py" role
+<name>`. **Everything else named in this contract is the framework's and never
+moves**: `project_memory/` and its subtree, the agent bindings, the conventions
+inside a node, and these prefixes. A top-level directory that fits no layer
+becomes a NEW layer with its own prefix, declared in the same file; `chore:` is
+not the bucket for it.
 
 A lift lands as a `feat:` plus an `exp(<node>):` — two layers in one change
-means two commits, the second naming the first. `chore:` is for root-level files
-only. Record commits carry id trailers, per `project_memory/CLAUDE.md`.
+means two commits, the second naming the first. Record commits carry id
+trailers, per `project_memory/CLAUDE.md`.
 
-Condensation is always an explicit pump: `lift` code into `src/` when a second
-consumer appears; `wiki-compile` a note or a closed entry into the wiki and
-`memory-lift` a memory into a skill, both when the user asks.
+Condensation is always an explicit pump: `lift` code into `<library-root>` when a
+second consumer appears; `wiki-compile` a note or a closed entry into the wiki
+and `memory-lift` a memory into a skill, both when the user asks.
 
 ## The record
 
@@ -38,7 +46,7 @@ changes: *does some knob setting on the new code reproduce the old recorded
 result?* Yes → the same node, and the edit owes a **validation entry** naming the
 entry it replays, the recipe, and the number it reproduced. No → a new node, the
 old one left standing under the entries that closed on it. The claim covers
-everything the node executes, including the `src/` it imports.
+everything the node executes, including the shared libraries it imports.
 
 **A page is one question asked of a node.** Where a new run goes: *if the page's
 title still describes what you are about to run, it is another entry there; if you
@@ -83,8 +91,9 @@ re-read the page, and go on from where it says the work stands.
 - **Read-first, at every entrance** — an entry opening or being picked up from
   someone else (whatever the predecessor knew and did not write down is gone),
   and a phase deciding what comes next: `_index.md`, the touched nodes'
-  conclusions, then `memory/shared/MEMORY.md` and `wiki/knowledge/index.md`,
-  opening only the rows that name what you are about to touch. An entry asks
+  conclusions, then `memory/shared/MEMORY.md` and
+  `<knowledge-root>/knowledge/index.md`, opening only the rows that name what
+  you are about to touch. An entry asks
   *has this been run, how much do two identical runs differ, what number does it
   have to beat*; a phase asks *what is already settled, and what was ruled out*.
   A recorded answer finishes the request or shrinks it to the part that is new.
@@ -98,7 +107,7 @@ re-read the page, and go on from where it says the work stands.
 
 | before | because |
 |---|---|
-| changing shared `src/` | it can move the numbers of every node that imports it |
+| changing a shared library root | it can move the numbers of every node that imports it |
 | opening a new node, when the reproduce test does not settle it | once entries close on it the split is permanent |
 | closing an entry | writing a conclusion is "I measured, I judge"; closing is "I accept" |
 | lifting a note into the wiki, or a memory into a skill | an agent that generalises its own habits compounds its own mistakes |
@@ -141,24 +150,25 @@ record; a quick foreground smoke run does not.
   so a merge landing mid-launch records a SHA and a dirty diff for a tree that
   never ran — a failure in the record, not in git, that nothing later detects.
 - **Formal runs launch from main** — a branch smoke certifies only the impl plus
-  the `src/` it branched from.
+  the shared library code it branched from.
 
 ## Writing code
 
-`src/` is the abstraction layer, not a deduplication target: it holds designed
-interfaces, `experiments/` holds the composition that calls them. Before writing
-anything new, look in this order — the project's domain library (named at the top
-of `src/INDEX.md`), then `src/INDEX.md` itself, then `experiments/` for prior art.
-A capability a second experiment needs is **lifted**, never copied. `src/INDEX.md`
-and `project_memory/_index.md` are regenerated views (`gen_index.py`) — never
-hand-edit either. **Regenerate `src/INDEX.md` in the MAIN checkout whenever
-`src/` moves** — a worktree here is sparse and generates a short index — and a
-pre-commit gate refuses a commit touching `src/` while the index is behind it:
+`<library-root>` is the abstraction layer, not a deduplication target: it holds
+designed interfaces, `<experiment-root>` holds the composition that calls them.
+Before writing anything new, look in this order — the project's domain library
+(named at the top of `<library-root>/INDEX.md`), then that index itself, then
+every experiment root for prior art. A capability a second experiment needs is
+**lifted**, never copied. `<library-root>/INDEX.md` and
+`project_memory/_index.md` are regenerated views (`gen_index.py`) — never
+hand-edit either. **Regenerate the index in the MAIN checkout whenever
+`<library-root>` moves** — a worktree here is sparse and generates a short index
+— and a pre-commit gate refuses a commit touching it while the index is behind:
 an index missing a capability is how the same thing gets written twice.
 
-New function → its test first. Modify `src/` → update its test in the same change.
-One test file per source file, mirrored under `tests/`; experiment-level tests live
-in `experiments/tests/`.
+New function → its test first. Modify `<library-root>` → update its test in the
+same change. One test file per source file, mirrored under `<test-root>`;
+experiment-level tests live in `<experiment-root>/tests/`.
 
 Two that cost real work when forgotten: run Python as `uv run python -u` (`-u`
 or the log stays empty until the job ends); `git add` a file as soon as you
@@ -173,8 +183,8 @@ Ask what they were and why before building on them or reverting them.
 | | |
 |---|---|
 | entry and objective format, lifecycle, job rules | `project_memory/CLAUDE.md` |
-| node layout, run scripts, log naming, outputs | `experiments/CLAUDE.md` |
-| what makes a wiki page publishable | `wiki/CLAUDE.md` |
+| node layout, run scripts, log naming, outputs | `<experiment-root>/CLAUDE.md` |
+| what makes a wiki page publishable | `<knowledge-root>/CLAUDE.md` |
 | the linters and every other framework script | `PLUGIN="$(git config --get research-note.pluginRoot)"` — the shared Claude/Codex binding written by project setup; if it is empty the installed cache still works: `ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \| sort -V \| tail -1` |
 
 ---

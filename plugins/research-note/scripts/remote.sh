@@ -65,6 +65,14 @@ EXPERIMENT_ROOTS=experiments
 if [ -f "$PROJ/.research-note/project.json" ]; then
     KNOWLEDGE_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge) || exit 2
     EXPERIMENT_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role experiments) || exit 2
+    # ONE LINE each. `role` prints one root per line, and these are interpolated
+    # into commands built as TEXT for the far side: a newline inside a `for`
+    # list splits it across two lines and the remote shell sees a syntax error,
+    # so a project with two experiment roots got an empty queue snapshot — which
+    # reads as "every job left the queue", not as "cannot tell". Unquoted on
+    # purpose: word-splitting is what joins them.
+    KNOWLEDGE_ROOTS=$(printf '%s ' $KNOWLEDGE_ROOTS)
+    EXPERIMENT_ROOTS=$(printf '%s ' $EXPERIMENT_ROOTS)
 fi
 SPARSE_PATTERNS="'/*' '!/project_memory/'"
 SPARSE_EXCLUDES="'/project_memory/'"
@@ -420,10 +428,12 @@ done' >"$T" 2>/dev/null; then
             # every consumer of the snapshot (J3/J4 lint, the board's Running tab)
             # reads it unchanged.
             if ! rssh 'RD=$(cd "'"$REMOTE_DIR"'" 2>/dev/null && pwd -P) || exit 0
-[ -d "$RD/experiments" ] || exit 0
 hz=$(getconf CLK_TCK 2>/dev/null || echo 100)
 btime=$(awk "/^btime /{print \$2}" /proc/stat 2>/dev/null)
-find "$RD/experiments" -path "*/logs/*.log" -type f 2>/dev/null | while read -r f; do
+for experiment_root in '"$EXPERIMENT_ROOTS"'; do
+  [ -d "$RD/$experiment_root" ] || continue
+  find "$RD/$experiment_root" -path "*/logs/*.log" -type f 2>/dev/null
+done | while read -r f; do
   set -- $(awk "NR>30{exit}
     /^# Exit code:/{ec=\$4} /^# PID wrapper:/{wpid=\$4} /^# PID uv:/{upid=\$4} /^# Timestamp:/{ts=\$3}
     END{pid=(wpid?wpid:upid); printf \"%s %s %s\", (ec?ec:\"-\"), (pid?pid:\"-\"), (ts?ts:\"-\")}" "$f")

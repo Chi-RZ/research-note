@@ -1,16 +1,23 @@
 ---
 name: reorg
-description: Use when a capability already in src/ belongs somewhere else — wrong module, a file grown several unrelated responsibilities, a hasty lift whose right home is now clear. Non-breaking — the old path keeps working through a re-export.
+description: Use when a capability in the reusable library layer belongs in another module, a file has grown several responsibilities, or a hasty lift now has a clear home. Non-breaking: the old path keeps working through a re-export.
 ---
 
 # Reorg Skill
 
-You are **moving** a capability to a better home inside `src/` — the
-project's declared library root (`project_config.py role libraries`);
-`experiments/` is its declared experiment root, and the standard names are
-used throughout. Nothing changes about what it does. The deliverable is: real
-code at the new path, a re-export at the old path, updated tests, a
-regenerated `src/INDEX.md` — and a passing test suite.
+You are **moving** a capability within the project's reusable library layer.
+Resolve the configured roots before choosing paths:
+
+```bash
+python3 "$PLUGIN/scripts/project_config.py" role libraries
+python3 "$PLUGIN/scripts/project_config.py" role tests
+python3 "$PLUGIN/scripts/project_config.py" role experiments
+```
+
+Select the roots containing the capability and its tests. Nothing changes
+about what it does. The deliverable is code at the new path, a re-export at
+the old path, updated tests, a regenerated capability index, and a passing
+test suite.
 
 This skill prescribes no language. Where it needs one — the re-export idiom,
 the test runner — the authority is what the project already uses; the examples
@@ -68,8 +75,8 @@ Create one TodoWrite task per step.
 
 State precisely:
 - **What** is moving: which names, or the whole file.
-- **From** where: current `src/` path and line range.
-- **To** where: target `src/` path — it must already exist or be an obvious
+- **From** where: current library path and line range.
+- **To** where: target path in the same library root. It must already exist or be an obvious
   sibling of an existing file. A new subdirectory is the user's call.
 - **Why**: one sentence on why the target home is better.
 
@@ -82,7 +89,7 @@ Copy the definitions **verbatim** into the target. Place them logically —
 beside related code, not at the end of the file. Update a docstring only
 where it names the old path.
 
-Regenerate `src/INDEX.md` (`gen_index.py`).
+Regenerate the capability index (`gen_index.py --src`).
 
 ### Step 3 — RE-EXPORT
 
@@ -92,7 +99,7 @@ those calls at the new path too.
 
 ### Step 4 — UPDATE TESTS
 
-The test mirrors the new `src/` location, per the project's 1-to-1 rule:
+The test mirrors the new library location, per the project's 1-to-1 rule:
 move the test to the path that mirrors the new source path, and update its
 import. **Same assertions, same reference** — the logic is untouched.
 
@@ -113,10 +120,10 @@ A passing suite is the completion criterion for committing.
 ### Step 6 — COMMIT
 
 One commit, prefix `refactor:`, staging the old file, the target file, both
-test files, and `src/INDEX.md` — nothing else:
+test files, and the capability index — nothing else:
 
 ```
-refactor: move <Name> src/<old> → src/<new>
+refactor: move <Name> <library-root>/<old> → <library-root>/<new>
 ```
 
 ## When to Halt and Ask
@@ -124,7 +131,7 @@ refactor: move <Name> src/<old> → src/<new>
 - The target path doesn't exist and creating it would establish a new
   subdirectory → ask first.
 - The move would introduce a circular import → ask how to resolve.
-- The capability has callers *inside* `src/`, not just in experiments → list
+- The capability has callers inside a declared library root, not just in experiments → list
   them and ask whether to update them or leave them on the re-export.
 - The move would require a logic change to keep tests passing → ask; that
   usually means it needs a refactor first, which is a separate task.

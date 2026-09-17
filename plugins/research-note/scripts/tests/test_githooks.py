@@ -187,3 +187,34 @@ def test_the_setup_commit_onto_an_existing_repo_may_span_every_layer(repo):
     # the declaration now exists and is not being added: ordinary rules again
     r = commit_msg(repo, ["src/b.py", "wiki/other.md"], "agent: sneaks two layers")
     assert r.returncode == 1 and "one commit = one layer" in r.stderr
+
+
+def test_a_directory_no_layer_owns_says_declare_it_rather_than_fix_the_prefix(repo):
+    """A project with folders outside every declared layer: the hook refuses
+    under every prefix, so the old message ("fix the prefix") named a fix that
+    does not exist. It must name the declaration instead."""
+    config = json.loads((PLUGIN / "templates/project.json").read_text())
+    path = repo / ".research-note/project.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(config))
+    subprocess.run(["git", "-C", repo, "config", "research-note.pluginRoot", str(PLUGIN)],
+                   check=True)
+    subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+    subprocess.run(["git", "-C", repo, "commit", "-q", "-m", "agent: declare"], check=True,
+                   env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
+
+    for prefix in ("chore", "feat", "agent", "memory"):
+        r = commit_msg(repo, ["packages/mod.py"], f"{prefix}: add a package")
+        assert r.returncode == 1, prefix
+        assert "no layer owns ['packages']" in r.stderr, r.stderr
+        assert ".research-note/project.json" in r.stderr
+        assert "prefixes" in r.stderr
+        subprocess.run(["git", "-C", repo, "reset", "-q", "HEAD"], check=True)
+
+    # a directory a layer DOES own keeps the layer message, which is a different
+    # fix (the helper stages -A, so the unowned file has to go first)
+    (repo / "packages/mod.py").unlink()
+    r = commit_msg(repo, ["src/a.py"], "memory: wrong layer")
+    assert r.returncode == 1 and "one commit = one layer" in r.stderr
+    assert "no layer owns" not in r.stderr

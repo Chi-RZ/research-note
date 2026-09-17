@@ -116,6 +116,23 @@ def test_all_base_layers_are_required():
         m.validate_config(config)
 
 
+def test_base_layer_prefixes_are_framework_contract():
+    m = module()
+    config = m.initial_project_config()
+    config["layers"]["experiments"]["prefixes"] = ["trial"]
+    with pytest.raises(m.ConfigError, match="prefixes is fixed by the framework: exp"):
+        m.validate_config(config)
+
+
+def test_semantic_roles_must_belong_to_their_base_layers():
+    m = module()
+    config = m.initial_project_config()
+    config["roles"]["knowledge"] = ["docs"]
+    config["layers"]["source"]["paths"].append("docs")
+    with pytest.raises(m.ConfigError, match="must belong to the knowledge layer"):
+        m.validate_config(config)
+
+
 def test_role_path_must_have_an_owner(tmp_path):
     m = module()
     root = project(tmp_path)

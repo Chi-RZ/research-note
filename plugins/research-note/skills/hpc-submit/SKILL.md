@@ -23,11 +23,20 @@ case. `remote.sh` dispatches on what the REMOTE has: `sbatch` there means
 submit a job, no `sbatch` means run the Case B launcher there. The only thing
 that changes for you is the argument shape (C2).
 
+Resolve the declared experiment roots before selecting a script:
+
+```bash
+python3 "$PLUGIN/scripts/project_config.py" role experiments
+```
+
+The script path identifies the selected root. Call it `<experiment-root>` in
+the paths below.
+
 **Template layering**: the plugin's `scripts/*.slurm` are PRISTINE generic
 templates — never edited, never submitted. bootstrap copies them to
 `<project>/.claude/hpc-submit/`, where the PROJECT fills its cluster facts
 once (partition, `--gres` GPU types, reservations, module loads).
-Per-experiment submit scripts under `experiments/<node>/<group>/submit/` are
+Per-experiment submit scripts under `<experiment-root>/<node>/<group>/submit/` are
 instantiated from the PROJECT copies.
 
 ---
@@ -49,14 +58,14 @@ machine, deliberately, outside a job.
 - **Launch venue.** Formal runs launch from the MAIN checkout at a main-branch
   SHA (root contract). "Ready to run" for experiment code = merged into main
   AND re-smoked green on the merged state: a branch smoke certifies only the
-  impl plus the src it branched from, and the merge may bring newer src.
+  impl plus the library code it branched from, and the merge may bring newer.
   Worktree runs are smoke/debug only (< 30 min foreground, unrecorded).
 - **Templates.** `scripts/` beside this SKILL.md holds the reference
   templates. The `.slurm` templates are **copied** into
-  `experiments/<node>/<group>/submit/` and their `<placeholders>` filled; the
+  `<experiment-root>/<node>/<group>/submit/` and their `<placeholders>` filled; the
   originals stay pristine and are never run in place. `launch_bare_gpu.sh`
   takes no placeholders and is invoked directly from where it lives.
-- **Log destination**: `experiments/<node>/<group>/logs/` (create if missing).
+- **Log destination**: `<experiment-root>/<node>/<group>/logs/` (create if missing).
   - Case A: `slurm-<short>-<key_params>-%j.out`
   - Case B: `<script_stem>[-<key_params>]-<YYYYmmdd-HHMMSS>.log`
 - **Log header.** Every log starts with the header block below. Case A: the
@@ -79,7 +88,7 @@ machine, deliberately, outside a job.
   Autotuner OOM is recognizable: `RESOURCE_EXHAUSTED` during first
   compilation (before any iteration output), traceback mentions autotuning.
   The flags above fix it; raising the memory fraction does not.
-- **Parameter channels** (convention in `experiments/CLAUDE.md`):
+- **Parameter channels** (convention in `<experiment-root>/CLAUDE.md`):
   - *Channel 1 — Hydra pipeline scripts* (`main.py` etc.): take **no**
     parameters at submission. Params are edited in the draft
     `config/config.yaml` (gitignored); submission **freezes** it to
@@ -128,7 +137,7 @@ uncommitted work is running: commit it.
 
 ### A1. Select or create the submit script
 
-Read `experiments/<node>/<group>/submit/`. Find the script whose
+Read `<experiment-root>/<node>/<group>/submit/`. Find the script whose
 `uv run python ... run.py` line matches the intended Python script.
 
 - **Same Python script as an existing `.sh`/`.slurm`** → reuse or modify it:
@@ -204,7 +213,7 @@ PLUGIN="${RESEARCH_NOTE_PLUGIN:-$(git config --get research-note.pluginRoot 2>/d
 ENTRY="<node>/<page>: <entry name>" PHASE=P<n> ROLE="<what this entry does for the phase>" \
     TAG=<key_params> \
     "$PLUGIN/skills/hpc-submit/scripts/submit_slurm.sh" \
-    experiments/<node>/<group>/submit/<script>.slurm --export=ALL,VAR1=val1
+    <experiment-root>/<node>/<group>/submit/<script>.slurm --export=ALL,VAR1=val1
 ```
 
 **Exit 3 = submitted but NOT recorded** — the exit-3 contract below applies;
@@ -269,7 +278,7 @@ ENTRY="<node>/<page>: <entry name>" PHASE=P<n> ROLE="<what this entry does for t
 ENTRY="peps_sma/heis_tri: peps_sma vs ED on heis_tri 4x4" PHASE=P3 \
     ROLE="the 4x4 point the bound is read at" TAG=L4-D4 \
     "$PLUGIN/skills/hpc-submit/scripts/launch_bare_gpu.sh" \
-    experiments/peps_sma/heis_tri/run.py 0 0.4 --L 4 --D 4
+    <experiment-root>/peps_sma/heis_tri/run.py 0 0.4 --L 4 --D 4
 ```
 
 ### B1. Choose the path: GPU or CPU
@@ -479,7 +488,7 @@ in the log header); the wrapper flips the exit code and exits on its own.
 
    On the wake: re-run the check to see WHICH entry, **pull the artifacts if
    the job ran remotely** (`remote.sh pull` — the log and any small data land
-   under `experiments/**/logs|data/`, where the entry's links already point),
+   under each configured experiment root's `**/logs|data/`, where the entry's links already point),
    analyze that one in-session with full context; the Monitor stays armed
    while others run — nothing is re-armed per harvest. All of that is the
    owner's job: the fixer rsyncs finished logs and capped data back on its
@@ -517,9 +526,8 @@ non-default host's job is recorded as `<jobid>@<host>` in the entry's
 ```bash
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD" --remote <host>:<dir>
 # = writes hpc.env keys + sparse-clones the repo on the cluster from the GitHub
-#   origin (cone: src/ tests/ experiments/ .claude/ — the cluster runs jobs and
-#   reads .claude/hpc.env for the log header, and never needs project_memory/
-#   or wiki/, whose only effect there is to be read as a record and believed).
+#   origin (all project code and .claude/, excluding project_memory/ and the
+#   configured knowledge roots, whose stale content could be believed).
 #   REPEATABLE: one --remote per cluster, the first is the default host;
 #   re-running it also applies the cone to a clone made before this default.
 ```
@@ -554,14 +562,14 @@ with `scripts/land_and_launch.sh -- <launcher> <args>` (root contract,
 "Landing and launching in one breath").
 
 **Slurm remote** — the submit script is a project file under
-`experiments/<node>/<group>/submit/`, filled from the plugin's `.slurm`
+`<experiment-root>/<node>/<group>/submit/`, filled from the plugin's `.slurm`
 templates; job id = Slurm's.
 
 ```bash
 ENTRY="<node>/<page>: <entry name>" PHASE=P<n> ROLE="<what this entry does for the phase>" \
 bash "$PLUGIN/scripts/remote.sh" submit -J <short>-<key_params> \
      -o <logs/...-%j.out> -e <logs/...-%j.out> --export=ALL,D=64 \
-     experiments/<node>/<group>/submit/<name>.slurm
+     <experiment-root>/<node>/<group>/submit/<name>.slurm
 ```
 
 **Bare remote** (no `sbatch` there) — no queue and no `.slurm` file, so the
@@ -573,7 +581,7 @@ with three jobs):
 ```bash
 ENTRY="<node>/<page>: <entry name>" PHASE=P<n> ROLE="<what this entry does for the phase>" \
 TAG=<key_params> bash "$PLUGIN/scripts/remote.sh" submit \
-     experiments/<node>/<group>/run.py <gpu_id|cpu> <mem_frac> [script args...]
+     <experiment-root>/<node>/<group>/run.py <gpu_id|cpu> <mem_frac> [script args...]
 ```
 
 `TAG` and `CONFIG` are forwarded, so a remote launch names its log exactly
@@ -587,7 +595,7 @@ refuses here for the same reason it refuses there. The printed `log:` line is
 already repo-relative — use it verbatim in the entry; the file lands locally
 on the next `pull` (P2 exempts `logs/` for that window).
 
-**Submit files age.** A `.slurm` under `experiments/<node>/<group>/submit/`
+**Submit files age.** A `.slurm` under `<experiment-root>/<node>/<group>/submit/`
 is instantiated from the template ONCE and then never follows it — the log
 header the template writes is the record contract, so a file made before the
 template gained a field silently produces runs missing that evidence (seen:
@@ -600,7 +608,7 @@ the run itself will not complain.
 
 Job id → the owning entry's `- **Jobs:**` field; the LOG's repo-relative link
 inline in the entry. The log path is the SAME relative path as Case A
-(`experiments/<node>/<group>/logs/slurm-...-<jobid>.out`) — the file lives on
+(`<experiment-root>/<node>/<group>/logs/slurm-...-<jobid>.out`) — the file lives on
 the cluster first and lands locally on the fixer's next pull (≤10 min), so the
 link is briefly dangling; P2 exempts `logs/` for exactly this reason.
 
@@ -615,8 +623,8 @@ The fixer's cycle keeps running the same two commands as the safety net for
 orphans and as the background artifact mover: `remote.sh queue` (snapshot →
 `.fixer/remote_queue`, which the J3/J4 lint and the board's Running tab read —
 a stale snapshot makes the queue read as unusable rather than inventing "job
-finished") and `remote.sh pull` (all of `experiments/**/logs/`, plus
-`experiments/**/data/` files ≤ `REMOTE_DATA_MAX_MB`). Big artifacts stay on
+finished") and `remote.sh pull` (all configured experiment roots' logs, plus
+their data files ≤ `REMOTE_DATA_MAX_MB`). Big artifacts stay on
 the cluster by design — an analysis that needs one says so and reads it over
 ssh, or raises the cap deliberately.
 

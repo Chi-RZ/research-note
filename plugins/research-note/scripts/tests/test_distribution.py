@@ -376,9 +376,15 @@ def test_the_setup_skill_lists_exactly_the_lines_bootstrap_writes():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     text = (PLUGIN / "skills" / "project-setup" / "SKILL.md").read_text(encoding="utf-8")
-    blocks = [b for b in text.split("```") if "experiments/*/logs" in b]
+    blocks = [b for b in text.split("```") if "<experiment-root>/*/logs" in b]
     assert blocks, "the .gitignore block is gone from project-setup/SKILL.md"
     listed = {ln.strip() for ln in blocks[0].splitlines() if ln.strip()}
-    assert listed == set(mod.GITIGNORE_LINES), (
-        f"only in the skill: {sorted(listed - set(mod.GITIGNORE_LINES))}\n"
-        f"only in the code:  {sorted(set(mod.GITIGNORE_LINES) - listed)}")
+    # The skill writes the per-root patterns once, against the placeholder the
+    # rest of its text uses; bootstrap writes them once per DECLARED experiment
+    # root. Comparing the default root's lines under that substitution keeps the
+    # cache check the stale `checkpoint` pair was caught by.
+    expected = {ln.replace("experiments/", "<experiment-root>/")
+                for ln in mod.GITIGNORE_LINES}
+    assert listed == expected, (
+        f"only in the skill: {sorted(listed - expected)}\n"
+        f"only in the code:  {sorted(expected - listed)}")

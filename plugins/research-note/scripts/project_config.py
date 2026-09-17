@@ -240,6 +240,12 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigError(
             f"layers is missing required base layers: {', '.join(sorted(missing_layers))}"
         )
+    for name, default in DEFAULT_CONFIG["layers"].items():
+        if layers[name].get("prefixes") != default["prefixes"]:
+            expected = ", ".join(default["prefixes"])
+            raise ConfigError(
+                f"layers.{name}.prefixes is fixed by the framework: {expected}"
+            )
     path_owner: dict[str, str] = {}
     prefix_owner: dict[str, str] = {}
     for name, layer in layers.items():
@@ -273,6 +279,19 @@ def validate_config(config: dict[str, Any]) -> None:
             path = _top_level(raw, f"roles.{role}")
             if path not in path_owner:
                 raise ConfigError(f"role path {path!r} has no owning layer")
+
+    role_layers = {
+        "libraries": "source",
+        "tests": "source",
+        "experiments": "experiments",
+        "knowledge": "knowledge",
+    }
+    for role, layer in role_layers.items():
+        for path in roles.get(role, []):
+            if path_owner[path] != layer:
+                raise ConfigError(
+                    f"roles.{role} path {path!r} must belong to the {layer} layer"
+                )
 
     if path_owner.get("project_memory") != "record":
         raise ConfigError("project_memory must be owned by the record layer")

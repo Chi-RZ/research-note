@@ -70,8 +70,8 @@ skill. The skill does the following.
   ignored state before setup continues. The standard layers remain available.
   `root` is the layer for root-level maintenance files and uses `chore:`; it is
   not a fallback for folders that have not been assigned.
-- creates `src/`, `tests/`, `experiments/`, `project_memory/`, and `wiki/`, and
-  runs `git init` if needed.
+- creates the confirmed role directories and the fixed `project_memory/`
+  record, and runs `git init` if needed.
 - writes the project contracts, settings, and environment files under
   `.claude/`, installs the githooks in front of any hooks the repository already
   has, and adds the needed `.gitignore` entries. Claude reads `CLAUDE.md` and
@@ -105,9 +105,9 @@ Setup asks where jobs should run on that cluster. It records the partition,
 reservation, and account in `.claude/hpc.env`, and submissions use those values
 later.
 
-It then clones the project onto the cluster without `project_memory/` or
-`wiki/`. The record stays in one place. A cluster must have a git remote so the
-code can arrive with `git pull`.
+It then clones the project onto the cluster without `project_memory/` or the
+configured knowledge directories. The record stays in one place. A cluster
+must have a git remote so the code can arrive with `git pull`.
 
 ## Updating
 
