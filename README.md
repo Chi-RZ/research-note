@@ -63,10 +63,13 @@ skill. The skill does the following.
   project either keeps its own layout, declared in `.research-note/project.json`,
   or is organized: reusable code to `src/`, scripts and one-off entry points to
   `experiments/`, large data left where it is, loose output files archived.
-- shows the default directory mapping before setup. For an existing project it
-  proposes mappings for folders such as `code/`, `spec/`, `trials/`, and `docs/`
-  and asks you to confirm them. Unassigned folders stay where they are and are
-  not governed by the framework.
+- shows the default directory mapping and asks you to confirm it before setup.
+  For an existing project it scans every project folder, proposes its role,
+  Git layer, and commit prefix, then lets you edit the table. A folder can stay
+  where it is, but each one must be assigned to a layer or confirmed as local,
+  ignored state before setup continues. The standard layers remain available.
+  `root` is the layer for root-level maintenance files and uses `chore:`; it is
+  not a fallback for folders that have not been assigned.
 - creates `src/`, `tests/`, `experiments/`, `project_memory/`, and `wiki/`, and
   runs `git init` if needed.
 - writes the project contracts, settings, and environment files under

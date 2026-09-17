@@ -108,6 +108,14 @@ def test_a_path_cannot_belong_to_two_layers(tmp_path):
         m.load_project_config(root)
 
 
+def test_all_base_layers_are_required():
+    m = module()
+    config = m.initial_project_config()
+    config["layers"].pop("source")
+    with pytest.raises(m.ConfigError, match="missing required base layers: source"):
+        m.validate_config(config)
+
+
 def test_role_path_must_have_an_owner(tmp_path):
     m = module()
     root = project(tmp_path)

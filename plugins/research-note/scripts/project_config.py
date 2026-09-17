@@ -235,6 +235,11 @@ def validate_config(config: dict[str, Any]) -> None:
     layers = config.get("layers")
     if not isinstance(layers, dict) or not layers:
         raise ConfigError("layers must be a non-empty object")
+    missing_layers = set(DEFAULT_CONFIG["layers"]) - set(layers)
+    if missing_layers:
+        raise ConfigError(
+            f"layers is missing required base layers: {', '.join(sorted(missing_layers))}"
+        )
     path_owner: dict[str, str] = {}
     prefix_owner: dict[str, str] = {}
     for name, layer in layers.items():

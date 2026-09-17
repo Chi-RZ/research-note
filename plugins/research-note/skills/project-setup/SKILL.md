@@ -53,23 +53,37 @@ Show the layout decision before running bootstrap. The default mapping is:
 | project memory | `project_memory/` |
 | published knowledge | `wiki/` |
 
-For an empty project, show these defaults and continue unless the user changes
-them. For an existing project, scan its top-level folders and propose a mapping
-before creating the framework. For example:
+For an empty project, show these defaults and ask the user to confirm them. For
+an existing project, scan every project-owned top-level folder and propose a
+mapping before creating the framework. Identify `.git`, virtual environments,
+and tool caches separately as local state. For example:
 
 ```text
-code, packages  → libraries
-spec             → tests
-trials, notebooks → experiments
-docs             → knowledge
-data, logs       → leave in place
+code, packages   → libraries / source / feat, fix, refactor
+spec             → tests / source / feat, fix, refactor
+trials, notebooks → experiments / experiments / exp
+docs             → knowledge / knowledge / wiki
+data             → no framework role / data / data
+logs             → no framework role / operations / ops
+.venv, .pytest_cache → local state / gitignored
 ```
 
-Ask the user to confirm or edit every proposed mapping. Leave unassigned
-folders where they are and say that the framework does not govern them yet.
-After confirmation, write the confirmed `roles` and matching `layers.paths` to
-`.research-note/project.json`, then run bootstrap. Do not run bootstrap first
-and ask about the layout afterwards.
+Show one row for every folder, with its semantic role when it has one, its Git
+layer, and the commit prefix for that layer. Ask the user to confirm or edit
+every row. Keep all six base layers: `source`, `experiments`, `record`,
+`knowledge`, `agent`, and `root`. The `root` layer supplies `chore:` for a
+commit containing only files directly under the repository root. Root files
+may also accompany a commit for another layer. `root` does not catch
+unassigned directories.
+
+Every version-controlled top-level folder must belong to exactly one Git layer.
+A folder may stay in its current location, but it may not remain undeclared.
+Put folders with the same kind of history in an existing layer. Give a distinct
+kind of content its own layer and prefix. Mark local state explicitly and add
+its confirmed patterns to `.gitignore`. After confirmation, write the complete
+`roles` and `layers` mapping to `.research-note/project.json`, then run
+bootstrap. Do not write either file or run bootstrap before the user confirms
+the table.
 
 The confirmed file keeps the rest of the shipped defaults. A custom mapping
 looks like this:
@@ -85,7 +99,9 @@ looks like this:
   "layers": {
     "source": {"paths": ["code", "packages", "spec"]},
     "experiments": {"paths": ["trials", "notebooks"]},
-    "knowledge": {"paths": ["docs"]}
+    "knowledge": {"paths": ["docs"]},
+    "data": {"paths": ["data"], "prefixes": ["data"]},
+    "operations": {"paths": ["logs"], "prefixes": ["ops"]}
   }
 }
 ```
@@ -469,26 +485,19 @@ Commit in **layered** units (never mix): `src/` move, then `experiments/` move,
 then infra (`pyproject.toml` + `.gitignore` + `INDEX.md`). Prefixes: `refactor:`,
 `exp(<name>):`, `chore:`.
 
-### A top-level directory the six layers cannot absorb — declare a new layer
+### Account for every top-level directory
 
-The commit-msg hook partitions the monorepo: staged top-level dirs minus the
-prefix's allowed set, non-empty rejects. A directory outside the declared
-layers therefore cannot be committed under any prefix until it is declared —
-loudly, at commit time, which is the point: "which layer is this" gets answered
-explicitly instead of a new directory drifting into whichever layer's commits
-happen to touch it.
+The commit-msg hook rejects a staged top-level directory that does not belong
+to the commit prefix's layer. Setup must therefore account for every
+version-controlled top-level directory before it writes the declaration.
 
 Answer it in this order:
 
-1. **Fold it in if you can.** Most "extra" directories are an existing layer
-   under another name — manuscript material is `wiki/`, analysis output is its
-   experiment's `figures/`. Moving it needs no rule change and is the right
-   answer more often than it feels.
-2. **Otherwise it is a NEW layer with its OWN prefix — one prefix, one
-   directory set.** Never widen an existing prefix's set instead (no
-   `"knowledge": {"paths": ["wiki", "paper"]}`): the layer table's whole value
-   is that a prefix names exactly one region of the tree, so `git log --grep`
-   and a change's blast radius read straight off the prefix.
+1. Put the directory in an existing layer when it has the same change history.
+   `paper/` may join `wiki/` in the knowledge layer; `spec/` may join `code/` in
+   the source layer. It does not need to move.
+2. Create a layer and prefix when the directory has a distinct change history.
+   For example, a large tracked dataset may use a `data` layer and `data:`.
 
 Declaring one is one edit in one `agent:` commit — `.research-note/project.json`
 gains a layer; the hook reads the file, so the hook itself is never edited and
@@ -506,9 +515,10 @@ project still on the pre-declaration hook (a hand-edited `RULES` table inside
 no `project.json` exists — and gains the declaration the next time bootstrap
 runs.
 
-Two non-answers: `chore` is not the junk layer (its set is EMPTY, root-level
-files only, on purpose), and `SKIP_PREFIX_CHECK=1` is the escape hatch for a
-genuine anomaly, not a habit — used routinely it turns the partition off.
+`root` means files directly under the repository root. A root-only maintenance
+commit, such as a change to `.gitignore` or `pyproject.toml`, uses `chore:`.
+Root files may accompany another layer's commit, but an undeclared directory
+may not. `SKIP_PREFIX_CHECK=1` remains an escape hatch for a one-off anomaly.
 
 ---
 
@@ -586,7 +596,7 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] `~/.claude` is not shadowing — no `hooks` key, no `skills/` there
 - [ ] scaffold complete — `src/ tests/ experiments/tests/ project_memory/{nodes,memory/shared,note,objectives} wiki/knowledge` all exist (bootstrap creates every one; node folders arrive later via research-note:plan)
 - [ ] `src/INDEX.md` exists with its `## Domain libraries` section filled in (or explicitly "none")
-- [ ] every directory the framework will touch is owned by one commit prefix; explicitly unassigned folders are left outside its scope
+- [ ] every project-owned top-level directory is confirmed as one Git layer or local ignored state; no folder is unassigned
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
 - [ ] (organize) code migrated, big data symlinked in place, loose files archived
