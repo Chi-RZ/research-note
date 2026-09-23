@@ -103,10 +103,6 @@ its own `.venv` from them, jobs run through `uv run`, and every job's log header
 names the lock it ran under. That lock is what lets a recorded result be rerun
 in the same environment. Setup installs uv if it is missing, after asking you.
 
-There is a `--no-uv` switch for a project that cannot use uv. It is not
-supported: everything runs, but nothing certifies the environment a result ran
-in, and `doctor` and every log header say so.
-
 ## 3. Update
 
 Tell the agent:
