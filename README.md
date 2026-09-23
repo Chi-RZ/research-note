@@ -96,6 +96,7 @@ Optional setup choices are:
 | `--with-fixer` | the background fixer |
 | `--with-editor` | editor extensions |
 | `--with-cross-agent` | registration with the other installed agent |
+| `--no-uv` | an environment managed by conda, pip or another tool (see below) |
 | `--dry-run` | show changes without writing them |
 
 The same choices can be disabled with `--no-hpc`, `--no-fixer`,
@@ -113,9 +114,14 @@ configured knowledge directories. The record stays in one place. A cluster
 must have a git remote so the code can arrive with `git pull`.
 
 **Python environment.** uv is the default and the supported path: its lock
-file is what lets a recorded result be rerun in the same environment. A project
-that uses conda or pip declares it at setup (`--no-uv`); everything works, and
-every log header then says the environment is not locked.
+file is what lets a recorded result be rerun in the same environment, and every
+environment check is built on it. A project that uses conda, pip or another
+tool declares it at setup with `--no-uv`, or later with
+`project_config.py set-environment other --runner "<command> -u"`. Everything
+else works the same. The cost is stated rather than hidden: doctor warns that
+the environment is not locked, the cluster's environment comparison is skipped,
+and every job's log header says the environment is not locked, so a reader of
+any result knows it may not be rebuildable.
 
 ## Updating
 
@@ -157,6 +163,9 @@ compatibility matrix against real repositories on every change:
   their arguments, stdin and exit codes intact.
 - an existing repository's own `CLAUDE.md` is merged: the framework text first,
   their rules below it, one file read through both agent names.
+- a project that manages Python with conda or pip instead of uv runs its jobs,
+  passes doctor, and says in every log header that its environment is not
+  locked.
 - a machine with one agent, or none on PATH, completes setup.
 - the fixer and the cluster support are present only when asked for.
 - running setup or update a second time changes nothing.
@@ -168,12 +177,14 @@ integration turned on, which is what the project had. It keeps anything you
 had added below a contract's project-rules heading and updates the framework
 text above it. Older projects that used `.research-note/rules/` have those
 appendices carried into the contract once, and so does a `CLAUDE.md` or
-`AGENTS.md` of your own standing where a contract view belongs — its text moves
-into the project-rules section and the path becomes the view. It replaces the git hooks with the
-dispatcher, and your project's earlier hooks keep running. The record lock
-moves out of `.fixer/` into `.research-note/state/`. Nothing is deleted. The
+`AGENTS.md` of your own standing where a contract view belongs: its text moves
+into the project-rules section and the path becomes the view. It replaces the
+git hooks with the dispatcher, and your project's earlier hooks keep running.
+The record lock moves out of `.fixer/` into `.research-note/state/`. The
+environment stays on uv unless you declare otherwise. Nothing is deleted. The
 update prints one `conflict:` line for every file it could not resolve on its
-own, with the command to see the difference.
+own, with the command to see the difference. A cluster submit file copied by an
+earlier version keeps its old run line until you port it; the update names it.
 
 Claude Code currently supports a few more setup and configuration steps than
 Codex. Both agents can run jobs and write the research record.
