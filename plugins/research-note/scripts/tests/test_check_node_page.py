@@ -1425,3 +1425,170 @@ def test_the_e16_verdict_cache_survives_across_pages(sha_repo, monkeypatch):
         assert C.code_sha_errors(_code(tok)) == []
     about_sha = [a for a in calls if any(sha in str(x) for x in a)]
     assert len(about_sha) == 2, about_sha   # cat-file + is-ancestor, once each
+
+
+# --------------------------------------------------------------------------
+# J3 says HOW the jobs ended, and names the host they ran on.
+#
+# It used to end "finished? write the conclusion or flip Status" whatever the
+# logs said — a job that crashed with exit 1 read as ready to analyze — and it
+# said "launcher uv PID gone" for every job on a bare host, including Slurm
+# jobs that ran on a remote cluster.
+# --------------------------------------------------------------------------
+
+LOG_LINK = ("; evidence [log](../../../experiments/tanner_gnn_ln/scc/logs/"
+            "slurm-ln-64196217.out)")
+
+
+def _j3_setup(tmp_path, monkeypatch, *, jobs="64196217", link=True, remote=False):
+    root = tmp_path
+    logs = root / "experiments/tanner_gnn_ln/scc/logs"
+    logs.mkdir(parents=True)
+    text = PAGE.replace("- **Status:** analyzed", "- **Status:** running")
+    text = text.replace("- **Jobs:** 64196217", f"- **Jobs:** {jobs}")
+    if not link:
+        text = text.replace(LOG_LINK, "")
+    page = write_page(root / "nodes" / "tanner_gnn_ln", "scc", "grid", text)
+    monkeypatch.setattr(C, "ROOT", root)
+    monkeypatch.setattr(C, "NODES_DIR", root / "nodes")
+    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
+    monkeypatch.setattr(C, "_JOB_LOG_INDEX", None)
+    if remote:
+        # the module's autouse fixture stubs the remote queue out; this project
+        # declares one, so it gets the real reader back
+        monkeypatch.setattr(C, "_remote_queue", _REAL_REMOTE_QUEUE)
+        (root / ".claude").mkdir()
+        (root / ".claude/hpc.env").write_text("REMOTE_HOST=hpc\nREMOTE_DIR=/scratch/x\n")
+        (root / ".fixer").mkdir()
+        (root / ".fixer/remote_queue").write_text("")      # fresh, and empty
+    return page, logs
+
+
+def j3(page):
+    lines = [e for e in C.lint_page(page) if e.startswith("J3")]
+    assert len(lines) == 1, lines
+    return lines[0]
+
+
+def test_j3_names_a_failed_job_and_sends_it_to_correct(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch)
+    (logs / "slurm-ln-64196217.out").write_text(
+        "step 1\nTraceback (most recent call last):\nKeyError: 'x'\n# Exit code: 1\n")
+    line = j3(page)
+    assert "FAILED" in line and "exit 1" in line, line
+    assert "research-note:correct" in line
+    assert "write the conclusion" not in line, "a crash is not ready to analyze"
+    assert line.startswith("J3 entry '"), "the harvest hook keys on this prefix"
+
+
+def test_j3_says_analyze_when_the_job_exited_zero(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch)
+    (logs / "slurm-ln-64196217.out").write_text("done\n# Exit code: 0\n")
+    line = j3(page)
+    assert "it exited 0" in line and "Analyze" in line, line
+    assert "FAILED" not in line
+
+
+def test_j3_reads_a_slurm_exit_code_at_the_end_of_a_long_log(tmp_path, monkeypatch):
+    """The Slurm templates append the exit code as the LAST line; the launcher's
+    header reader looks only at the top."""
+    page, logs = _j3_setup(tmp_path, monkeypatch)
+    (logs / "slurm-ln-64196217.out").write_text(
+        "".join(f"iteration {i} loss 0.{i:05d}\n" for i in range(5000)) + "# Exit code: 137\n")
+    assert "exit 137" in j3(page)
+
+
+def test_j3_finds_an_unlinked_log_by_the_job_id_in_its_name(tmp_path, monkeypatch):
+    """A remote job's log arrives by `remote.sh pull` after the entry was
+    written, so the entry often has no link to it."""
+    page, logs = _j3_setup(tmp_path, monkeypatch, link=False)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 1\n")
+    assert "exit 1" in j3(page)
+
+
+def test_j3_finds_a_launcher_log_by_its_header_not_its_timestamp(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, link=False)
+    (logs / "run-20260917-120000.log").write_text(
+        "# Timestamp: 2026-09-17T12:00:00\n# PID wrapper: 64196217\n# Exit code: 2\n")
+    assert "exit 2" in j3(page)
+    assert "120000" not in C.job_log_index(), "a timestamp is not a job id"
+
+
+def test_j3_reports_a_job_killed_before_it_recorded_an_exit_code(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, link=False)
+    (logs / "run-20260917-120000.log").write_text(
+        "# PID wrapper: 64196217\n# Exit code: running\n")
+    line = j3(page)
+    assert "no exit code recorded" in line and "killed?" in line, line
+    assert "research-note:correct" in line
+
+
+def test_j3_says_the_log_is_not_back_yet_when_the_job_ran_remotely(tmp_path, monkeypatch):
+    page, _ = _j3_setup(tmp_path, monkeypatch, link=False, remote=True)
+    line = j3(page)
+    assert "not pulled back yet" in line and "remote.sh pull" in line, line
+    assert "Analyze" not in line
+
+
+def test_j3_words_a_tagged_remote_job_by_its_host(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, jobs="64196217@hpc", remote=True)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
+    line = j3(page)
+    assert "64196217@hpc is no longer queued on hpc" in line, line
+    assert "launcher" not in line and "PID" not in line
+
+
+def test_j3_names_both_places_for_untagged_jobs_on_a_project_with_a_remote(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, remote=True)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
+    line = j3(page)
+    assert "live neither here nor in the remote queue snapshot" in line, line
+    assert "PID" not in line
+
+
+def test_j3_keeps_the_launcher_wording_on_a_bare_host_without_a_remote(tmp_path, monkeypatch):
+    import shutil
+    page, logs = _j3_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
+    line = j3(page)
+    assert "no longer running here (launcher PID gone)" in line, line
+    assert "uv" not in line
+
+
+def test_j3_counts_each_outcome_across_a_scan(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, jobs="64196217, 64196218, 64196219",
+                           link=False, remote=True)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
+    (logs / "slurm-ln-64196218.out").write_text("# Exit code: 0\n")
+    line = j3(page)
+    assert "none of its 3 jobs (64196217..)" in line, line
+    assert "2 exited 0" in line and "1 log is not pulled back yet" in line, line
+    assert "remote.sh pull" in line
+
+
+def test_j3_log_fallback_says_how_the_linked_log_ended(tmp_path, monkeypatch):
+    """squeue present but unusable: J3 judges from the linked log, and now says
+    what that log says instead of `collect results`."""
+    page, logs = _j3_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(C, "_QUEUE_CACHE", (False, set()))
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 1\n")
+    line = j3(page)
+    assert "linked log(s) report it ended" in line and "FAILED" in line, line
+
+
+def test_j3_reads_a_linked_log_that_is_not_on_disk_as_not_back_yet(tmp_path, monkeypatch):
+    """Found on a real page: a remote job's log is linked at submission and
+    arrives with the next pull. Nine linked-but-absent logs were first reported
+    as nine jobs killed before they recorded an exit code."""
+    page, _ = _j3_setup(tmp_path, monkeypatch, remote=True)     # linked, never pulled
+    line = j3(page)
+    assert "its log is not pulled back yet" in line, line
+    assert "killed?" not in line and "FAILED" not in line
+
+
+def test_j3_says_both_for_a_pair(tmp_path, monkeypatch):
+    page, logs = _j3_setup(tmp_path, monkeypatch, jobs="64196217, 64196218", link=False)
+    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
+    (logs / "slurm-ln-64196218.out").write_text("# Exit code: 0\n")
+    assert "both exited 0" in j3(page)

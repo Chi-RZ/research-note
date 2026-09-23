@@ -557,6 +557,190 @@ def resolve_link(s: str, page: Path | None) -> Path:
     return cand if cand.exists() else q
 
 
+#: `# Exit code: <n>`. The bare launcher writes it in the header and patches it
+#: when the job ends; the Slurm templates append it as the LAST line.
+EXIT_CODE_RE = re.compile(r"^# Exit code:\s*(\S+)", re.M)
+#: the job id a log belongs to, from its header
+LOG_JOB_ID_RE = re.compile(r"^# (?:PID wrapper|job_id|PID uv):\s*(\d+)", re.M)
+#: ...or from Slurm's `-%j.out` name. `.out` only: a launcher's `.log` is named by
+#: its timestamp, whose trailing digits would read as a job id.
+SLURM_LOG_NAME_RE = re.compile(r"-(\d+)\.out$")
+
+
+def _head_text(path: Path, size: int = 4096) -> str:
+    try:
+        with path.open("rb") as fh:
+            return fh.read(size).decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def log_exit_code(path: Path) -> str | None:
+    """How a job's log says it ended: the exit code as text, `running` while
+    the launcher has not flipped it, or None when the log records none — it is
+    unreadable, or the job was killed before the line was written. Head AND
+    tail are read, because the launcher writes the line at the top and the
+    Slurm templates at the bottom; the last occurrence wins."""
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as fh:
+            chunk = fh.read(8192)
+            if size > 16384:
+                fh.seek(size - 8192)
+            chunk += b"\n" + fh.read()
+    except OSError:
+        return None
+    codes = EXIT_CODE_RE.findall(chunk.decode("utf-8", errors="replace"))
+    return codes[-1] if codes else None
+
+
+def _log_job_ids(path: Path) -> set[str]:
+    ids = set(LOG_JOB_ID_RE.findall(_head_text(path)))
+    m = SLURM_LOG_NAME_RE.search(path.name)
+    if m:
+        ids.add(m.group(1))
+    return ids
+
+
+_JOB_LOG_INDEX: dict[str, Path] | None = None
+
+
+def job_log_index() -> dict[str, Path]:
+    """Job id -> its log, across every declared experiment root (cached).
+
+    Built only when a J3 has to say how a job ended, never on a clean lint.
+    It is how a remote job's log is found once `remote.sh pull` has brought
+    it back: the entry's `Jobs:` line names the id, and the log's own name or
+    header names it too."""
+    global _JOB_LOG_INDEX
+    if _JOB_LOG_INDEX is None:
+        index: dict[str, Path] = {}
+        for root in experiment_roots():
+            if not root.is_dir():
+                continue
+            for log in sorted(root.rglob("logs/*")):
+                if log.suffix in (".log", ".out") and log.is_file():
+                    for jid in _log_job_ids(log):
+                        index.setdefault(jid, log)
+        _JOB_LOG_INDEX = index
+    return _JOB_LOG_INDEX
+
+
+def entry_job_hosts(body: str) -> dict[str, str]:
+    """id -> the `@host` its `Jobs:` cell tags it with; untagged ids are absent."""
+    hosts: dict[str, str] = {}
+    for part in re.split(r"[,\s]+", field(body, "Jobs").strip()):
+        m = re.search(r"@([\w.-]+)$", part)
+        if m:
+            for jid in expand_jobids(part):
+                hosts[jid] = m.group(1)
+    return hosts
+
+
+def _rel(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def j3_where(ids: list[str], hosts: dict[str, str]) -> str:
+    """Where J3 looked, named after the host each job ran on — never this
+    machine's queue for a job that ran on a cluster. The old wording said
+    "launcher uv PID gone" for every job on a bare host, including Slurm jobs
+    on a remote, which sent the reader looking for a local process that never
+    existed."""
+    import shutil
+    n = len(ids)
+    first = ids[0] + (f"@{hosts[ids[0]]}" if ids[0] in hosts else "")
+    one, many = (f"its job {first}", f"none of its {n} jobs ({first}..)")
+    tags = {hosts.get(j) for j in ids}
+    if None not in tags and len(tags) == 1:
+        host = tags.pop()
+        return (f"{one} is no longer queued on {host}" if n == 1
+                else f"{many} is still queued on {host}")
+    if _remote_queue() is not None:
+        return (f"{one} is live neither here nor in the remote queue snapshot" if n == 1
+                else f"{many} is live here or in the remote queue snapshot")
+    if shutil.which("squeue"):
+        return f"{one} is no longer in squeue" if n == 1 else f"{many} is in squeue"
+    return (f"{one} is no longer running here (launcher PID gone)" if n == 1
+            else f"{many} is still running here (launcher PIDs gone)")
+
+
+def j3_outcome(body: str, page: Path | None, ids: list[str]) -> str:
+    """How the entry's jobs ended, read off their logs, and the move that follows.
+
+    A J3 used to end "finished? write the conclusion" whatever the logs said,
+    so a job that crashed with exit 1 was reported as ready to analyze. The
+    exit code was on disk the whole time. Failure now leads: a failed job
+    needs its log read and, for a code fault, research-note:correct — not a
+    conclusion written over it."""
+    linked: dict[str, Path] = {}
+    # Only a link whose file is ON DISK says anything about how a job ended. A
+    # remote job's log is linked at submission and arrives with the next pull,
+    # so an absent link target is "not back yet" — reading it as "ended without
+    # an exit code" would call nine un-pulled logs nine killed jobs.
+    links = [lp for rel in LOGURI_RE.findall(body)
+             if (lp := resolve_link(rel, page)).is_file()]
+    for lp in links:
+        for jid in _log_job_ids(lp):
+            linked.setdefault(jid, lp)
+    if len(ids) == 1 and ids[0] not in linked and len(links) == 1:
+        linked[ids[0]] = links[0]                    # one job, one linked log
+    jobs: list[tuple[str, Path | None]]
+    if ids:
+        if any(j not in linked for j in ids):
+            index = job_log_index()
+            linked.update({j: index[j] for j in ids if j not in linked and j in index})
+        jobs = [(j, linked.get(j)) for j in ids]
+    else:                                            # no ids: the linked logs are the jobs
+        jobs = [(lp.name, lp) for lp in links]
+
+    failed, killed, ok, missing = [], [], [], []
+    for label, lp in jobs:
+        if lp is None:
+            missing.append(label)
+            continue
+        code = log_exit_code(lp)
+        if code == "0":
+            ok.append(label)
+        elif code in (None, "running"):
+            killed.append((label, lp))
+        else:
+            failed.append((label, code, lp))
+
+    n = len(jobs)
+    remote = _remote_queue() is not None
+    parts = []
+    if failed:
+        label, code, lp = failed[0]
+        more = f", +{len(failed) - 1} more" if len(failed) > 1 else ""
+        parts.append(f"{'it' if n == 1 else str(len(failed))} FAILED "
+                     f"({label} exit {code}: {_rel(lp)}{more})")
+    if killed:
+        label, lp = killed[0]
+        parts.append(f"{'it' if n == 1 else str(len(killed))} ended with no exit "
+                     f"code recorded — killed? ({label}: {_rel(lp)})")
+    if ok:
+        parts.append("it exited 0" if n == 1 else "both exited 0" if len(ok) == n == 2 else
+                     f"all {n} exited 0" if len(ok) == n else f"{len(ok)} exited 0")
+    if missing:
+        where = "not pulled back yet" if remote else "not found"
+        k = len(missing)
+        parts.append(f"its log is {where}" if n == 1 else
+                     f"{k} log{'s are' if k > 1 else ' is'} {where}")
+    if failed or killed:
+        action = ("read the log before concluding; a code fault goes through "
+                  "research-note:correct, not a conclusion")
+    elif missing:
+        action = ("bring the missing logs back (remote.sh pull) before concluding"
+                  if remote else "find how they ended before concluding")
+    else:
+        action = "analyze: write the conclusion and flip Status"
+    return "; ".join(parts) + ". " + action[0].upper() + action[1:]
+
+
 def entry_logs_state(body: str, page: Path | None = None) -> str | None:
     """Aggregate an entry's linked `.log`/`.out` artifacts into one run state:
     'running' if any linked log is still running, 'done' if all finished, None
@@ -962,9 +1146,10 @@ def lifecycle_errors(text: str, entries: dict[str, str],
         for name in running:
             ids = by_entry[name]
             if ids and not (set(ids) & queue):
-                errs.append(f"J3 entry '{name}' is running but none of its jobs "
-                            f"({ids[0]}..) {gone} — finished? write the conclusion "
-                            f"or flip Status")
+                body = entries[name]
+                errs.append(f"J3 entry '{name}' is running but "
+                            f"{j3_where(ids, entry_job_hosts(body))} — "
+                            f"{j3_outcome(body, page, ids)}")
         if not running and all_ids & queue:
             live = sorted(all_ids & queue)
             errs.append(f"J4 jobs {live[0]}.. {live_in} but no entry is marked "
@@ -976,8 +1161,7 @@ def lifecycle_errors(text: str, entries: dict[str, str],
             state = entry_logs_state(body, page)
             if st == "running" and state == "done":
                 errs.append(f"J3 entry '{name}' is running but its linked log(s) report "
-                            f"finished (exit code set / PID gone) — collect results and "
-                            f"flip Status")
+                            f"it ended — {j3_outcome(body, page, by_entry[name])}")
             elif st and st != "running" and state == "running":
                 errs.append(f"J4 entry '{name}' has a live run (linked log still running, "
                             f"PID alive) but Status is '{st}' — flip it to running")
