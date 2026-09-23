@@ -28,24 +28,6 @@ the analysis on a page, for you to review and correct.
   <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them in the background." src="docs/typical-run-light.svg" width="100%">
 </picture>
 
-## Status
-
-This is an early release (0.x). The core is tested on Linux and macOS, but you
-may still find bugs, especially in setups nobody has tried yet. It is built so
-that trying it is safe:
-
-- Nothing you wrote is thrown away. When it replaces one of your files, as with
-  a `CLAUDE.md` you already had, the text is carried over first. When it cannot
-  resolve a file on its own, it leaves the file as it was and says so.
-- You can ask for a dry run of setup or an update, which shows every change
-  before anything is written.
-- Git hooks your repository already has keep running, and the plugin's own
-  hooks can be removed again.
-- The record is plain Markdown in your git repository.
-
-To report a problem, open an issue with the output of `scripts/doctor.sh`, the
-plugin version, and which agent you use.
-
 ## Requirements
 
 - Claude Code or Codex
