@@ -87,6 +87,9 @@ it writes anything. You get:
 - git hooks that keep each commit to one part of the project;
 - a dashboard of what is running and what needs your attention.
 
+If the project has a git remote, each record entry is pushed to it as soon as
+it is committed. Code commits are left for you to push.
+
 An existing project keeps its own layout. You tell the agent which directories
 hold code, tests and experiments, and nothing is moved. A `CLAUDE.md` you
 already had becomes the rules section, and your existing git hooks keep running.
