@@ -70,8 +70,10 @@ it writes anything. You get:
 - git hooks that keep each commit to one part of the project;
 - checks, run on every edit and every commit, that keep each record page
   complete and in one format;
-- a dashboard of what is running and what needs your attention, refreshed
-  every time the record changes.
+- a dashboard, `project_memory/dashboard.html`, of what is running and what
+  needs your attention, rewritten every time the record changes. Open it in any
+  browser and reload to see changes; on a remote server, the VS Code viewer
+  ("with editor support") shows it and follows each rewrite by itself.
 
 If the project has a git remote, each record entry is pushed to it as soon as
 it is committed. Code commits are left for you to push.
