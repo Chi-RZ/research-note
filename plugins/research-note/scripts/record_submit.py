@@ -446,6 +446,15 @@ def main() -> int:
                          f"memory: {oid} — {pnum} carries {eid}\n\nObjective: {oid}",
                          "--", str(orel)], capture_output=True, text=True, timeout=30)
                     print(f"record_submit: {eid} -> {oid} / {pnum} ({orel})")
+        # A new job row changes what the dashboard shows, and this commit does
+        # not go through the bus, so it refreshes the board itself — detached,
+        # and without the record lock (close_fds, the default, drops it).
+        if not os.environ.get("RN_NO_DASHBOARD_REFRESH"):
+            subprocess.Popen([sys.executable, str(Path(__file__).resolve().parent / "gen_dashboard.py")],
+                             cwd=ROOT, env={**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(ROOT),
+                                            "CLAUDE_PROJECT_DIR": str(ROOT)},
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
         if eid and not bound and _on_no_active_plan(page, eid):
             print(f"record_submit: note — entry {eid} is on NO active "
                   f"objective's Plan. If this run serves one, add its Plan "

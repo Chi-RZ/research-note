@@ -695,7 +695,9 @@ Turning one on puts a second writer on the record — which is why it is off, an
 why "it repairs nothing" is a line to re-read whenever that config changes.
 
 The board is a **view, never a source**: `dashboard.html` is rewritten from the
-pages every cycle and is gitignored. It renders the node roster, the attention
+pages after every record write — by the bus, and by the launcher's record step,
+detached so no write waits for it — and each fixer cycle when a fixer runs; it
+is gitignored and written atomically. It renders the node roster, the attention
 list, the live queue and the review backlog, and prints its own generation time
 so a reader can tell an empty view from a stale one.
 

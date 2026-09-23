@@ -14,3 +14,8 @@ _fake = Path(tempfile.mkdtemp(prefix="rn-fake-project-"))
     '{"framework": "research-note", "record": "v3"}')
 os.environ["RESEARCH_NOTE_PROJECT_DIR"] = str(_fake)
 os.environ["CLAUDE_PROJECT_DIR"] = str(_fake)
+
+# Every record commit now starts a detached dashboard refresh. Off for the whole
+# suite, so no background process writes into a test's repository while it
+# asserts; the tests about the refresh turn it back on themselves.
+os.environ["RN_NO_DASHBOARD_REFRESH"] = "1"

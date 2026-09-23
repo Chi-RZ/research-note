@@ -25,7 +25,7 @@ the analysis on a page, for you to review and correct.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
-  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them and keeps the dashboard current in the background." src="docs/typical-run-light.svg" width="100%">
+  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them in the background." src="docs/typical-run-light.svg" width="100%">
 </picture>
 
 ## Status
@@ -87,8 +87,8 @@ it writes anything. You get:
 - git hooks that keep each commit to one part of the project;
 - checks, run on every edit and every commit, that keep each record page
   complete and in one format;
-- a dashboard of what is running and what needs your attention. Setup
-  generates it; the fixer keeps it current.
+- a dashboard of what is running and what needs your attention, refreshed
+  every time the record changes.
 
 If the project has a git remote, each record entry is pushed to it as soon as
 it is committed. Code commits are left for you to push.
@@ -102,7 +102,7 @@ Everything else is optional. Mention it in the same request:
 | Say | You get |
 |---|---|
 | "with a cluster at `host:/path`" | cluster settings and job submission there |
-| "with the fixer" | a background scanner that keeps the dashboard current and flags forgotten work |
+| "with the fixer" | a background scanner that flags forgotten work and keeps job status current |
 | "with editor support" | VS Code extensions, including the dashboard viewer |
 | "for both agents" | registration with the other installed agent |
 | "we use conda" or "we use pip" | a project environment not managed by uv |

@@ -195,3 +195,13 @@ if git -C "$MAIN" remote get-url origin >/dev/null 2>&1; then
     git -C "$MAIN" push \
         || echo "WARNING: push failed — the commit is LOCAL ONLY. Do NOT retry the put (it landed); push when the remote is reachable — doctor.sh counts unpushed record commits" >&2
 fi
+# The dashboard is part of the core, so the record keeps it current, not the
+# fixer: regenerate it after every record commit. Detached, because on a large
+# record it takes seconds and a write must not wait for a view. `9>&-` closes
+# the record lock in the child — inherited, it would hold the lock for the
+# whole regeneration and every other writer would queue behind a view.
+if [ -z "${RN_NO_DASHBOARD_REFRESH:-}" ]; then
+    RESEARCH_NOTE_PROJECT_DIR="$MAIN" CLAUDE_PROJECT_DIR="$MAIN" \
+        nohup python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gen_dashboard.py" \
+        </dev/null >/dev/null 2>&1 9>&- &
+fi

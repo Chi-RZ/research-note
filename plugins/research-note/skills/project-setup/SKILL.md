@@ -556,8 +556,9 @@ ls -l project_memory/dashboard.html       # the board exists
 Then tell the user the one thing a script cannot do: **Reload Window** in VS
 Code (a freshly copied extension only loads on reload), after which
 `Open Q Dashboard` is in the Command Palette and the Markdown preview renders
-on a white page. The board refreshes itself — the fixer rewrites
-`dashboard.html` every cycle and qdash watches the file (it never executes
+on a white page. The board refreshes itself — every record write
+regenerates `dashboard.html`, the fixer also does so each cycle when it runs,
+and qdash watches the file (it never executes
 framework code, so nothing to break on the next plugin update).
 
 Fallback without qdash: any HTML previewer pointed at

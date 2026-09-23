@@ -65,8 +65,15 @@ def repo(tmp_path):
     return tmp_path
 
 
-def bus(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["bash", str(BUS), *args], cwd=repo,
+def bus(repo: Path, *args: str, refresh: bool = False) -> subprocess.CompletedProcess:
+    """The bus refreshes the dashboard in the background after each commit; the
+    tests below that are not about that turn it off, so no detached process is
+    writing into their repository while they assert on it."""
+    import os
+    env = {k: v for k, v in os.environ.items() if k != "RN_NO_DASHBOARD_REFRESH"}
+    if not refresh:
+        env["RN_NO_DASHBOARD_REFRESH"] = "1"
+    return subprocess.run(["bash", str(BUS), *args], cwd=repo, env=env,
                           capture_output=True, text=True)
 
 
@@ -171,3 +178,54 @@ def test_a_roster_the_caller_passed_is_not_added_twice(repo):
     assert r.returncode == 0, r.stderr + r.stdout
     committed = git(repo, "show", "--name-only", "--pretty=", "HEAD").split()
     assert committed.count("project_memory/_index.md") == 1, committed
+
+
+# --------------------------------------------------------------------------
+# The dashboard is core: the bus keeps it current, no fixer needed.
+# --------------------------------------------------------------------------
+
+def _wait_for(path: Path, timeout: float = 30.0) -> bool:
+    import time
+    end = time.time() + timeout
+    while time.time() < end:
+        if path.exists() and path.stat().st_size > 0:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def test_a_record_write_refreshes_the_dashboard(repo):
+    board = repo / "project_memory" / "dashboard.html"
+    assert not board.exists()
+    content = repo / "c.md"
+    content.write_text(GREEN.replace("2.31e-3", "2.32e-3"), encoding="utf-8")
+    r = bus(repo, "put", "-m", "memory: grid", "-b", sha(repo / REL), REL,
+            str(content), refresh=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _wait_for(board), "no dashboard after a record write"
+    assert "tanner_gnn_ln" in board.read_text(encoding="utf-8")
+
+
+def test_the_refresh_does_not_hold_the_record_lock(repo):
+    """The bus holds the record lock on fd 9 for its whole run. A detached
+    child that inherited it would keep every other writer waiting for the
+    length of a regeneration — seconds, on a large record."""
+    import fcntl
+    content = repo / "c.md"
+    content.write_text(GREEN.replace("2.31e-3", "2.34e-3"), encoding="utf-8")
+    r = bus(repo, "put", "-m", "memory: grid", "-b", sha(repo / REL), REL,
+            str(content), refresh=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    with open(repo / ".research-note" / "state" / "record.lock", "a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)      # raises if still held
+    assert "9>&-" in BUS.read_text(), "the child must close the lock descriptor"
+
+
+def test_the_refresh_can_be_switched_off(repo):
+    import time
+    content = repo / "c.md"
+    content.write_text(GREEN.replace("2.31e-3", "2.35e-3"), encoding="utf-8")
+    r = bus(repo, "put", "-m", "memory: grid", "-b", sha(repo / REL), REL, str(content))
+    assert r.returncode == 0, r.stderr
+    time.sleep(2)
+    assert not (repo / "project_memory" / "dashboard.html").exists()

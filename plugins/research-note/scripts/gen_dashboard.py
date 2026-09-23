@@ -363,7 +363,13 @@ def main() -> int:
 
     page = HTML_TMPL.replace("__DATA__", json.dumps(data, ensure_ascii=False)) \
                     .replace("__TITLE__", html.escape(f"{ROOT.name} — node dashboard"))
-    args.out.write_text(page, encoding="utf-8")
+    # Atomic: the record bus now regenerates the board after every write, in
+    # the background, so two refreshes can overlap and a reader can open the
+    # file mid-write. A same-directory temp file and rename(2) mean a reader
+    # sees the old board or the new one, never half of either.
+    tmp = args.out.with_name(f".{args.out.name}.{os.getpid()}.tmp")
+    tmp.write_text(page, encoding="utf-8")
+    os.replace(tmp, args.out)
     # The board is rewritten every fixer cycle, so tracking it turns the record
     # channel's history into churn — one diff of a minified JSON blob every ten
     # minutes, buried among the entries that actually say something. The rule
