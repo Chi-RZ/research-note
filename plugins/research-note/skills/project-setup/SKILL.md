@@ -134,7 +134,7 @@ user later approves a move, do it in a separate, reviewable step.
 
 ```bash
 claude plugin marketplace add https://github.com/Chi-RZ/research-note.git
-claude plugin install research-note@rzchi
+claude plugin install research-note@research-tools
 PLUGIN="$(ls -d ~/.claude/plugins/cache/*/research-note/* | sort -V | tail -1)"
 ```
 
@@ -143,7 +143,7 @@ normal source while the marketplace is under development:
 
 ```bash
 codex plugin marketplace add /path/to/<this checkout>
-codex plugin add research-note@rzchi
+codex plugin add research-note@research-tools
 PLUGIN="$(ls -d ~/.codex/plugins/cache/*/research-note/* | sort -V | tail -1)"
 ```
 

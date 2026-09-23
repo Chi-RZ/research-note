@@ -1,5 +1,5 @@
 {
-  "name": "rzchi",
+  "name": "research-tools",
   "description": "Research-agent plugins by Chi-RZ",
   "owner": {
     "name": "Chi-RZ",
@@ -10,7 +10,7 @@
     {
       "name": "research-note",
       "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds — for agent-assisted computational research.",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "source": "./plugins/research-note"
     }
   ]

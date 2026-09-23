@@ -173,7 +173,7 @@ def test_the_cross_agent_selector_is_read_back_never_spelled(monkeypatch):
     This replaces a canary. Both manifests used to declare DIFFERENT names
     (`claude-setup`, `personal`), and a test asserted they stayed different —
     not as a design rule but so that a hardcoded selector would fail visibly on
-    one side. They now both declare `rzchi`, which is friendlier to read and
+    one side. They now both declare `research-tools`, which is friendlier to read and
     kills that canary: nothing would notice the code going back to spelling it.
 
     So the property is tested directly. The TARGET CLI reports a marketplace
@@ -210,7 +210,7 @@ def test_the_cross_agent_selector_is_read_back_never_spelled(monkeypatch):
     joined = " ".join(" ".join(c) for c in calls)
     assert "research-note@" in joined, f"never reached the install: {calls}"
     assert "research-note@whatever-they-called-it" in joined, joined
-    assert "rzchi" not in joined, joined
+    assert "research-tools" not in joined, joined
 
 
 def test_other_agent_is_the_opposite_side_and_none_off_a_cache(monkeypatch):

@@ -835,7 +835,7 @@ lives.
 **One core, two manifests.** `plugins/research-note/` is the package;
 `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` are two views of
 it. Two marketplaces declare it — `.claude-plugin/marketplace.json` as
-`rzchi`, `.agents/plugins/marketplace.json` under the same name — and both
+`research-tools`, `.agents/plugins/marketplace.json` under the same name — and both
 resolve to the same repository. One name on both sides is a convenience, not a
 guarantee: the marketplace name is the INSTALLER's, whatever their
 `marketplace add` registered, so every selector the framework builds is read

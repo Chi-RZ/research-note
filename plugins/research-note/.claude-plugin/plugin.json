@@ -1,7 +1,7 @@
 {
   "name": "research-note",
   "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds \u2014 for agent-assisted computational research.",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "author": {
     "name": "Chi-RZ",
     "email": "mr.rzchi@gmail.com"

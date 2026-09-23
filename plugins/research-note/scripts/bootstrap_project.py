@@ -416,7 +416,7 @@ def sync_other_agent(dry: bool) -> None:
         return
 
     # The marketplace NAME belongs to the TARGET's manifest, not to ours. Both
-    # of ours declare `rzchi` today, which is exactly why this must NOT be
+    # of ours declare `research-tools` today, which is exactly why this must NOT be
     # spelled: when the two disagreed (`claude-setup` and `personal`) a
     # hardcoded name failed loudly on one side; now it would fail only on a
     # machine that added the marketplace from a fork or a local path under

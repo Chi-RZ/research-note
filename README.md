@@ -37,14 +37,14 @@ each agent; their plugin caches remain separate.
 
 ```bash
 claude plugin marketplace add https://github.com/Chi-RZ/research-note.git
-claude plugin install research-note@rzchi
+claude plugin install research-note@research-tools
 ```
 
 **Codex**
 
 ```bash
 codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
-codex plugin add research-note@rzchi
+codex plugin add research-note@research-tools
 ```
 
 ## 2. Configure a project
