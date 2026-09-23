@@ -21,13 +21,24 @@ DOCTOR = SCRIPTS / "doctor.sh"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def doctor(proj: Path, *args: str) -> tuple[int, str]:
+def doctor(proj: Path, *args: str, with_uv: bool = True) -> tuple[int, str]:
     env = {k: v for k, v in os.environ.items() if not k.startswith("REMOTE_")}
     env["HOME"] = str(proj.parent / "home")       # no real extensions, no real agents
     # conftest points every script at a fake project through these; doctor
     # honours them first, so aim them here
     env["RESEARCH_NOTE_PROJECT_DIR"] = env["CLAUDE_PROJECT_DIR"] = str(proj)
     (proj.parent / "home").mkdir(exist_ok=True)
+    # Whether `uv` is on PATH must be the TEST's choice, not the machine's: the
+    # fixture projects declare uv, and CI runners have none, so every "green"
+    # assertion here failed in CI while passing on any laptop with uv. A stand-in
+    # is prepended, or every real uv is taken off PATH.
+    fake = proj.parent / "bin"
+    fake.mkdir(exist_ok=True)
+    (fake / "uv").write_text("#!/bin/sh\nexit 0\n")
+    (fake / "uv").chmod(0o755)
+    dirs = [d for d in env.get("PATH", "/usr/bin:/bin").split(":")
+            if d and not os.access(os.path.join(d, "uv"), os.X_OK)]
+    env["PATH"] = ":".join(([str(fake)] if with_uv else []) + dirs)
     r = subprocess.run(["bash", str(DOCTOR), *args], cwd=proj, env=env,
                        capture_output=True, text=True, timeout=120)
     return r.returncode, ANSI.sub("", r.stdout + r.stderr)
@@ -194,3 +205,19 @@ def test_a_uv_project_without_its_venv_is_still_red(proj):
     shutil.rmtree(proj / ".venv")
     rc, out = doctor(proj, "--core")
     assert rc == 1 and "no .venv" in out
+
+
+def test_a_uv_project_on_a_machine_without_uv_is_red(proj):
+    """The behaviour the stand-in hides, pinned on its own: a project that
+    declares uv needs uv."""
+    rc, out = doctor(proj, "--core", with_uv=False)
+    assert rc == 1 and "no uv on PATH" in out, out
+
+
+def test_a_non_uv_project_on_a_machine_without_uv_is_green(proj):
+    config = json.loads((proj / ".research-note/project.json").read_text())
+    config["environment"] = {"manager": "other"}
+    (proj / ".research-note/project.json").write_text(json.dumps(config))
+    rc, out = doctor(proj, "--core", with_uv=False)
+    assert rc == 0, out
+    assert "no uv on PATH" not in out
