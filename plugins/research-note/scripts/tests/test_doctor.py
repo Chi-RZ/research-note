@@ -173,3 +173,24 @@ def test_doctor_names_the_top_level_directories_no_layer_owns(proj):
     (proj / ".research-note/project.json").write_text(json.dumps(config))
     rc, out = doctor(proj, "--core")
     assert "every top-level directory belongs to a layer" in out, out
+
+
+def test_a_project_that_does_not_use_uv_is_not_failed_for_it(proj):
+    """conda or pip is the project's choice: doctor states the cost once and
+    does not demand uv or a .venv."""
+    import shutil
+    shutil.rmtree(proj / ".venv")
+    config = json.loads((proj / ".research-note/project.json").read_text())
+    config["environment"] = {"manager": "other"}
+    (proj / ".research-note/project.json").write_text(json.dumps(config))
+    rc, out = doctor(proj, "--core")
+    assert rc == 0, out
+    assert "environment not locked (environment.manager = other)" in out
+    assert "no .venv" not in out and "no uv on PATH" not in out
+
+
+def test_a_uv_project_without_its_venv_is_still_red(proj):
+    import shutil
+    shutil.rmtree(proj / ".venv")
+    rc, out = doctor(proj, "--core")
+    assert rc == 1 and "no .venv" in out

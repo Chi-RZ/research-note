@@ -112,6 +112,11 @@ It then clones the project onto the cluster without `project_memory/` or the
 configured knowledge directories. The record stays in one place. A cluster
 must have a git remote so the code can arrive with `git pull`.
 
+**Python environment.** uv is the default and the supported path: its lock
+file is what lets a recorded result be rerun in the same environment. A project
+that uses conda or pip declares it at setup (`--no-uv`); everything works, and
+every log header then says the environment is not locked.
+
 ## Updating
 
 Tell the agent:

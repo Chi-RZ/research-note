@@ -53,7 +53,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "editor": False,
         "cross_agent": False,
     },
+    # Which tool LOCKS the Python environment. `uv` is the supported path: its
+    # lock file is what lets a recorded result be re-run in the same
+    # environment, and every environment check is built on it. `other` is any
+    # other tool — conda, plain pip — and the framework then records runs
+    # without that guarantee and says so in every log header. `runner` is how a
+    # recorded run invokes Python; left out, it follows the manager.
+    "environment": {"manager": "uv"},
 }
+
+ENV_MANAGERS = ("uv", "other")
+DEFAULT_RUNNERS = {"uv": "uv run --no-sync python -u", "other": "python -u"}
 
 # Missing configuration means an installed project from before schema 1. Those
 # projects already received these integrations by default. Preserving that
@@ -238,6 +248,17 @@ def _top_level(value: object, where: str) -> str:
     return value
 
 
+def environment_manager(config: dict[str, Any]) -> str:
+    return config.get("environment", {}).get("manager", "uv")
+
+
+def python_runner(config: dict[str, Any]) -> str:
+    """How a recorded run invokes Python: the declared runner, else the
+    manager's default."""
+    env = config.get("environment", {})
+    return env.get("runner") or DEFAULT_RUNNERS[environment_manager(config)]
+
+
 def validate_config(config: dict[str, Any]) -> None:
     if config.get("schema") != SCHEMA:
         raise ConfigError(
@@ -245,6 +266,17 @@ def validate_config(config: dict[str, Any]) -> None:
         )
     if config.get("paths", {}).get("record") != "project_memory":
         raise ConfigError("schema 1 keeps the record at project_memory")
+
+    env = config.get("environment", {})
+    if not isinstance(env, dict) or env.get("manager", "uv") not in ENV_MANAGERS:
+        raise ConfigError(f"environment.manager must be one of {', '.join(ENV_MANAGERS)}")
+    runner = env.get("runner")
+    if runner is not None:
+        # `-u` is not style: without it Python buffers stdout and a job's log
+        # stays empty until the job ends, which is when it is least useful
+        if not isinstance(runner, str) or "-u" not in runner.split():
+            raise ConfigError("environment.runner must be a command that runs Python "
+                              "unbuffered, with `-u` (e.g. \"python -u\")")
 
     features = config.get("features")
     if not isinstance(features, dict):
@@ -363,6 +395,11 @@ def main(argv: list[str] | None = None) -> int:
     set_feature = sub.add_parser("set-feature")
     set_feature.add_argument("name")
     set_feature.add_argument("value", choices=("true", "false"))
+    sub.add_parser("environment", help="print the environment manager: uv or other")
+    sub.add_parser("runner", help="print how a recorded run invokes Python")
+    set_env = sub.add_parser("set-environment", help="declare the environment manager")
+    set_env.add_argument("manager", choices=ENV_MANAGERS)
+    set_env.add_argument("--runner", help="how a recorded run invokes Python (keep -u)")
     init = sub.add_parser("init", help="write the declaration once if missing (migration)")
     init.add_argument("--dry-run", action="store_true")
     sub.add_parser("ownership", help="who owns each managed path, and what an update does to it")
@@ -375,6 +412,19 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         root = find_project_root(args.project)
         config = load_project_config(root)
+        if args.command == "environment":
+            print(environment_manager(config))
+            return 0
+        if args.command == "runner":
+            print(python_runner(config))
+            return 0
+        if args.command == "set-environment":
+            config = copy.deepcopy(config)
+            config["environment"] = {"manager": args.manager}
+            if args.runner:
+                config["environment"]["runner"] = args.runner
+            print(write_project_config(root, config))
+            return 0
         if args.command == "ownership":
             for path, owner, action in ownership_rows(config):
                 print(f"{path}\t{owner}\t{action}")

@@ -78,10 +78,29 @@ lib_hostkey() {  # <host> -> its variable-suffix spelling (alphanumerics only)
 : "${ENTRY:?ENTRY is required — set ENTRY=\"peps_sma/heis_tri: peps_sma vs ED on heis_tri 4x4\" (<node>/<page>: entry name). Every launch through this script is a RECORDED run — an unrecorded probe is a <30 min foreground `uv run`, not a background launch. ENTRY=none exists for remote.sh, which ships this launcher to a sparse clone with no record layer, and records on the local side instead.}"
 PY_SRC=$1; DEVICE=$2; FRAC=$3; shift 3
 [ -f "$PY_SRC" ] || { echo "script not found: $PY_SRC" >&2; exit 1; }
-RUNNER=${RUNNER:-uv run --no-sync python -u}
-
 PY_ABS=$(cd "$(dirname "$PY_SRC")" && pwd)/$(basename "$PY_SRC")
 REPO_ROOT=$(git -C "$(dirname "$PY_ABS")" rev-parse --show-toplevel)
+# The project's declared environment (.research-note/project.json): which tool
+# locks it, and how a recorded run invokes Python. Read inline, not through
+# the plugin's project_config.py, because this script travels to a cluster
+# alone. No declaration means a project from before it: uv, as it always was.
+rn_read_env() {
+    python3 - "$1/.research-note/project.json" <<'PYENV' 2>/dev/null
+import json, sys
+try:
+    env = json.load(open(sys.argv[1])).get("environment", {})
+except Exception:
+    env = {}
+manager = env.get("manager", "uv")
+print(manager)
+print(env.get("runner") or ("uv run --no-sync python -u" if manager == "uv" else "python -u"))
+PYENV
+}
+ENV_DECL=$(rn_read_env "$REPO_ROOT")
+ENV_MANAGER=$(printf '%s\n' "$ENV_DECL" | sed -n 1p); ENV_MANAGER=${ENV_MANAGER:-uv}
+# an explicit RUNNER still wins: it is how a one-off run overrides the project
+[ -n "${RUNNER:-}" ] || RUNNER=$(printf '%s\n' "$ENV_DECL" | sed -n 2p)
+RUNNER=${RUNNER:-uv run --no-sync python -u}
 # A recorded run's evidence must outlive its checkout: a linked worktree is
 # removed when its session ends, leaving the entry's log link dangling on a
 # page that lives forever. Smoke (ENTRY=none) stays legal anywhere.
@@ -188,6 +207,11 @@ dirty() { [ -z "$(git -C "$1" status --porcelain)" ] && echo clean || echo dirty
         fi
     done
     echo "# Config: ${FROZEN:-none}"
+    if [ "$ENV_MANAGER" = uv ]; then
+        echo "# Environment: locked by uv.lock"
+    else
+        echo "# Environment: NOT locked — environment.manager is \"$ENV_MANAGER\"; this run records its environment, but nothing guarantees it can be rebuilt"
+    fi
     # Pinned fork revisions (from uv.lock) + installed-package fingerprint
     # (see the .slurm templates for the rationale).
     [ -x "$REPO_ROOT/.venv/bin/python" ] && "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT" <<'PYFP' 2>/dev/null
@@ -255,8 +279,14 @@ WRAP_PID=$!
 # payload PIDs — best-effort header debug info only (canonical id is
 # WRAP_PID; "unknown" is fine, e.g. under a custom RUNNER)
 sleep 3
-UV_PID=$(pgrep -P "$WRAP_PID" -f 'uv run' | head -1)
-PY_PID=$(pgrep -P "${UV_PID:-0}" -f python | head -1)
+# The wrapper's child is the runner itself. Under uv, python is uv's child;
+# under any other runner the child is python (or a thin wrapper around it),
+# and it is recorded as the python PID so liveness checks still have one.
+RUN_PID=$(pgrep -P "$WRAP_PID" | head -1)
+case "$RUNNER" in
+    uv\ *) UV_PID=$RUN_PID; PY_PID=$(pgrep -P "${UV_PID:-0}" -f python | head -1) ;;
+    *)     UV_PID=""; PY_PID=$RUN_PID ;;
+esac
 
 patch_line() {  # same-length in-place overwrite — keeps the inode (see header comment)
     local off len

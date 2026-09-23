@@ -170,9 +170,10 @@ New function → its test first. Modify `<library-root>` → update its test in 
 same change. One test file per source file, mirrored under `<test-root>`;
 experiment-level tests live in `<experiment-root>/tests/`.
 
-Two that cost real work when forgotten: run Python as `uv run python -u` (`-u`
-or the log stays empty until the job ends); `git add` a file as soon as you
-write it.
+Two that cost real work when forgotten: run Python through the project's
+runner and keep its `-u` — `uv run python -u` unless `environment` in
+`.research-note/project.json` declares another — or the log stays empty until
+the job ends; `git add` a file as soon as you write it.
 
 ## If the working tree has changes you did not make
 

@@ -69,7 +69,27 @@ lib_hostkey() {  # <host> -> its variable-suffix spelling (alphanumerics only)
 dirty() { [ -z "$(git -C "$1" status --porcelain)" ] && echo clean || echo dirty; }
 
 # --- standard log header (SKILL.md) ---
-echo "# Command: uv run --no-sync python -u $SCRIPT $ARGS"
+# The project's declared environment (.research-note/project.json): which tool
+# locks it, and how a recorded run invokes Python. Read inline, not through
+# the plugin's project_config.py, because this script travels to a cluster
+# alone. No declaration means a project from before it: uv, as it always was.
+rn_read_env() {
+    python3 - "$1/.research-note/project.json" <<'PYENV' 2>/dev/null
+import json, sys
+try:
+    env = json.load(open(sys.argv[1])).get("environment", {})
+except Exception:
+    env = {}
+manager = env.get("manager", "uv")
+print(manager)
+print(env.get("runner") or ("uv run --no-sync python -u" if manager == "uv" else "python -u"))
+PYENV
+}
+ENV_DECL=$(rn_read_env "$PWD")
+ENV_MANAGER=$(printf '%s\n' "$ENV_DECL" | sed -n 1p); ENV_MANAGER=${ENV_MANAGER:-uv}
+[ -n "${RUNNER:-}" ] || RUNNER=$(printf '%s\n' "$ENV_DECL" | sed -n 2p)
+RUNNER=${RUNNER:-uv run --no-sync python -u}
+echo "# Command: $RUNNER $SCRIPT $ARGS"
 echo "# Cwd: $PWD"
 echo "# Timestamp: $(date -Is)"
 echo "# $(basename "$PWD"): $(git rev-parse --short HEAD) ($(dirty .))"
@@ -131,10 +151,15 @@ r = sorted(set(r))
 print(f"# env: {len(r)} {hashlib.sha256(chr(10).join(r).encode()).hexdigest()[:16]}")
 PYFP
 echo "# Config: ${CONFIG_NAME:+logs/$CONFIG_NAME.yaml}${CONFIG_NAME:-none}"
+if [ "$ENV_MANAGER" = uv ]; then
+    echo "# Environment: locked by uv.lock"
+else
+    echo "# Environment: NOT locked — environment.manager is \"$ENV_MANAGER\"; this run records its environment, but nothing guarantees it can be rebuilt"
+fi
 echo "# job_id: $SLURM_JOB_ID on $SLURM_JOB_NODELIST"
 echo "# --- dirty diff (tracked files; empty when clean; capped 64KB) ---"
 git diff HEAD | head -c 65536
 echo "# ---"
 
-srun uv run --no-sync python -u "$SCRIPT" $ARGS
+srun $RUNNER "$SCRIPT" $ARGS
 echo "# Exit code: $?"

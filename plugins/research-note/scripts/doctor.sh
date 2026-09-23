@@ -89,6 +89,12 @@ fi
 
 EXPERIMENT_ROOTS=experiments
 KNOWLEDGE_ROOTS=wiki
+# which tool locks the Python environment: uv (the supported path, every
+# environment check below) or other (runs recorded, rebuild not guaranteed)
+ENV_MANAGER=uv
+if [ -f "$PROJ/.research-note/project.json" ]; then
+    ENV_MANAGER=$(python3 "$HERE/project_config.py" --project "$PROJ" environment 2>/dev/null || echo uv)
+fi
 if [ -f "$PROJ/.research-note/project.json" ]; then
     if python3 "$HERE/project_config.py" --project "$PROJ" validate >/dev/null; then
         ok "project configuration is valid"
@@ -198,8 +204,10 @@ if git -C "$main_root" remote get-url origin >/dev/null 2>&1; then
     else warn "$ahead unpushed commit(s) — a bus push failed, or never ran" "git -C $main_root push"; fi
 fi
 
-if command -v uv >/dev/null 2>&1; then ok "uv on PATH"
-else bad "no uv on PATH" "the launchers and the bus both shell out to it"; fi
+if [ "$ENV_MANAGER" = uv ]; then
+    if command -v uv >/dev/null 2>&1; then ok "uv on PATH"
+    else bad "no uv on PATH" "this project declares uv: the launchers run Python through it, and its lock file is what lets a recorded run be rebuilt"; fi
+fi
 if command -v python3 >/dev/null 2>&1; then ok "python3 available (the record lock, the linters)"
 else bad "no python3" "the bus cannot lock, hash or lint the record without it"; fi
 # core runtime state — the record lock, the harvest stamps — outside .fixer/,
@@ -212,10 +220,17 @@ if mkdir -p "$PROJ/.research-note/state" 2>/dev/null; then
 else bad "cannot create .research-note/state/" "the record bus and the launcher lock there"; fi
 echo
 echo "python environment"
-if [ -x "$PROJ/.venv/bin/python" ]; then
-    ok "venv $("$PROJ/.venv/bin/python" -V 2>&1 | tr -d '\n')"
-else bad "no .venv" "uv sync"; fi
-if grep -q 'git = ' "$PROJ/pyproject.toml" 2>/dev/null; then
+if [ "$ENV_MANAGER" = uv ]; then
+    if [ -x "$PROJ/.venv/bin/python" ]; then
+        ok "venv $("$PROJ/.venv/bin/python" -V 2>&1 | tr -d '\n')"
+    else bad "no .venv" "uv sync"; fi
+else
+    # Not a failure: the project chose another tool. What it costs is said
+    # here, and in every log header, rather than hidden.
+    warn "environment not locked (environment.manager = $ENV_MANAGER)" \
+         "runs record their environment, but nothing guarantees it can be rebuilt — project_config.py set-environment uv to lock it"
+fi
+if [ "$ENV_MANAGER" = uv ] && grep -q 'git = ' "$PROJ/pyproject.toml" 2>/dev/null; then
     bl_out=$(bash "$HERE/bump_lib.sh" --check 2>&1); bl_rc=$?
     if [ "$bl_rc" = 0 ]; then ok "fork pins current"
     elif printf '%s' "$bl_out" | grep -q "no checkout known"; then
@@ -323,7 +338,10 @@ for RH in ${HOST_FILTER:-${REMOTE_HOSTS:-${REMOTE_HOST:-}}}; do
         warn "no partition/reservation/account declared for $RH" \
              "jobs land in the cluster default queue — add REMOTE_PARTITION / REMOTE_RESERVATION / REMOTE_ACCOUNT to .claude/hpc.env (blank is fine if this cluster needs none)"
     fi
-    if ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" "test -x '$RD/.venv/bin/python'" 2>/dev/null; then
+    if [ "$ENV_MANAGER" != uv ]; then
+        warn "environment on $RH not compared (environment.manager = $ENV_MANAGER)" \
+             "only a uv lock file can be checked side to side"
+    elif ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" "test -x '$RD/.venv/bin/python'" 2>/dev/null; then
         rv=$(ssh -o BatchMode=yes -o LogLevel=ERROR "$RH" "'$RD/.venv/bin/python' -V 2>&1" | tr -d '\r\n')
         lv=$("$PROJ/.venv/bin/python" -V 2>&1 | tr -d '\n')
         lmm=$(printf '%s' "$lv" | grep -oE '[0-9]+\.[0-9]+'); rmm=$(printf '%s' "$rv" | grep -oE '[0-9]+\.[0-9]+')

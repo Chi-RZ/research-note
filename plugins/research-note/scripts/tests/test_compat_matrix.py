@@ -320,3 +320,9 @@ def test_setup_names_the_integration_to_dos_when_they_are_enabled(empty, home):
     r = bootstrap(empty, home, "--with-hpc", "--with-editor")
     todo = r.stdout.split("Next (the judgment calls")[1]
     assert "hpc.env" in todo and "VS Code" in todo, todo
+
+
+def test_setup_with_no_uv_declares_an_unlocked_environment(empty, home):
+    bootstrap(empty, home, "--no-uv")
+    config = json.loads((empty / ".research-note/project.json").read_text())
+    assert config["environment"] == {"manager": "other"}

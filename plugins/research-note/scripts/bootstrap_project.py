@@ -69,6 +69,7 @@ from project_config import (
     feature_enabled,
     initial_project_config,
     load_project_config,
+    validate_config,
     with_feature_choices,
     write_project_config,
 )
@@ -463,7 +464,7 @@ def register_project(proj: Path, dry: bool) -> None:
     say("new", "project registry", str(PROJECT_REGISTRY))
 
 
-KNOWN_FLAGS = {"--dry-run", "--no-self-tests", "--remote", *(
+KNOWN_FLAGS = {"--dry-run", "--no-self-tests", "--remote", "--no-uv", *(
     flag for on, off in FEATURE_FLAGS.values() for flag in on + off)}
 
 
@@ -527,6 +528,11 @@ def main() -> int:
             else initial_project_config(legacy=legacy_without_config)
         )
         project_config = with_feature_choices(base_config, requested_features)
+        if "--no-uv" in sys.argv:
+            # another tool manages the environment: runs are recorded without
+            # the rebuild guarantee, and every log header says so
+            project_config = {**project_config, "environment": {"manager": "other"}}
+            validate_config(project_config)
     except ConfigError as exc:
         say("FAIL", str(CONFIG_PATH), str(exc))
         return 2

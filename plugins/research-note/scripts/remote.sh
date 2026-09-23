@@ -62,6 +62,7 @@ fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KNOWLEDGE_ROOTS=wiki
 EXPERIMENT_ROOTS=experiments
+ENV_MANAGER=uv
 if [ -f "$PROJ/.research-note/project.json" ]; then
     KNOWLEDGE_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge) || exit 2
     EXPERIMENT_ROOTS=$(python3 "$HERE/project_config.py" --project "$PROJ" role experiments) || exit 2
@@ -73,6 +74,7 @@ if [ -f "$PROJ/.research-note/project.json" ]; then
     # purpose: word-splitting is what joins them.
     KNOWLEDGE_ROOTS=$(printf '%s ' $KNOWLEDGE_ROOTS)
     EXPERIMENT_ROOTS=$(printf '%s ' $EXPERIMENT_ROOTS)
+    ENV_MANAGER=$(python3 "$HERE/project_config.py" --project "$PROJ" environment 2>/dev/null || echo uv)
 fi
 SPARSE_PATTERNS="'/*' '!/project_memory/'"
 SPARSE_EXCLUDES="'/project_memory/'"
@@ -166,7 +168,9 @@ setup)
     # re-text the file on its own. Either way the resolution is identical, so
     # the rewrite is discarded: a dirty mirror stamps every log header `(dirty)`
     # and blocks the next ff. A no-op when nothing was rewritten.
-    rssh "cd '$REMOTE_DIR' && uv sync -q >/dev/null 2>&1; git checkout -- uv.lock 2>/dev/null" || true
+    # uv only: under another manager the project installs its own environment
+    # and nothing here can bring the far side up to a lock it does not have
+    [ "$ENV_MANAGER" = uv ] && { rssh "cd '$REMOTE_DIR' && uv sync -q >/dev/null 2>&1; git checkout -- uv.lock 2>/dev/null" || true; }
     T=$(mktemp); rssh "cd '$REMOTE_DIR' && git rev-parse --short HEAD" >"$T"
     echo "local  @ $(git -C "$PROJ" rev-parse --short HEAD) ($BR)"
     echo "remote @ $(cat "$T") ($REMOTE_HOST:$REMOTE_DIR)"; rm -f "$T"
@@ -330,7 +334,9 @@ push)
     # `bash -lc`: uv routinely lives in ~/.local/bin, which a non-interactive ssh
     # does not have on PATH. rc 3 = no uv there, which is a different answer from
     # "the venv is wrong" and must not be reported as one.
-    if [ -z "${SKIP_ENV_CHECK:-}" ]; then
+    if [ "$ENV_MANAGER" != uv ]; then
+        echo "env parity: not checked (environment.manager = $ENV_MANAGER — no lock file to compare)"
+    elif [ -z "${SKIP_ENV_CHECK:-}" ]; then
         ENVOUT=$(rssh "bash -lc 'command -v uv >/dev/null || exit 3; cd \"$REMOTE_DIR\" && uv sync --check'" 2>&1) || ENVRC=$?
         case "${ENVRC:-0}" in
             0) echo "env parity ok (remote venv matches uv.lock)" ;;

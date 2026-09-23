@@ -54,7 +54,7 @@ node root beside `impl/`, like the node-level page that reports it.
 | | quick smoke, under half an hour | the real run |
 |---|---|---|
 | **Slurm** | interactive `srun` with the cluster's debug qos — the flags live in `.claude/hpc-submit/` | `hpc-submit` |
-| **bare** | `uv run python -u <script>` in the foreground | `hpc-submit` |
+| **bare** | the project's runner in the foreground — `uv run python -u <script>` by default | `hpc-submit` |
 
 Inside a Slurm allocation, `unset VIRTUAL_ENV` first — an ambient venv shadows the
 project's.

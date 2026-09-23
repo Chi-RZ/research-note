@@ -365,6 +365,16 @@ once; the ignore rule alone does not untrack it.
 (Adapt to what already exists; never un-ignore real data.)
 
 **`pyproject.toml`** — point package discovery at the confirmed library root.
+**uv is the supported environment, and the only locked one.** A project that
+manages Python another way — conda, plain pip — declares it with
+`bootstrap_project.py --no-uv`, or later with `project_config.py
+set-environment other [--runner "<cmd> -u"]`. Everything else works the same.
+What it costs is stated, not hidden: doctor shows a warning instead of checking
+`.venv`, the cluster's environment comparison is skipped, and every log header
+says the environment is NOT locked, so a reader of any result knows it may not
+be rebuildable. Ask the user which they use; recommend uv when nothing is
+decided yet. The rest of this section describes the uv path.
+
 **Every project gets its OWN uv-managed environment** (`.venv/` created by
 `uv sync`) — never point the project at a shared pre-existing venv. The venv
 is per MACHINE, never synced: it holds architecture-bound binaries, so each
