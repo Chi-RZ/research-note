@@ -28,10 +28,32 @@ the analysis on a page, for you to review and correct.
   <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the fixer with the linters, which fix the procedure and standardise the format of every page." src="docs/typical-run-light.svg" width="100%">
 </picture>
 
-## 1. Install
+## Status
 
-You need one of the two agents. If you use both, install the same repository in
-each agent; their plugin caches remain separate.
+This is an early release (0.x). The core is tested on Linux and macOS, but you
+may still find bugs, especially in setups nobody has tried yet. It is built so
+that trying it is safe:
+
+- Nothing you wrote is thrown away. When it replaces one of your files, as with
+  a `CLAUDE.md` you already had, the text is carried over first. When it cannot
+  resolve a file on its own, it leaves the file as it was and says so.
+- You can ask for a dry run of setup or an update, which shows every change
+  before anything is written.
+- Git hooks your repository already has keep running, and the plugin's own
+  hooks can be removed again.
+- The record is plain Markdown in your git repository.
+
+To report a problem, open an issue with the output of `scripts/doctor.sh`, the
+plugin version, and which agent you use.
+
+## Requirements
+
+- Claude Code or Codex
+- git and Python 3.10 or newer
+- [uv](https://docs.astral.sh/uv/) is recommended for your project's Python
+  environment (see [Python environment](#python-environment))
+
+## 1. Install
 
 **Claude Code**
 
@@ -47,146 +69,60 @@ codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
 codex plugin add research-note@research-tools
 ```
 
-## 2. Configure a project
+If you use both agents, install it in each.
 
-Open the directory you want to use as a research project. It can be new or
-already contain code. Then tell the agent:
+## 2. Set up a project
+
+Open the directory you want to work in, new or with existing code, and tell the
+agent:
 
 > set up this project with research-note
 
-If you also need a cluster or a GitHub remote, mention it in the same request.
+The agent shows how it will map your directories and asks you to confirm before
+it writes anything. You get:
 
-That runs the [`project-setup`](plugins/research-note/skills/project-setup/SKILL.md)
-skill. The skill does the following.
+- the record, `project_memory/`, where every result gets a page;
+- one instruction file per directory, read by Claude as `CLAUDE.md` and by
+  Codex as `AGENTS.md`, with a section at the end for your project's own rules;
+- git hooks that keep each commit to one part of the project;
+- a dashboard of what is running and what needs your attention.
 
-- checks whether the directory is new or an existing project. An existing
-  project either keeps its own layout, declared in `.research-note/project.json`,
-  or is organized: reusable code to `src/`, scripts and one-off entry points to
-  `experiments/`, large data left where it is, loose output files archived.
-- shows the default directory mapping and asks you to confirm it before setup.
-  For an existing project it scans every project folder, proposes its role,
-  Git layer, and commit prefix, then lets you edit the table. A folder can stay
-  where it is, but each one must be assigned to a layer or confirmed as local,
-  ignored state before setup continues. The standard layers remain available.
-  `root` is the layer for root-level maintenance files and uses `chore:`; it is
-  not a fallback for folders that have not been assigned.
-- creates the confirmed role directories and the fixed `project_memory/`
-  record, and runs `git init` if needed.
-- writes the project contracts, settings, and environment files under
-  `.claude/`, installs the githooks in front of any hooks the repository already
-  has, and adds the needed `.gitignore` entries. Claude reads `CLAUDE.md` and
-  Codex reads `AGENTS.md`; both are views of the same contract. The framework
-  text comes first, followed by a `## Project-specific rules` section where you
-  can write rules for this project. Updates preserve that section. A `CLAUDE.md`
-  or `AGENTS.md` the project already had becomes that section, and the file
-  becomes the view: one merged contract, never two files instructing one
-  directory.
-- creates the dashboard and runs the acceptance checks. The fixer, the editor
-  extensions, the cluster support and the registration with the other agent are
-  integrations: each is enabled only when you ask for it, and the choice is kept
-  in `.research-note/project.json`. You can run setup again; ordinary project
-  files stay in place and the contract framework section is refreshed safely.
+An existing project keeps its own layout. You tell the agent which directories
+hold code, tests and experiments, and nothing is moved. A `CLAUDE.md` you
+already had becomes the rules section, and your existing git hooks keep running.
 
-Optional setup choices are:
+Everything else is optional. Mention it in the same request:
 
-| Request or flag | Adds |
+| Say | You get |
 |---|---|
-| `--remote HOST:PATH` | cluster settings and remote job support |
-| `--with-hpc` | HPC bindings without declaring a host yet |
-| `--with-fixer` | the background fixer |
-| `--with-editor` | editor extensions |
-| `--with-cross-agent` | registration with the other installed agent |
-| `--no-uv` | an environment managed by conda, pip or another tool (see below) |
-| `--dry-run` | show changes without writing them |
+| "with a cluster at `host:/path`" | cluster settings and job submission there |
+| "with the fixer" | a background scanner that flags forgotten work |
+| "with editor support" | VS Code extensions, including the dashboard viewer |
+| "for both agents" | registration with the other installed agent |
+| "we use conda" or "we use pip" | a project environment not managed by uv |
 
-The same choices can be disabled with `--no-hpc`, `--no-fixer`,
-`--no-editor`, or `--no-cross-agent`. A remote host enables HPC automatically.
+**Clusters.** Setup asks which partition, reservation and account your jobs
+should use, and records them once. It then clones the project onto the cluster
+without the record, so the record lives in one place. The project needs a git
+remote for this, because code reaches the cluster through `git pull`.
 
-If you run jobs on a cluster, include its SSH host and project path in the
-request, for example `hpc:/scratch/you/myproject`.
+### Python environment
 
-Setup asks where jobs should run on that cluster. It records the partition,
-reservation, and account in `.claude/hpc.env`, and submissions use those values
-later.
+uv is the default. Its lock file is what lets a recorded result be rerun in the
+same environment. If your project uses conda, pip or another tool, everything
+still works, but nothing can guarantee the environment can be rebuilt. The
+framework says so instead of hiding it: `doctor` shows a warning, and every
+job's log header states that the environment is not locked.
 
-It then clones the project onto the cluster without `project_memory/` or the
-configured knowledge directories. The record stays in one place. A cluster
-must have a git remote so the code can arrive with `git pull`.
-
-**Python environment.** uv is the default and the supported path: its lock
-file is what lets a recorded result be rerun in the same environment, and every
-environment check is built on it. A project that uses conda, pip or another
-tool declares it at setup with `--no-uv`, or later with
-`project_config.py set-environment other --runner "<command> -u"`. Everything
-else works the same. The cost is stated rather than hidden: doctor warns that
-the environment is not locked, the cluster's environment comparison is skipped,
-and every job's log header says the environment is not locked, so a reader of
-any result knows it may not be rebuildable.
-
-## Updating
+## 3. Update
 
 Tell the agent:
 
 > update research-note
 
-That runs the [`update`](plugins/research-note/skills/update/SKILL.md) skill.
-One command updates the installed agents and every registered project. It does
-the following.
-
-- finds projects from the shared registry and older Claude project entries.
-- refreshes each installed agent's marketplace and plugin version, then checks
-  that Claude and Codex use the same version and source commit when both are
-  installed.
-- updates project pins, the framework part of each contract, and the hooks.
-  The project-specific section in each contract is preserved. `--dry-run`
-  prints what would change.
-- preserves project-specific settings and merges new permissions, while
-  reporting drift in `hpc.env` and `.slurm` files.
-- repoints `research-note.pluginRoot`, then runs doctor and both linters.
-
-The command prints what it changed for each project. It does not stage or commit
-anything, so review the output and commit the changes yourself.
-
-## What is tested to work
-
-The plugin's own suite (`plugins/research-note/scripts/tests/`) runs a
-compatibility matrix against real repositories on every change:
-
-- an empty directory becomes a local-only project: no fixer, no cluster, no
-  editor extension, no second agent — and the record, the hooks and doctor
-  work there.
-- an existing repository keeps its own code layout (`code/`, `trials/`,
-  whatever it has) by declaring it in `.research-note/project.json`; nothing
-  is moved, and the commit checks apply to the declared directories.
-- an existing repository's git hooks — a pre-commit framework, git-lfs, a
-  hand-written pre-push — all still run after setup and after update, with
-  their arguments, stdin and exit codes intact.
-- an existing repository's own `CLAUDE.md` is merged: the framework text first,
-  their rules below it, one file read through both agent names.
-- a project that manages Python with conda or pip instead of uv runs its jobs,
-  passes doctor, and says in every log header that its environment is not
-  locked.
-- a machine with one agent, or none on PATH, completes setup.
-- the fixer and the cluster support are present only when asked for.
-- running setup or update a second time changes nothing.
-
-## Migrating a project set up by an earlier version
-
-Run the update once. It writes `.research-note/project.json` with every
-integration turned on, which is what the project had. It keeps anything you
-had added below a contract's project-rules heading and updates the framework
-text above it. Older projects that used `.research-note/rules/` have those
-appendices carried into the contract once, and so does a `CLAUDE.md` or
-`AGENTS.md` of your own standing where a contract view belongs: its text moves
-into the project-rules section and the path becomes the view. It replaces the
-git hooks with the dispatcher, and your project's earlier hooks keep running.
-The record lock moves out of `.fixer/` into `.research-note/state/`. The
-environment stays on uv unless you declare otherwise. Nothing is deleted. The
-update prints one `conflict:` line for every file it could not resolve on its
-own, with the command to see the difference. A cluster submit file copied by an
-earlier version keeps its old run line until you port it; the update names it.
-
-Claude Code currently supports a few more setup and configuration steps than
-Codex. Both agents can run jobs and write the research record.
+This updates the plugin in each installed agent and in every project set up on
+this machine. Your rules sections are kept, and a project from an earlier
+version is migrated on its first update. Ask for a dry run to see the changes
+first. Nothing is committed for you: review the output and commit it yourself.
 
 MIT licensed.
