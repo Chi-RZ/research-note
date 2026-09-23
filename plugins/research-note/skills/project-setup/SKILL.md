@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Use when starting a new research project or bringing an existing one under the framework. Sets the confirmed directory roles, editable contracts, hooks, environment, and optional integrations; migration to the standard layout is optional.
+description: Use when starting a new research project or bringing an existing one under the framework. Sets the confirmed directory roles, editable contracts, hooks, environment, and optional integrations; an existing project keeps its layout and declares it.
 ---
 
 # research-note:project-setup
@@ -18,14 +18,12 @@ the project from the hook payload, `$RESEARCH_NOTE_PROJECT_DIR` or
 **The mechanical half is a script** — `scripts/bootstrap_project.py` (Step 2)
 does the layout, bindings, hooks and gate in one idempotent run. Fixer, remote
 HPC, editor support and cross-agent registration are optional features. This
-skill owns what needs judgment: the roles declaration, the environment, and
-whether an existing project keeps its layout or moves to the standard one.
+skill owns what needs judgment: the roles declaration and the environment.
 
-**Two modes** (auto-detected in Step 0, or force with an arg):
-- `new` — greenfield directory (empty or just a git remote).
-- `organize` — existing project with code/data already present (e.g. a flat
-  legacy repo). Migration is **conservative and reversible**: `git mv` code,
-  **never physically move large data** (symlink in place), archive loose files.
+**Two starting points, one procedure.** An empty directory gets the default
+layout. An existing project keeps its layout: its directories are written into
+`roles`, and nothing is moved. Setup never moves, renames or archives a file —
+a user who wants the standard layout later does that as an ordinary commit.
 
 ---
 
@@ -37,10 +35,24 @@ Gather facts before changing anything. Print a short findings block.
 PROJ="$(pwd)"; echo "project root: $PROJ"
 git remote -v 2>/dev/null | head            # main repo remote (keep it)
 command -v sbatch >/dev/null 2>&1 && echo "SLURM" || echo "BARE (no sbatch -> uv run per No-Slurm rule)"
+command -v uv >/dev/null 2>&1 && uv --version || echo "NO uv"
 ls -A                                        # existing top-level content
 ```
 
-Decide **mode**: empty-ish dir → `new`; existing code/data → `organize`.
+**`NO uv` stops here.** The plugin manages the project's Python environment
+with uv and nothing else: the lock is what makes a recorded result rerunnable,
+and the launcher runs jobs through `uv run`. Tell the user uv is missing, show
+the official installer, and run it only after they say yes — it is their
+machine:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then re-check `command -v uv` (a fresh install lands in `~/.local/bin`, which
+may need adding to PATH in this shell) before going on. A user who declines
+gets `bootstrap_project.py --no-uv`, and is told what it costs: nothing
+certifies the environment a result ran in; doctor and every log header say so.
 
 Show the layout decision before running bootstrap. The default mapping is:
 
@@ -113,20 +125,17 @@ Merge these values into `templates/project.json`; retain its `schema`, commit
 prefixes, `paths.record`, `layers.record`, `layers.agent`, `layers.root`, and
 `features` fields.
 
-For `organize`, additionally map the terrain:
-- Which dirs are an **importable library** (a package with a stable API,
-  internal `from <pkg>...` imports, reused across scripts)? → destined for `src/`.
-- Which are **composition** (argparse / hydra `main` / plotting / param choices /
-  one-off entry points)? → destined for `experiments/`.
-- **Data & logs**: `du -sh <dir>` every data dir. Anything large (>~1 GB) is
-  **left in place and symlinked** — never copied/moved.
-- Backups / stray `*.out` / `*.log` → archive, don't delete.
-- Dependencies: `grep -rh "^import\|^from" --include=*.py | sort -u` and note
-  external libs the env must provide (e.g. quantax, quimb, jax).
+For an existing project, survey the tree to fill the roles in:
+- an **importable library** (a package with a stable API, internal
+  `from <pkg>...` imports, reused across scripts) → `roles.libraries`;
+- **entry points and runs** (argparse / hydra `main`, plotting, parameter
+  choices) → `roles.experiments`;
+- tests → `roles.tests`; papers, notes, a wiki → `roles.knowledge`;
+- dependencies: `grep -rh "^import\|^from" --include=*.py | sort -u`, to know
+  what the environment must provide.
 
-Confirm the mapping with the user before any move (a table: `current → role`).
-Flag any >1 GB data dir explicitly. Setup itself does not move files; if the
-user later approves a move, do it in a separate, reviewable step.
+Confirm the table `directory → role` with the user before bootstrap runs. A
+directory that fits no role is handled in Step 5.
 
 ---
 
@@ -365,15 +374,11 @@ once; the ignore rule alone does not untrack it.
 (Adapt to what already exists; never un-ignore real data.)
 
 **`pyproject.toml`** — point package discovery at the confirmed library root.
-**uv is the supported environment, and the only locked one.** A project that
-manages Python another way — conda, plain pip — declares it with
-`bootstrap_project.py --no-uv`, or later with `project_config.py
-set-environment other [--runner "<cmd> -u"]`. Everything else works the same.
-What it costs is stated, not hidden: doctor shows a warning instead of checking
+**uv is the environment, checked in Step 0.** The unsupported `--no-uv` escape
+(declared later with `project_config.py set-environment other [--runner "<cmd>
+-u"]`) skips everything below that says uv: doctor warns instead of checking
 `.venv`, the cluster's environment comparison is skipped, and every log header
-says the environment is NOT locked, so a reader of any result knows it may not
-be rebuildable. Ask the user which they use; recommend uv when nothing is
-decided yet. The rest of this section describes the uv path.
+says the environment is NOT locked.
 
 **Every project gets its OWN uv-managed environment** (`.venv/` created by
 `uv sync`) — never point the project at a shared pre-existing venv. The venv
@@ -473,38 +478,16 @@ Run Python as `uv run python -u ...` everywhere (per root CLAUDE.md).
 
 ---
 
-## Step 5 — Migrate (organize mode only) — conservative
+## Step 5 — An existing project keeps its layout
 
-Preserve import paths; `git mv` in the **main** repo; symlink big data.
-
-**Moving is optional.** A project that already keeps its library in `code/`,
-its tests in `spec/` or its runs in `trials/` declares those roots instead of
-moving them — `roles` in `.research-note/project.json`, each root owned by
-exactly one layer. Every consumer reads the declaration: the commit-msg
-partition, the pre-commit index gate, `gen_index.py`, the N2 cross-check,
-doctor, the sparse clone and worktree patterns, `remote.sh pull`. Confirm
-`python3 "$PLUGIN/scripts/project_config.py" validate` passes and re-run
-bootstrap so the layout, contract views and `.gitignore` follow the declared
-roots. The steps below are for a project that WANTS the standard layout.
-
-1. **Library → `src/`.** Keep the package name (src-layout preserves
-   `import <pkg>`): `git mv <old>/<pkg> src/<pkg>`. Zero code edits needed.
-   Add its src-tests to `tests/` mirroring `src/`.
-2. **Composition → `experiments/<node>/`.** One folder per node: the frozen
-   implementation in `impl/`, and a `<group>/` folder per problem instance its
-   algorithm is run on holding `run.py` + `plot_*.py`. Experiment-layer tests →
-   `experiments/tests/`.
-3. **Data (in place).** `mkdir -p experiments/<node>/<group>/data` then
-   `ln -s <abs path to existing data dir> experiments/<node>/<group>/data/<name>`.
-   Never move >1 GB dirs.
-4. **Archive, don't delete.** `mkdir -p _archive` (tracked — superseded
-   material kept verbatim for provenance, like the record's own `_archive/`); move loose
-   `*.out`, `*.log`, `out_file/`, `*_bak/` there.
-5. Populate `src/INDEX.md` rows for the migrated modules.
-
-Commit in **layered** units (never mix): `src/` move, then `experiments/` move,
-then infra (`pyproject.toml` + `.gitignore` + `INDEX.md`). Prefixes: `refactor:`,
-`exp(<name>):`, `chore:`.
+A project that keeps its library in `code/`, its tests in `spec/` or its runs
+in `trials/` declares those roots — `roles` in `.research-note/project.json`,
+each root owned by exactly one layer. Every consumer reads the declaration: the
+commit-msg partition, the pre-commit index gate, `gen_index.py`, the N2
+cross-check, doctor, the sparse clone and worktree patterns, `remote.sh pull`.
+Confirm `python3 "$PLUGIN/scripts/project_config.py" validate` passes and
+re-run bootstrap so the layout, contract views and `.gitignore` follow the
+declared roots. Import paths stay as they are — nothing moved.
 
 ### Account for every top-level directory
 
@@ -609,7 +592,7 @@ the fixer can call them headless.
 - Commit the monorepo per layer prefix (one commit per layer touched);
   `.claude/` is a LAYER of the monorepo — its changes are their own commit
   under the `agent:` prefix, never folded into another layer's.
-- Print a summary: layout created, mode used, data left in place (with sizes),
+- Print a summary: layout created or roles declared,
   env command, plugin install line, dashboard path.
 - Next action: open the first node with `research-note:plan`.
 
@@ -626,7 +609,6 @@ Each item names what PROVES it — tick on the evidence, not on the intention.
 - [ ] every project-owned top-level directory is confirmed as one Git layer or local ignored state; no folder is unassigned
 - [ ] `autoMemoryDirectory` -> `project_memory/memory/shared` in `.claude/settings.local.json`; `memory/{claude,codex}` resolve there
 - [ ] `pyproject.toml` + `.gitignore`; `uv sync` done
-- [ ] (organize) code migrated, big data symlinked in place, loose files archived
 - [ ] if editor support is enabled, extensions are real copies (not symlinks) and the user was asked to reload the window
 - [ ] if fixer is enabled, re-running `start_fixer_daemon.sh` prints `already running`, and `doctor.sh` reports the last cycle under thirty minutes old
 - [ ] **the gate (Step 7): bootstrap reports zero `FAIL`, and every contract view prints `OK`**

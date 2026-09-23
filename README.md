@@ -50,8 +50,9 @@ plugin version, and which agent you use.
 
 - Claude Code or Codex
 - git and Python 3.10 or newer
-- [uv](https://docs.astral.sh/uv/) is recommended for your project's Python
-  environment (see [Python environment](#python-environment))
+- [uv](https://docs.astral.sh/uv/) — the plugin manages your project's Python
+  environment with it (see [Python environment](#python-environment)). If it is
+  not installed, setup offers to install it.
 
 ## 1. Install
 
@@ -96,6 +97,8 @@ it is committed. Code commits are left for you to push.
 An existing project keeps its own layout. You tell the agent which directories
 hold code, tests and experiments, and nothing is moved. A `CLAUDE.md` you
 already had becomes the rules section, and your existing git hooks keep running.
+Setup does not reorganize your code; if you later want the default layout, move
+things yourself in an ordinary commit.
 
 Everything else is optional. Mention it in the same request:
 
@@ -105,7 +108,6 @@ Everything else is optional. Mention it in the same request:
 | "with the fixer" | a background scanner that flags forgotten work and keeps job status current |
 | "with editor support" | VS Code extensions, including the dashboard viewer |
 | "for both agents" | registration with the other installed agent |
-| "we use conda" or "we use pip" | a project environment not managed by uv |
 
 **Clusters.** Setup asks which partition, reservation and account your jobs
 should use, and records them once. It then clones the project onto the cluster
@@ -114,11 +116,14 @@ remote for this, because code reaches the cluster through `git pull`.
 
 ### Python environment
 
-uv is the default. Its lock file is what lets a recorded result be rerun in the
-same environment. If your project uses conda, pip or another tool, everything
-still works, but nothing can guarantee the environment can be rebuilt. The
-framework says so instead of hiding it: `doctor` shows a warning, and every
-job's log header states that the environment is not locked.
+uv manages it. `pyproject.toml` and `uv.lock` are committed; each machine builds
+its own `.venv` from them, jobs run through `uv run`, and every job's log header
+names the lock it ran under. That lock is what lets a recorded result be rerun
+in the same environment. Setup installs uv if it is missing, after asking you.
+
+There is a `--no-uv` switch for a project that cannot use uv. It is not
+supported: everything runs, but nothing certifies the environment a result ran
+in, and `doctor` and every log header say so.
 
 ## 3. Update
 
