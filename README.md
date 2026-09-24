@@ -107,13 +107,21 @@ in the same environment. Setup installs uv if it is missing, after asking you.
 
 ## 3. Update
 
-Tell the agent:
+First update the plugin in each agent with its own command:
+
+```bash
+claude plugin marketplace update research-tools && claude plugin update research-note@research-tools
+codex plugin marketplace upgrade research-tools && codex plugin add research-note@research-tools
+```
+
+Then, in a project, tell the agent:
 
 > update research-note
 
-This updates the plugin in each installed agent and in every project set up on
-this machine. Your rules sections are kept, and a project from an earlier
-version is migrated on its first update. Ask for a dry run to see the changes
-first. Nothing is committed for you: review the output and commit it yourself.
+This brings that project up to the new version: its instruction files, git
+hooks and settings. Your rules sections are kept, and a project from an
+earlier version is migrated on its first update. Ask for a dry run to see the
+changes first. Nothing is committed for you: review the output and commit it
+yourself.
 
 MIT licensed.

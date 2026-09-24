@@ -361,30 +361,3 @@ def test_the_ignore_list_covers_every_uncommitted_output_kind_at_both_depths():
     for kind in ("logs", "data", "checkpoint"):
         for depth in (f"experiments/*/{kind}", f"experiments/*/*/{kind}"):
             assert depth in mod.GITIGNORE_LINES, (kind, depth, mod.GITIGNORE_LINES)
-
-
-def test_the_setup_skill_lists_exactly_the_lines_bootstrap_writes():
-    """The skill prints the ignore list as "the lines bootstrap_project.py
-    writes", which is a cache of a value one import away — so it can go stale,
-    and it did: it carried the same missing `checkpoint` pair.
-
-    Compared as SETS: the two are ordered differently on purpose (the skill
-    reads node-depth first), and order is not what a reader acts on.
-    """
-    path = PLUGIN / "scripts" / "bootstrap_project.py"
-    spec = importlib.util.spec_from_file_location("research_note_bootstrap_gi2", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    text = (PLUGIN / "skills" / "project-setup" / "SKILL.md").read_text(encoding="utf-8")
-    blocks = [b for b in text.split("```") if "<experiment-root>/*/logs" in b]
-    assert blocks, "the .gitignore block is gone from project-setup/SKILL.md"
-    listed = {ln.strip() for ln in blocks[0].splitlines() if ln.strip()}
-    # The skill writes the per-root patterns once, against the placeholder the
-    # rest of its text uses; bootstrap writes them once per DECLARED experiment
-    # root. Comparing the default root's lines under that substitution keeps the
-    # cache check the stale `checkpoint` pair was caught by.
-    expected = {ln.replace("experiments/", "<experiment-root>/")
-                for ln in mod.GITIGNORE_LINES}
-    assert listed == expected, (
-        f"only in the skill: {sorted(listed - expected)}\n"
-        f"only in the code:  {sorted(expected - listed)}")

@@ -10,12 +10,21 @@
 # never re-read. Those are mechanical, so they belong here; what is left in the
 # skill is the judgment (a project-specific hunk, a .slurm header to port).
 #
-# Usage: update_projects.sh [--dry-run] [--agents both|claude|codex|none]
-#                           [<project-dir> ...]
+# Usage: update_projects.sh [--dry-run] [<project-dir> ...]
 #        (no dirs: neutral registry + legacy Claude project rows)
 #
+# It updates PROJECTS to the version of the copy running it. Installing that
+# version into Claude and Codex is theirs: each has its own update command, run
+# first (the update skill names them), and this script is then run from the
+# copy they installed. It used to refresh both agents' marketplaces itself and
+# check that they agreed — 250 lines that broke whenever an agent changed its
+# registry, and found nothing the native commands do not report.
+#
+# `--agents none` skips moving each project's Claude pin; any other `--agents`
+# value is accepted for older callers and changes nothing.
+#
 # Does NOT: commit (it prints what to commit; staging is the caller's), or
-# reload the session (impossible from a script — see the skill's step 5).
+# reload the session (impossible from a script — see the skill).
 set -uo pipefail
 
 DRY=0; AGENTS=both; declare -a WANT=()
@@ -80,7 +89,6 @@ else:
 PY
 ) || { echo "update_projects: cannot read plugin version from $CACHE" >&2; exit 2; }
 echo "target version: $VER   ($CACHE)"
-echo "agents: $AGENTS"
 
 if [ ${#WANT[@]} -eq 0 ]; then
     # `while read`, not mapfile: mapfile is a bash 4 builtin and macOS ships
@@ -164,9 +172,11 @@ for P in "${WANT[@]}"; do
         HPC_ON=$(python3 "$CACHE/scripts/project_config.py" --project "$P" feature hpc 2>/dev/null || echo true)
     fi
 
-    # Claude has project-scoped plugin pins; Codex installs plugins at machine
-    # scope. Project framework sync itself depends on neither registry.
-    if { [ "$AGENTS" = both ] || [ "$AGENTS" = claude ]; } \
+    # Claude pins the plugin per project; Codex installs it for the machine.
+    # A project whose pin stays behind keeps loading the old version whatever
+    # was installed, so the pin moves here — to what Claude's marketplace
+    # holds, which the native update just refreshed.
+    if [ "$AGENTS" != none ] && [ "$AGENTS" != codex ] \
             && command -v claude >/dev/null 2>&1 \
             && [ -f "$CLAUDE_REGISTRY" ]; then
         # No selector means no row to update; the read-back below reports it.
@@ -331,215 +341,6 @@ PY
     fi
 done
 
-# --- Selected agents, each through its own native registry, against ORIGIN.
-# A clean git-backed Claude marketplace is advanced with pull --ff-only because
-# Claude's native refresh deletes and reclones it. Codex owns disposable
-# snapshots, so its native upgrade is safe. Non-git Claude sources also use the
-# native refresh because there is no editable checkout to preserve.
-AGENT_SYNC_FAILED=0
-RESOLVED_F=$(mktemp)
-if [ "$AGENTS" != none ]; then
-python3 - "$CACHE" "$DRY" "$HERE" "$AGENTS" "$RESOLVED_F" <<'PY' || AGENT_SYNC_FAILED=1
-import json, os, shutil, subprocess, sys
-from pathlib import Path
-
-cache, dry, here = Path(sys.argv[1]), sys.argv[2] == "1", Path(sys.argv[3])
-choice = sys.argv[4]
-resolved_f = Path(sys.argv[5])
-agents = ("claude", "codex") if choice == "both" else (choice,)
-# This script's OWN sibling first, $CACHE second. In an install the two are the
-# same file; they differ only when the script is run out of a checkout, and
-# then the sibling is the one that matches this script's expectations.
-sys.path[:0] = [str(here), str(cache / "scripts")]
-try:
-    import bootstrap_project as b
-    b.marketplace_head, b.installed, b._marketplaces   # required by this block
-except Exception:
-    sys.exit(0)
-try:
-    running = json.loads((cache / ".claude-plugin" / "plugin.json").read_text())["version"]
-except Exception:
-    sys.exit(0)
-
-
-def published(root):
-    """The version the marketplace SOURCE offers, or None.
-
-    NOT the version of the copy executing this script. Those are the same only
-    until someone publishes; after that the running copy is by definition the
-    OLD one, and asking "is the agent on my version?" answers "yes" forever —
-    an updater that can never pull anything newer than itself. That is exactly
-    how 0.25.0 shipped and Claude stayed on 0.24.0: its marketplace root is the
-    local source repo, so `local == remote` held too, and both staleness tests
-    were false at once.
-    """
-    if not root:
-        return None
-    for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
-        m = Path(root) / "plugins" / "research-note" / rel
-        if m.is_file():
-            try:
-                return json.loads(m.read_text())["version"]
-            except Exception:
-                return None
-    return None
-
-
-def state(agent):
-    """(version, marketplace, ref, local HEAD, origin HEAD) or None if absent."""
-    rows = [r for r in b.installed(agent) if r["id"].split("@")[0] == "research-note"]
-    if not rows:
-        return None
-    mkt = rows[0]["id"].split("@", 1)[1]
-    row = next((m for m in b._marketplaces(agent) if m.get("name") == mkt), {})
-    local, remote = b.marketplace_head(row.get("root"), row.get("ref"))
-    return rows[0]["version"], mkt, row.get("ref"), local, remote, row.get("root")
-
-
-def show(agent, st):
-    ver, mkt, ref, local, remote, _root = st
-    if local and remote:
-        where = "== origin" if local == remote else f"!= origin {remote[:7]}"
-    else:
-        where = "origin unknown"
-    print(f"   {agent:6}: {ver:24} {mkt}@{ref or '?'} {(local or '?')[:7]}  {where}")
-
-
-def invoke(cmd):
-    if dry:
-        print("      would: " + " ".join(map(str, cmd)))
-        return True
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=900,
-                       stdin=subprocess.DEVNULL)
-    if r.returncode == 0:
-        return True
-    last = ((r.stderr or r.stdout).strip().splitlines() or ["failed"])[-1]
-    print(f"      WARN {' '.join(map(str, cmd[:4]))}: {last[:160]}")
-    return False
-
-
-def refresh(agent, st):
-    _ver, mkt, ref, _local, _remote, _root = st
-    row = next((m for m in b._marketplaces(agent) if m.get("name") == mkt), {})
-    root = Path(row["root"]) if row.get("root") else None
-    if agent == "claude" and root and (root / ".git").is_dir():
-        status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"],
-                                capture_output=True, text=True)
-        if status.returncode != 0 or status.stdout.strip():
-            print(f"      WARN claude marketplace {root} is dirty; commit it before update")
-            return False
-        branch = ref or subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True).stdout.strip()
-        return invoke(["git", "-C", str(root), "pull", "--ff-only", "origin", branch])
-    return invoke(b.AGENT_CLIS[agent]["refresh"](mkt))
-
-
-print()
-print("agents vs origin:")
-failed = False
-final = {}
-for agent in agents:
-    if not shutil.which(agent):
-        print(f"   {agent:6}: no CLI on this machine")
-        continue
-    st = state(agent)
-    if st is None:
-        print(f"   {agent:6}: research-note NOT installed"
-              f" — bootstrap_project.py installs it")
-        continue
-    show(agent, st)
-    ver, mkt, ref, local, remote, root = st
-    # A github-source marketplace is a tarball with no manifest to read; there
-    # the running copy is the only answer available, so it stays the fallback.
-    want = published(root) or running
-    stale = ver != want or (local and remote and local != remote)
-    if stale:
-        print(f"      updating {agent} ...")
-        if local and remote and local != remote:
-            if not refresh(agent, st):
-                failed = True
-                continue
-            # refresh() moved the marketplace clone forward, so the manifest
-            # `want` was read from is now the OLD one. Re-read it, or the
-            # install that follows is judged against a version that has just
-            # been superseded and a correct update reports itself as a failure.
-            want = published(root) or want
-        if not invoke(b.AGENT_CLIS[agent]["update"](f"research-note@{mkt}")):
-            failed = True
-            continue
-    st2 = state(agent) if not dry else st
-    if st2:
-        final[agent] = st2
-        if not dry and st2[0] != want:
-            print(f"      WARN {agent} resolved {st2[0]}, expected {want}")
-            failed = True
-        if stale and not dry:
-            show(agent, st2)
-
-if len(final) == 2:
-    cv, xv = final["claude"], final["codex"]
-    same_version = cv[0] == xv[0]
-    same_commit = not (cv[3] and xv[3]) or cv[3] == xv[3]
-    if same_version and same_commit:
-        print("   parity: Claude and Codex resolve the same version and source commit")
-    else:
-        print("   WARN parity: Claude and Codex do not resolve the same package")
-        failed = True
-
-# Hand the resolved version back to the shell. The pluginRoot repoint in the
-# project loop runs BEFORE this block and can only ever name the copy EXECUTING
-# the script, so on the run that installs a new version it leaves every project
-# pointing at the old one.
-vers = {st[0] for st in final.values()}
-if len(vers) == 1 and not dry and not failed:
-    resolved_f.write_text(vers.pop())
-raise SystemExit(1 if failed else 0)
-PY
-fi
-
-# --- pluginRoot, corrected to the version the agents just RESOLVED to.
-#
-# The repoint inside the project loop can only name $CACHE — the copy executing
-# this script — and that loop runs before the agents are updated. So on the one
-# run that matters, the release run, every project is left pointing at the
-# version being superseded. $PLUGIN in every skill, launcher, both linters, the
-# record bus and the fixer's first branch resolves through this key, so the
-# machine reports "updated" and goes on executing the old scripts.
-#
-# Measured, twice. 0.15.0 moved three scope pins while every $PLUGIN script kept
-# running 0.14.2 — that is why the in-loop repoint exists at all. It was not
-# enough: 0.29.1 then installed cleanly on both agents and all three projects
-# kept executing 0.29.0's remote.sh, the single file that release existed to
-# repair. The in-loop repoint stays as the `--agents none` path's answer; this
-# pass is the one that can see what was installed.
-if [ -s "$RESOLVED_F" ]; then
-    RV=$(cat "$RESOLVED_F")
-    # $CACHE is .../cache/<marketplace>/research-note/<version>, so its parent
-    # holds the sibling version directories. Run out of a checkout instead and
-    # that path does not exist, and the search below finds the real install.
-    NEW_ROOT="$(dirname "$CACHE")/$RV"
-    [ -d "$NEW_ROOT" ] || NEW_ROOT=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/"$RV" \
-                                          "$HOME"/.codex/plugins/cache/*/research-note/"$RV" \
-                                     2>/dev/null | head -1)
-    if [ -n "$NEW_ROOT" ] && [ -d "$NEW_ROOT" ] && [ "$NEW_ROOT" != "$CACHE" ]; then
-        MOVED=0
-        for P in "${WANT[@]}"; do
-            # A non-empty key is the mark of a project this run actually
-            # handled; the loop above skips anything not on the framework, and
-            # those must not be given one here.
-            pr=$(git -C "$P" config --get research-note.pluginRoot 2>/dev/null)
-            [ -n "${pr:-}" ] || continue
-            [ "$pr" != "$NEW_ROOT" ] || continue
-            [ "$MOVED" = 1 ] || echo ""
-            git -C "$P" config research-note.pluginRoot "$NEW_ROOT"
-            echo "   research-note.pluginRoot -> $RV   ($P, was $(basename "$pr"))"
-            MOVED=1
-        done
-    fi
-fi
-rm -f "$RESOLVED_F"
-
 # --- What the CALLING SESSION must read to be current. A session cannot reload
 # itself, but it can read: the files below are the ones whose content it is
 # acting on, served from whatever version it loaded at launch. Reading them puts
@@ -552,8 +353,10 @@ for f in skills/update/SKILL.md skills/analyze/SKILL.md skills/objective/SKILL.m
     # Only the ones that actually changed since the version the caller may hold:
     # git in the plugin repo knows, but the cache does not, so name the skills
     # this update touched by comparing against the previous cached version.
-    PREV=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* \
-                     "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null \
+    # Siblings in THIS marketplace only: versions do not compare across
+    # marketplaces — a repository renamed and re-registered restarts its
+    # numbering, and a leftover 0.31 would outrank a current 0.2.
+    PREV=$(ls -d "$(dirname "$CACHE")"/* 2>/dev/null \
            | grep -Fvx "$CACHE" | sort -V | tail -1)
     if [ -n "$PREV" ] && [ "$PREV" != "$CACHE" ] && ! diff -q "$PREV/$f" "$CACHE/$f" >/dev/null 2>&1; then
         echo "   $CACHE/$f      (changed in $VER)"
@@ -573,4 +376,3 @@ else
     echo "nothing to sync — every project already on $VER"
 fi
 
-[ "$AGENT_SYNC_FAILED" = 0 ] || exit 1

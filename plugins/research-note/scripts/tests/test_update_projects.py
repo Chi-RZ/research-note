@@ -109,33 +109,6 @@ def test_agent_selector_is_validated_before_work(tmp_path):
     assert "--agents wants both, claude, codex, or none" in r.stderr
 
 
-def _fake_claude(home, installed_version, published_version):
-    """A CLI stub plus a marketplace source publishing `published_version`.
-
-    The source root is deliberately NOT a git clone, so marketplace_head()
-    returns (None, None) and the `local != remote` staleness test cannot fire.
-    What is left is the version comparison alone — the thing under test.
-    """
-    src = home / "src"
-    (src / "plugins" / "research-note" / ".claude-plugin").mkdir(parents=True)
-    (src / "plugins" / "research-note" / ".claude-plugin" / "plugin.json").write_text(
-        json.dumps({"name": "research-note", "version": published_version}))
-
-    bin_dir = home / "bin"
-    bin_dir.mkdir()
-    stub = bin_dir / "claude"
-    stub.write_text(f"""#!/usr/bin/env bash
-case "$*" in
-  *"marketplace list --json"*)
-    echo '[{{"name":"claude-setup","url":"u","ref":"uni-plugin","installLocation":"{src}"}}]' ;;
-  *"plugin list --json"*)
-    echo '[{{"id":"research-note@claude-setup","version":"{installed_version}"}}]' ;;
-  *) echo '[]' ;;
-esac
-""")
-    stub.chmod(0o755)
-    return bin_dir
-
 
 def _fake_project(tmp_path):
     proj = tmp_path / "proj"
@@ -145,66 +118,6 @@ def _fake_project(tmp_path):
     return proj
 
 
-def _agents_run(home, bin_dir, proj):
-    return subprocess.run(
-        ["bash", str(SCRIPT), "--dry-run", "--agents", "claude", str(proj)],
-        env={"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
-        capture_output=True, text=True, timeout=120)
-
-
-def _running_version():
-    return json.loads(
-        (PLUGIN / ".claude-plugin" / "plugin.json").read_text())["version"]
-
-
-def test_update_is_driven_by_the_source_version_not_by_this_copy(tmp_path):
-    """The updater must be able to pull a version newer than itself.
-
-    `want` was read from the manifest of the copy EXECUTING the script, so the
-    test was "is the agent on my version?" — which an installed 0.24.0 answers
-    "yes" forever, and 0.25.0 shipped with Claude left behind on 0.24.0. The
-    other staleness test (marketplace clone behind origin) masked it for Codex
-    and not for Claude, whose marketplace root is the local source repo and so
-    was already level with origin the moment the commit landed.
-    """
-    home = _fake_home(tmp_path, [])
-    bin_dir = _fake_claude(home, installed_version=_running_version(),
-                           published_version="99.0.0")
-    r = _agents_run(home, bin_dir, _fake_project(tmp_path))
-    assert "updating claude" in r.stdout, r.stdout
-    assert "would: claude plugin update research-note@claude-setup" in r.stdout, r.stdout
-
-
-def test_an_agent_already_on_the_published_version_is_left_alone(tmp_path):
-    """The other direction: matching the SOURCE, not this copy, is in step."""
-    home = _fake_home(tmp_path, [])
-    bin_dir = _fake_claude(home, installed_version="99.0.0",
-                           published_version="99.0.0")
-    r = _agents_run(home, bin_dir, _fake_project(tmp_path))
-    assert "updating claude" not in r.stdout, r.stdout
-
-
-def test_the_agents_present_are_detected_not_declared(tmp_path):
-    """One command on a Claude-only, a Codex-only or a both machine.
-
-    Which agents to update is discovered from PATH, never passed in. The skill
-    used to lead with `--agents both`, which reads as a decision the caller has
-    to make; it is the default, and a machine missing one side must carry on
-    rather than fail. Run with NO flag: the present agent updates, the absent
-    one is reported, the run succeeds.
-    """
-    home = _fake_home(tmp_path, [])
-    # The stub is the only CLI on this PATH — the real codex lives in ~/.local/bin.
-    bin_dir = _fake_claude(home, installed_version="99.0.0",
-                           published_version="99.0.0")
-    r = subprocess.run(
-        ["bash", str(SCRIPT), "--dry-run", str(_fake_project(tmp_path))],
-        env={"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin"},
-        capture_output=True, text=True, timeout=120)
-    assert "claude: 99.0.0" in r.stdout, r.stdout
-    assert "codex : no CLI on this machine" in r.stdout, r.stdout
-    assert "WARN parity" not in r.stdout, r.stdout   # one agent cannot disagree
-    assert r.returncode == 0, r.stderr
 
 
 def test_the_verify_step_runs_BOTH_linters():
@@ -272,41 +185,28 @@ def _git_project(tmp_path):
     return proj
 
 
-def test_pluginRoot_lands_on_the_version_installed_not_on_this_copy(tmp_path):
-    """The repoint must name what was INSTALLED, not what is RUNNING.
 
-    `research-note.pluginRoot` is an absolute path into a version directory and
-    every `$PLUGIN` — both linters, the record bus, all three launchers, the
-    fixer's first branch — resolves through it. The repoint lives in the
-    project loop, which runs BEFORE the agents are updated, and could only ever
-    name `$CACHE`: the copy executing the script. So the release run, the one
-    run where the value changes, is exactly the run that gets it wrong.
-
-    Measured: 0.29.1 installed cleanly on both agents, reported parity, and
-    left all three projects executing 0.29.0's `remote.sh` — the one file that
-    release existed to repair. The version pins said 0.29.1; the scripts were
-    0.29.0's, silently.
-    """
+def test_agents_are_left_to_their_own_update_commands(tmp_path):
+    """The updater syncs projects and moves each project's Claude pin; it never
+    refreshes a marketplace or installs a version. That was 250 lines of
+    registry handling that broke when an agent changed its registry — Codex
+    refusing a renamed marketplace was the last case. pluginRoot therefore
+    names the copy running the script, which is the one just installed."""
     home = _fake_home(tmp_path, [])
-    bin_dir = _stateful_claude(home, installed_version=_running_version(),
-                               published_version="99.0.0")
-    # The install the stub claims to have performed has to exist on disk: the
-    # repoint resolves a real directory or does nothing.
-    landed = home / ".claude" / "plugins" / "cache" / "claude-setup" / "research-note" / "99.0.0"
-    landed.mkdir(parents=True)
     proj = _git_project(tmp_path)
-
-    r = subprocess.run(
-        ["bash", str(SCRIPT), "--agents", "claude", str(proj)],
-        env={"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
-        capture_output=True, text=True, timeout=300)
-
-    got = subprocess.run(["git", "-C", str(proj), "config", "--get",
-                          "research-note.pluginRoot"],
-                         capture_output=True, text=True).stdout.strip()
-    assert got == str(landed), (
-        f"pluginRoot is {got!r}, expected the installed 99.0.0 at {landed}\n"
-        f"--- stdout ---\n{r.stdout[-2500:]}")
+    bin_dir = _stateful_claude(home, installed_version="1.0.0",
+                               published_version="99.0.0")
+    r = subprocess.run(["bash", str(SCRIPT), str(proj)],
+                       env={"HOME": str(home),
+                            "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
+                       capture_output=True, text=True, timeout=300)
+    assert r.returncode == 0, r.stdout[-2000:] + r.stderr
+    calls = (home / ".calls").read_text() if (home / ".calls").exists() else ""
+    assert "marketplace update" not in calls and "--scope user" not in calls, calls
+    root = subprocess.run(["git", "-C", str(proj), "config", "--get",
+                           "research-note.pluginRoot"],
+                          capture_output=True, text=True).stdout.strip()
+    assert root == str(PLUGIN.resolve()), root
 
 
 def test_the_project_scope_update_targets_the_INSTALLED_marketplace(tmp_path):

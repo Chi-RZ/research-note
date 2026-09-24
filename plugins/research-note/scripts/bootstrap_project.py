@@ -922,24 +922,20 @@ def main() -> int:
         sync_other_agent(dry)
 
     print("\n· acceptance gate")
-    if "--no-self-tests" in sys.argv:
-        # the plugin's own suite takes a minute; a caller that has just run it
-        # (the compatibility matrix, a CI job) skips it here and keeps the linters
-        say("skip", "framework self-tests", "--no-self-tests")
+    # The gate checks the project, not the plugin: both linters over whatever
+    # pages it holds. The plugin's own test suite used to run here too — two
+    # minutes on the user's machine proving what CI already proves, so it is
+    # gone; `--no-self-tests` is still accepted, and does nothing. A dry run
+    # wrote nothing, so there is nothing for the linters to read: it skips the
+    # gate rather than reporting a FAIL for a project that does not exist yet.
+    if dry:
+        say("skip", "acceptance gate", "dry run — nothing was written to check")
     else:
-        r = subprocess.run([sys.executable, "-m", "pytest", str(HERE / "tests"), "-q"],
-                           capture_output=True, text=True, cwd=proj, env=env)
-        if r.returncode == 0:
-            say("ok", "framework self-tests")
-        elif "No module named pytest" in (r.stderr + r.stdout):
-            say("skip", "framework self-tests", "pytest not installed")
-        else:
-            say("FAIL", "framework self-tests", (r.stdout.strip().splitlines() or [""])[-1])
-    for script in ("check_node_page.py", "check_objective_page.py"):
-        r = subprocess.run([sys.executable, str(HERE / script), "--quiet"],
-                           capture_output=True, text=True, cwd=proj, env=env)
-        say("ok" if r.returncode == 0 else "FAIL", script,
-            "" if r.returncode == 0 else (r.stdout + r.stderr).strip()[:200])
+        for script in ("check_node_page.py", "check_objective_page.py"):
+            r = subprocess.run([sys.executable, str(HERE / script), "--quiet"],
+                               capture_output=True, text=True, cwd=proj, env=env)
+            say("ok" if r.returncode == 0 else "FAIL", script,
+                "" if r.returncode == 0 else (r.stdout + r.stderr).strip()[:200])
 
     bad = [f"{w} ({d})" if d else w for s, w, d in report if s in ("FAIL", "WARN")]
     print(f"\nbootstrap: {sum(1 for s, _, _ in report if s == 'new')} created, "
@@ -949,8 +945,7 @@ def main() -> int:
         print("  needs attention: " + "; ".join(bad))
     # Only what THIS project has: an item about hpc.env or VS Code on a project
     # that enabled neither is an integration reported as a to-do.
-    todo = ["pyproject.toml — pin the env however this project prefers\n"
-            "     (see the project-setup skill)"]
+    todo = ["pyproject.toml, then `uv sync` (see the project-setup skill)"]
     if feature_enabled(project_config, "hpc"):
         todo.append(".claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
                     "     in log headers")

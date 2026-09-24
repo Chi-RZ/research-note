@@ -654,7 +654,7 @@ escape has to be typed, which is the difference.
 | `commit-msg` (git hook) | every commit | a prefix off its layer; an `exp(<node>)` naming a node with no `experiments/<node>/`; a `nodes/` commit with no `Entry: <id>`; an `objectives/` commit with no `Objective: O<nn>`; one commit staging both — a route change is its own commit (§6) |
 | `pre-commit` (git hook) | every commit | a `project_memory/` commit off the default branch; staging a record page that does not lint; a commit touching `src/` while `src/INDEX.md` is behind it (§3) |
 | `record_sync.sh` (the record bus) | every record write | a page that does not lint, under a lock shared with the scanner |
-| `bootstrap`'s acceptance gate | the end of setup | reporting success before the self-tests and both linters pass |
+| `bootstrap`'s acceptance gate | the end of setup | reporting success before both linters pass |
 | every launcher's pre-flight | every recorded launch, all four venues | a launch with no `ENTRY` named; one naming an entry but no phase (`PHASE`/`ROLE`, or `NO_OBJECTIVE=1`) — `record_submit --check`, before anything runs; and a recorded launch from a linked worktree, whose logs die with it |
 | `land_and_launch.sh` | landing and launching in one breath | a dirty branch, main onto itself, a branch that will not rebase cleanly — and it holds one lock across rebase → merge → launch, because main's WORKING TREE is what the launcher reads to build its header (§10, sharing the repo) |
 | `worktree_retire.sh` | retiring a worktree | removal while any process still has its cwd inside. The one gate that is not reached by default: nothing wraps plain `git worktree remove` |
@@ -864,22 +864,21 @@ skewed is a path both sides share.
 **Push is the channel, not the tidying step.** Each agent's marketplace is a
 clone of the plugin's remote, so an unpushed commit is invisible to every one of
 them — on the maintainer's own machine included. A maintainer edits a checkout,
-commits, pushes; a user pulls; from `update_projects.sh` onward the two run the
-identical command, deliberately, so the path everyone else is on stays exercised.
+commits, pushes; a user pulls; from the agents' own update commands onward the
+two run the identical steps, deliberately, so the path everyone else is on stays
+exercised.
 
-**Which agents to update is detected, never declared.** The updater looks for
-each CLI on PATH and updates what it finds; a Claude-only, a Codex-only and a
-both machine take the same command, and the missing side is reported rather than
-failing the run. Where both are present it then requires PARITY — the same
-version *and* the same source commit, since equal version labels on different
-commits are not parity.
+**Installing a version is the agents' job; updating a project is ours.** Each
+agent updates the plugin with its own command, and `update_projects.sh`, run
+from the copy just installed, brings projects up to it. The updater once
+refreshed both agents' marketplaces itself and required the two to agree on
+version and source commit; that was 250 lines of registry handling that broke
+each time an agent changed its registry (Codex refusing a marketplace renamed
+upstream was the last case), and it reported nothing the native commands do not.
 
-**Two asymmetries the code has to know about.** Claude keeps project-scoped
-plugin rows and Codex does not, which is why project discovery goes through a
-neutral registry (`~/.config/research-note/projects.json`) that bootstrap
-maintains — otherwise a Codex-only machine could not find its own projects
-without scanning `$HOME`. And Claude's native marketplace refresh may delete and
-re-clone, which is correct for a downloaded marketplace and destructive when the
-marketplace path is an editable checkout of your own repo; the updater advances
-a clean git-backed Claude marketplace with `git pull --ff-only` instead, and
-stops that side rather than cleaning it if it is dirty.
+**One asymmetry the code has to know about.** Claude pins the plugin per project
+and Codex does not, so the updater moves each project's Claude pin — a project
+whose pin stays behind keeps loading the old version whatever was installed —
+and project discovery goes through a neutral registry
+(`~/.config/research-note/projects.json`) that bootstrap maintains, so a
+Codex-only machine can find its projects without scanning `$HOME`.
