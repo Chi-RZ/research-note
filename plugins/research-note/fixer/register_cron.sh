@@ -46,10 +46,10 @@ cat > "$STATE/run.sh" <<STUB
 ${AGENT:+export RESEARCH_NOTE_FIXER_AGENT=$AGENT}
 D="\$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)/fixer"
 if [ ! -x "\$D/run_fixer.sh" ]; then
-    D="\$(ls -d "\$HOME"/.codex/plugins/cache/*/research-note/*/fixer 2>/dev/null | sort -V | tail -1)"
+    D="\$(ls -d "\$HOME"/.codex/plugins/cache/*/research-note/*/fixer 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if(\$i=="research-note"){print \$(i+1)"\t"\$0;break}}' | sort -V | tail -1 | cut -f2)"
 fi
 if [ ! -x "\$D/run_fixer.sh" ]; then
-    D="\$(ls -d "\$HOME"/.claude/plugins/cache/*/research-note/*/fixer 2>/dev/null | sort -V | tail -1)"
+    D="\$(ls -d "\$HOME"/.claude/plugins/cache/*/research-note/*/fixer 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if(\$i=="research-note"){print \$(i+1)"\t"\$0;break}}' | sort -V | tail -1 | cut -f2)"
 fi
 [ -n "\${D:-}" ] && [ -x "\$D/run_fixer.sh" ] || D="$HERE"
 exec "\$D/run_fixer.sh" "$PROJ"

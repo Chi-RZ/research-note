@@ -717,7 +717,7 @@ needs no reload to be current:
 | `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
 | `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
 | `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
-| `gen_dashboard.py`, `watch_dashboard.sh` | the board, a regenerated view |
+| `gen_dashboard.py` | the board, a regenerated view |
 | `bootstrap_project.py`, `update_projects.sh`, `doctor.sh` | lay a project down, carry it to a new version, verify every wire either laid (§11) |
 | `project_config.py` | reads and validates the project-owned layout, commit layers and optional features |
 | `projroot.py` | resolves the project root one way for every script, loudly |

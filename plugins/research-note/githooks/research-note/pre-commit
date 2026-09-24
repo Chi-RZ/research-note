@@ -37,8 +37,8 @@ if [ -z "$SKIP_RECORD_LINT" ]; then
     pages=$(git diff --cached --name-only | grep -E '^project_memory/(nodes|objectives)/.*\.md$')
     if [ -n "$pages" ]; then
         PLUGIN="${RESEARCH_NOTE_PLUGIN:-$(git config --get research-note.pluginRoot 2>/dev/null)}"
-        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
-        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
+        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+        [ -n "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
         if [ -n "$PLUGIN" ] && [ -f "$PLUGIN/scripts/check_node_page.py" ]; then
             fail=0
             for f in $pages; do
@@ -88,15 +88,18 @@ if [ -z "$SKIP_SRC_INDEX" ] && [ "$source_staged" -eq 1 ]; then
     GEN=""
     root=$(git config --get research-note.pluginRoot 2>/dev/null)
     [ -n "$root" ] && [ -f "$root/scripts/gen_index.py" ] && GEN="$root/scripts/gen_index.py"
-    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | sort -V | tail -1)
-    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | sort -V | tail -1)
+    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+    [ -n "$GEN" ] || GEN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/gen_index.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
     if [ -n "$GEN" ]; then
         # Exit 1 = stale, and only that blocks. Exit 2 is `--check` not being
         # understood — a gen_index.py older than this hook, which happens on
         # every machine between the rollout and the repoint of pluginRoot. A
         # gate that reads "I cannot check" as "it is broken" would refuse every
         # src/ commit on those machines, with a message naming the wrong cause.
-        python3 "$GEN" --check
+        # The repository being committed, not the session's project: a commit
+        # here from a session opened elsewhere checked THAT project's index.
+        RESEARCH_NOTE_PROJECT_DIR="$PWD" CLAUDE_PROJECT_DIR="$PWD" \
+            python3 "$GEN" --check
         rc=$?
         if [ "$rc" -eq 1 ]; then
             echo "pre-commit: this commit touches $LIB_ROOTS but its source INDEX.md is behind it." >&2

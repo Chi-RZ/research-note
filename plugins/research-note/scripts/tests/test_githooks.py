@@ -163,6 +163,28 @@ def test_pre_commit_lints_staged_record_page(repo, tmp_path):
     assert r.returncode == 0
 
 
+def test_pre_commit_refuses_a_library_change_whose_index_is_behind(repo):
+    """A capability in src/ that src/INDEX.md does not list is how the next
+    agent writes it a second time; the commit adding it is where that is
+    caught, and regenerating the index lets it through."""
+    (repo / ".claude").mkdir()
+    (repo / ".claude/framework.json").write_text('{"record": "v3"}\n')
+    (repo / "project_memory").mkdir()
+    subprocess.run(["git", "-C", repo, "config", "research-note.pluginRoot", str(PLUGIN)], check=True)
+    (repo / "src/pkg").mkdir(parents=True)
+    (repo / "src/pkg/solver.py").write_text('"""Solve the thing."""\ndef solve():\n    pass\n')
+    subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+    r = pre_commit(repo)
+    assert r.returncode == 1 and "INDEX.md is behind" in r.stderr, r.stderr
+    subprocess.run(["python3", PLUGIN / "scripts/gen_index.py", "--src"], cwd=repo,
+                   check=True, capture_output=True,
+                   env={**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(repo),
+                        "CLAUDE_PROJECT_DIR": str(repo)})
+    subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+    r = pre_commit(repo)
+    assert r.returncode == 0, r.stderr
+
+
 def test_the_setup_commit_onto_an_existing_repo_may_span_every_layer(repo):
     """Bootstrap onto a repo that already has commits lays every layer in one
     run; the initial-commit exemption does not reach it (there is a HEAD), so

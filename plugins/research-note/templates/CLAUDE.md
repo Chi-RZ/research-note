@@ -1,4 +1,4 @@
-# Physics Research Project
+# Research Project
 
 This file is the **root contract**: doctrine and pointers — the rules no linter
 can decide, and where everything else lives. Every skill that says "root

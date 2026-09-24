@@ -62,10 +62,10 @@ whether a Monitor of yours covers this objective, and if not, arm ONE
 # PLUGIN resolved INSIDE the poll (a path baked in at arming freezes this
 # watcher on that version). --for O<nn> is the scope, computed by the script
 # per poll — never a grep frozen at arming. Reasons in full: hpc-submit,
-# "Post-submit record" step 3, "How to wait".
+# "Watch".
 PLUGIN="$(git config --get research-note.pluginRoot 2>/dev/null)"
-[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
-[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | sort -V | tail -1)
+[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
 bash "$PLUGIN/scripts/remote.sh" queue >/dev/null 2>&1   # only if the project declares a remote
 python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn>
 ```

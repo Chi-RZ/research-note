@@ -127,8 +127,8 @@ REC=""
 for cand in "$SD/../../../scripts" "$SD/../scripts" "$SD"; do
     [ -f "$cand/record_submit.py" ] && { REC="$cand/record_submit.py"; break; }
 done
-[ -n "$REC" ] || REC=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | sort -V | tail -1)
-[ -n "$REC" ] || REC=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | sort -V | tail -1)
+[ -n "$REC" ] || REC=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+[ -n "$REC" ] || REC=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
 PAGE=""; ENTRY_NAME=""
 # The phase this launch serves. A launch comes FROM a phase — the Plan is what
 # said to run this — so the binding is known here and nowhere later: the entry
