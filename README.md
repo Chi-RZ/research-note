@@ -111,8 +111,8 @@ In a project, tell the agent:
 
 > update research-note
 
-It pulls the newest plugin into the agent you are using, then brings that one
-project up to it: its instruction files, git hooks and settings. Other
+It pulls the newest plugin from GitHub into the agent you are using, then
+brings that one project up to it: its instruction files, git hooks and settings. Other
 projects stay on their version until you update them. The other agent is left
 alone; update it yourself when you are ready — for Codex that moves every
 project you use from Codex, since Codex keeps one version per machine:
