@@ -77,6 +77,23 @@ not_checked() {  # under the default run only: say that a disabled integration w
         && skipped "$1: disabled in .research-note/project.json — not checked (doctor.sh --${1//_/-} to check it anyway)"
 }
 
+# Facts about the project, read before any check runs: the core and the
+# integrations both use them, and `doctor.sh --hpc` alone runs no core — under
+# `set -u` these were unbound there when they lived inside the core block.
+EXPERIMENT_ROOTS=experiments
+KNOWLEDGE_ROOTS=wiki
+# which tool locks the Python environment: uv (the supported path, every
+# environment check below) or other (runs recorded, rebuild not guaranteed)
+ENV_MANAGER=uv
+if [ -f "$PROJ/.research-note/project.json" ]; then
+    ENV_MANAGER=$(python3 "$HERE/project_config.py" --project "$PROJ" environment 2>/dev/null || echo uv)
+    if python3 "$HERE/project_config.py" --project "$PROJ" validate >/dev/null 2>&1; then
+        # one line each: these go into messages and into a test built for ssh
+        EXPERIMENT_ROOTS=$(echo $(python3 "$HERE/project_config.py" --project "$PROJ" role experiments))
+        KNOWLEDGE_ROOTS=$(echo $(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge))
+    fi
+fi
+
 if [ "$RUN_CORE" = 1 ]; then
 plugin_root=$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)
 if [ -n "$plugin_root" ] && [ -f "$plugin_root/.codex-plugin/plugin.json" ] \
@@ -87,20 +104,9 @@ else
         "re-run bootstrap_project.py from the installed research-note plugin"
 fi
 
-EXPERIMENT_ROOTS=experiments
-KNOWLEDGE_ROOTS=wiki
-# which tool locks the Python environment: uv (the supported path, every
-# environment check below) or other (runs recorded, rebuild not guaranteed)
-ENV_MANAGER=uv
-if [ -f "$PROJ/.research-note/project.json" ]; then
-    ENV_MANAGER=$(python3 "$HERE/project_config.py" --project "$PROJ" environment 2>/dev/null || echo uv)
-fi
 if [ -f "$PROJ/.research-note/project.json" ]; then
     if python3 "$HERE/project_config.py" --project "$PROJ" validate >/dev/null; then
         ok "project configuration is valid"
-        # one line each: these go into messages and into a test built for ssh
-        EXPERIMENT_ROOTS=$(printf '%s ' $(python3 "$HERE/project_config.py" --project "$PROJ" role experiments))
-        KNOWLEDGE_ROOTS=$(printf '%s ' $(python3 "$HERE/project_config.py" --project "$PROJ" role knowledge))
         for role in libraries tests experiments knowledge; do
             roots=$(python3 "$HERE/project_config.py" --project "$PROJ" role "$role")
             for root in $roots; do
