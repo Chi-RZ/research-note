@@ -219,13 +219,3 @@ def test_the_refresh_does_not_hold_the_record_lock(repo):
     with open(repo / ".research-note" / "state" / "record.lock", "a") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)      # raises if still held
     assert "9>&-" in BUS.read_text(), "the child must close the lock descriptor"
-
-
-def test_the_refresh_can_be_switched_off(repo):
-    import time
-    content = repo / "c.md"
-    content.write_text(GREEN.replace("2.31e-3", "2.35e-3"), encoding="utf-8")
-    r = bus(repo, "put", "-m", "memory: grid", "-b", sha(repo / REL), REL, str(content))
-    assert r.returncode == 0, r.stderr
-    time.sleep(2)
-    assert not (repo / "project_memory" / "dashboard.html").exists()

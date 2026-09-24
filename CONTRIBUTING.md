@@ -41,14 +41,9 @@ did.
 and an entry are, why gates sit where they sit, why there are two agents. It is
 the map. Read the section that governs whatever you are about to change.
 
-It is also **under test**: `test_design_is_current.py` pins its census tables
-(lint codes, scripts, hooks, skills) to the code. Add a lint code and DESIGN's
-table goes red until you classify it. That is deliberate — the document went 28
-releases out of date before anything watched it.
-
-What the tests deliberately do NOT pin is the prose. Classification and
-rationale are judgement; a test cannot grade them, and pretending otherwise
-would make the document worse.
+No test pins it to the code: its tables are rationale, and a test that held
+them to the code made every change an edit to DESIGN.md as well. When you
+change what a table describes, update the table in the same commit.
 
 ## Commit messages
 

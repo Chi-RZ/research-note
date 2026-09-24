@@ -103,17 +103,12 @@ AGENT_CLIS = {
         # no one to answer if that ever changes.
         "install": lambda sel: ["claude", "plugin", "install",
                                 "--scope", "user", "-y", sel],
-        "refresh": lambda name: ["claude", "plugin", "marketplace", "update", name],
-        "update": lambda sel: ["claude", "plugin", "update", sel,
-                               "--scope", "user"],
     },
     "codex": {
         "home": Path.home() / ".codex" / "plugins",
         "mkt_add": lambda url, ref: ["codex", "plugin", "marketplace", "add", url]
                                     + (["--ref", ref] if ref else []),
         "install": lambda sel: ["codex", "plugin", "add", sel],
-        "refresh": lambda name: ["codex", "plugin", "marketplace", "upgrade", name],
-        "update": lambda sel: ["codex", "plugin", "add", sel],
     },
 }
 
@@ -306,30 +301,6 @@ def _marketplaces(agent: str) -> list[dict]:
                     "url": (m.get("marketplaceSource") or {}).get("source"),
                     "ref": ref, "root": root})
     return res
-
-
-def marketplace_head(root: str | None, ref: str | None) -> tuple:
-    """(local HEAD, origin's HEAD for `ref`) of a marketplace clone.
-
-    Either half is None when it cannot be established — not a git clone (a
-    `github`-source marketplace is a tarball with no .git at all), no network,
-    no such ref. The caller reports "unknown", never a false "in step".
-    """
-    if not root or not (Path(root) / ".git").exists():
-        return None, None
-
-    def sh(*args) -> str:
-        try:
-            r = subprocess.run(["git", "-C", root, *args],
-                               capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.TimeoutExpired):
-            return ""
-        return r.stdout.strip() if r.returncode == 0 else ""
-
-    local = sh("rev-parse", "HEAD") or None
-    ref = ref or sh("rev-parse", "--abbrev-ref", "HEAD") or None
-    remote = sh("ls-remote", "origin", ref).split("\t")[0] if ref else ""
-    return local, (remote or None)
 
 
 def installed(agent: str) -> list[dict]:

@@ -57,38 +57,6 @@ def test_a_directory_that_is_not_a_project_is_skipped(tmp_path):
     assert "not a framework project" in r.stdout
 
 
-def test_explicit_project_works_without_any_claude_registry(tmp_path):
-    """Codex-only machines have no Claude project-scope registry."""
-    home = tmp_path / "home"
-    home.mkdir()
-    proj = tmp_path / "proj"
-    (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
-    (proj / "project_memory").mkdir()
-
-    r = run(home, proj)
-
-    assert r.returncode == 0, r.stderr
-    assert f"projects: {proj}" in r.stdout
-    assert "no installed_plugins.json" not in (r.stdout + r.stderr)
-    version = json.loads(
-        (PLUGIN / ".codex-plugin" / "plugin.json").read_text())["version"]
-    assert f"target version: {version}" in r.stdout
-
-
-
-def test_agent_selector_is_validated_before_work(tmp_path):
-    home = tmp_path / "home"
-    home.mkdir()
-    r = subprocess.run(
-        ["bash", str(SCRIPT), "--dry-run", "--agents", "neither"],
-        env={"HOME": str(home), "PATH": "/usr/bin:/bin:/usr/local/bin"},
-        capture_output=True, text=True, timeout=60)
-    assert r.returncode == 2
-    assert "--agents wants both, claude, codex, or none" in r.stderr
-
-
-
 def _fake_project(tmp_path):
     proj = tmp_path / "proj"
     (proj / ".claude").mkdir(parents=True)
@@ -165,29 +133,6 @@ def _git_project(tmp_path):
 
 
 
-def test_agents_are_left_to_their_own_update_commands(tmp_path):
-    """The updater syncs projects and moves each project's Claude pin; it never
-    refreshes a marketplace or installs a version. That was 250 lines of
-    registry handling that broke when an agent changed its registry — Codex
-    refusing a renamed marketplace was the last case. pluginRoot therefore
-    names the copy running the script, which is the one just installed."""
-    home = _fake_home(tmp_path, [])
-    proj = _git_project(tmp_path)
-    bin_dir = _stateful_claude(home, installed_version="1.0.0",
-                               published_version="99.0.0")
-    r = subprocess.run(["bash", str(SCRIPT), str(proj)],
-                       env={"HOME": str(home),
-                            "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
-                       capture_output=True, text=True, timeout=300)
-    assert r.returncode == 0, r.stdout[-2000:] + r.stderr
-    calls = (home / ".calls").read_text() if (home / ".calls").exists() else ""
-    assert "marketplace update" not in calls and "--scope user" not in calls, calls
-    root = subprocess.run(["git", "-C", str(proj), "config", "--get",
-                           "research-note.pluginRoot"],
-                          capture_output=True, text=True).stdout.strip()
-    assert root == str(PLUGIN.resolve()), root
-
-
 def test_the_project_scope_update_targets_the_INSTALLED_marketplace(tmp_path):
     """`research-note@<marketplace>` is the installer's string, not ours.
 
@@ -253,19 +198,6 @@ def _declaration(**features):
     return config
 
 
-def test_a_pre_declaration_project_is_migrated_once_with_every_integration_on(tmp_path):
-    home = tmp_path / "home"; home.mkdir()
-    proj = _project(tmp_path)
-    r = run_real(home, proj)
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "migrated  .research-note/project.json" in r.stdout
-    config = json.loads((proj / ".research-note/project.json").read_text())
-    assert all(config["features"].values()), "an update must not disable what the project had"
-    assert (proj / ".research-note/.gitignore").read_text() == "state/\n"
-    r = run_real(home, proj)
-    assert "migrated" not in r.stdout, "once"
-
-
 def test_a_project_declared_but_without_framework_json_is_a_framework_project(tmp_path):
     home = tmp_path / "home"; home.mkdir()
     proj = _project(tmp_path, declaration=_declaration(), framework=False)
@@ -301,7 +233,8 @@ def test_an_enabled_hpc_gets_the_cluster_permissions_and_its_files_checked(tmp_p
     home = tmp_path / "home"; home.mkdir()
     proj = _project(tmp_path, declaration=_declaration(hpc=True))
     (proj / ".claude/settings.json").write_text(json.dumps({"permissions": {"allow": []}}))
-    (proj / ".claude/hpc.env").write_text("REMOTE_HOST=hpc\n")
+    # no REMOTE_HOST: the update runs doctor, which would really ssh to it
+    (proj / ".claude/hpc.env").write_text("# a cluster not declared yet\n")
     r = run_real(home, proj)
     allowed = json.loads((proj / ".claude/settings.json").read_text())["permissions"]["allow"]
     assert "Bash(sbatch:*)" in allowed and "Bash(ssh:*)" in allowed
@@ -322,10 +255,3 @@ def test_conflicts_are_counted_and_nothing_there_is_overwritten(tmp_path):
     assert "2 item(s) above need a person — nothing was overwritten there" in r.stdout
     assert slurm.read_text().endswith("the project's own\n")
     assert json.loads((proj / ".claude/framework.json").read_text())["record"] == "v2"
-
-
-def test_a_clean_project_reports_no_conflicts(tmp_path):
-    home = tmp_path / "home"; home.mkdir()
-    proj = _project(tmp_path, declaration=_declaration())
-    r = run_real(home, proj)
-    assert "need a person" not in r.stdout

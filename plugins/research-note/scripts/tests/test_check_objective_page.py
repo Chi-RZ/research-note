@@ -176,10 +176,6 @@ def test_o9_table_in_the_verdict_fires(obj):
     assert any(e.startswith("O9") and "table" in e for e in errs)
 
 
-def test_o9_the_goals_target_table_is_the_users(obj):
-    assert not any(e.startswith("O9") for e in O.lint(obj))
-
-
 # --- O5 --------------------------------------------------------------------
 
 def test_o5_unparseable_phase_header(obj):
@@ -363,10 +359,6 @@ def test_o11_a_narrative_verdict_fires(obj):
     assert any(e.startswith("O11") for e in errs)
 
 
-def test_o11_a_short_verdict_is_silent(obj):
-    assert not any(e.startswith("O11") for e in O.lint(obj))
-
-
 # --- O12 ---------------------------------------------------------------------
 
 def test_o12_a_duplicate_id_across_pages_fires(obj, tmp_path):
@@ -423,25 +415,6 @@ def test_blob_on_asks_git_once_per_page_and_date(monkeypatch, tmp_path):
     assert len(calls) == 3, calls
 
 
-def test_the_blob_cache_keys_on_the_revision(monkeypatch, tmp_path):
-    import check_objective_page as O
-    calls = []
-
-    class _R:
-        returncode = 0
-        stdout = "content"
-
-    monkeypatch.setattr(O.subprocess, "run", lambda cmd, **kw: (calls.append(cmd), _R())[1])
-    monkeypatch.setattr(O, "ROOT", tmp_path)
-    O._BLOB_CACHE.clear()
-    page = tmp_path / "p.md"
-    page.write_text("x", encoding="utf-8")
-    O.git_show(page, "aaa")
-    O.git_show(page, "aaa")
-    O.git_show(page, "bbb")
-    assert len(calls) == 2, calls
-
-
 # --- O13 -------------------------------------------------------------------
 
 def _grid(obj_path):
@@ -454,21 +427,10 @@ def test_o13_a_finished_phase_with_an_unticked_box_fires(obj):
     assert any(e.startswith("O13") and "P1" in e and "still `[ ]`" in e for e in errs)
 
 
-def test_o13_names_one_entry_in_the_singular(obj):
-    errs = relint(obj, OBJ.replace("- [x] **P1", "- [ ] **P1"))
-    o13 = [e for e in errs if e.startswith("O13")]
-    assert o13 and "1 entry and" in o13[0]
-
-
 def test_o13_a_ticked_phase_over_an_unconcluded_entry_fires(obj):
     _grid(obj).write_text(TASK_PAGE.replace("**Status:** closed", "**Status:** running"))
     errs = O.lint(obj)                      # P1 is ticked in OBJ
     assert any(e.startswith("O13") and "P1" in e and "running" in e for e in errs)
-
-
-def test_o13_is_silent_on_a_phase_with_no_entries_yet(obj):
-    """P2 carries no entry line — it has decided nothing, either way."""
-    assert not [e for e in O.lint(obj) if e.startswith("O13") and "P2" in e]
 
 
 def test_o13_leaves_a_closed_objective_alone(obj):

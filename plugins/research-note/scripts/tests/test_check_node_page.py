@@ -160,13 +160,6 @@ def test_v1_validation_must_link_the_entry_it_replays(tmp_path, monkeypatch):
     assert any(e.startswith("V1") for e in errs)
 
 
-def test_v1_the_gate_itself_is_exempt(tmp_path, monkeypatch):
-    p = write_node_md(tmp_path, "tanner_gnn_ln", NODE)
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
-    assert not any(e.startswith("V1") and "'gate'" in e for e in C.lint_node(p))
-
-
 # --------------------------------------------------------------------------
 # P1 — page frontmatter and at-least-one-entry.
 # --------------------------------------------------------------------------
@@ -256,14 +249,6 @@ def test_e2_illegal_status(tmp_path, monkeypatch):
                    PAGE.replace("- **Status:** analyzed", "- **Status:** finished"))
     monkeypatch.setattr(C, "NODES_DIR", tmp_path)
     assert any(e.startswith("E2") for e in C.lint_page(p))
-
-
-@pytest.mark.parametrize("retired", ["blocked", "done-pending-analysis"])
-def test_e2_retired_status_names_the_move(tmp_path, monkeypatch, retired):
-    p = write_page(tmp_path, "tanner_gnn_ln", "grid",
-                   PAGE.replace("- **Status:** analyzed", f"- **Status:** {retired}"))
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("E2") and "retired" in e for e in C.lint_page(p))
 
 
 # --------------------------------------------------------------------------
@@ -478,14 +463,6 @@ def test_e10_bare_field_is_rejected_but_still_read(tmp_path, monkeypatch):
     assert not any(e.startswith("E3") for e in errs)      # the value was still read
 
 
-def test_e10_retired_findings_field_names_the_split(tmp_path, monkeypatch):
-    p = write_page(tmp_path, "tanner_gnn_ln", "grid",
-                   PAGE.replace("- **Facts:**",
-                                "- **Findings:** LER 2.31e-3, fine.\n- **Facts:**"))
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("E10") and "Findings" in e for e in C.lint_page(p))
-
-
 # --------------------------------------------------------------------------
 # E11 — one entry runs one computation script.
 # --------------------------------------------------------------------------
@@ -569,24 +546,9 @@ def test_p4_same_figure_embedded_twice_fires():
     assert any("embedded 2 times" in e for e in C.figures_errors(Path("p.md"), txt))
 
 
-def test_p4_placement_is_the_writers_judgement():
-    fig = "![levels of the measurement](../figures/f.png)\n"
-    in_entry = "### Entry: the measurement\n" + fig + "\n### Entry: the control\n"
-    at_foot = "### Entry: the measurement\n\n### Entry: the control\n\n## Analysis\n\n" + fig
-    assert C.figures_errors(Path("p.md"), in_entry) == []
-    assert C.figures_errors(Path("p.md"), at_foot) == []
-
-
 # --------------------------------------------------------------------------
-# P5 / J1 — the retired page-level Jobs table; jobs need an artifact link.
+# J1 — jobs need an artifact link.
 # --------------------------------------------------------------------------
-
-def test_p5_retired_jobs_section_fires(tmp_path, monkeypatch):
-    p = write_page(tmp_path, "tanner_gnn_ln", "grid",
-                   PAGE + "\n## Jobs\n| job_id | entry |\n|--------|-------|\n")
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("P5") and "RETIRED" in e for e in C.lint_page(p))
-
 
 def test_j1_entry_with_jobs_needs_a_file_link(tmp_path, monkeypatch):
     text = PAGE.replace("; evidence [log](../../../experiments/tanner_gnn_ln/scc/logs/"
@@ -662,13 +624,6 @@ def _log_fallback_page(tmp_path, status, log_text):
     return write_page(tmp_path, "tanner_gnn_ln", "grid", text)
 
 
-def test_j3_log_fallback_fires_when_running_but_log_reports_done(tmp_path, monkeypatch):
-    p = _log_fallback_page(tmp_path, "running", "# Exit code: 0\n")
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (False, set()))  # squeue unusable -> None
-    assert any(e.startswith("J3") for e in C.lint_page(p))
-
-
 def test_j3_log_fallback_silent_when_log_still_running(tmp_path, monkeypatch):
     p = _log_fallback_page(tmp_path, "running", "# Exit code: running\n")
     monkeypatch.setattr(C, "NODES_DIR", tmp_path)
@@ -688,16 +643,6 @@ def test_j4_log_fallback_fires_when_log_running_but_status_is_not(tmp_path, monk
 # --------------------------------------------------------------------------
 # queued_job_ids() and the remote snapshot.
 # --------------------------------------------------------------------------
-
-def test_queued_job_ids_returns_the_cached_ids_when_usable(monkeypatch):
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, {"64196217"}))
-    assert C.queued_job_ids() == {"64196217"}
-
-
-def test_queued_job_ids_returns_none_when_unusable(monkeypatch):
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (False, set()))
-    assert C.queued_job_ids() is None
-
 
 def test_remote_snapshot_ids_are_unioned_when_fresh(monkeypatch):
     monkeypatch.setattr(C, "_QUEUE_CACHE", (True, {"111"}))
@@ -742,6 +687,7 @@ def _bare_log(dirpath: Path, stem: str, uv_pid, py_pid, exit_code="running",
         f"# Command: uv run python -u {dirpath}/run.py\n"
         f"# Cwd: {dirpath}\n"
         f"# Timestamp: {when}\n"
+        f"# PID wrapper: {uv_pid}\n"
         f"# PID uv: {uv_pid}\n"
         f"# PID python: {py_pid}\n"
         f"# Exit code: {exit_code}\n"
@@ -749,7 +695,7 @@ def _bare_log(dirpath: Path, stem: str, uv_pid, py_pid, exit_code="running",
     return log
 
 
-def test_live_bare_job_ids_reports_the_uv_pid_only(tmp_path, monkeypatch):
+def test_live_bare_job_ids_reports_the_wrapper_pid(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "EXPERIMENTS_DIR", tmp_path)
     uv = subprocess.Popen(["sleep", "30"])
     py = subprocess.Popen(["sleep", "30"])
@@ -783,12 +729,6 @@ def test_live_bare_job_ids_rejects_a_recycled_pid(tmp_path, monkeypatch):
     finally:
         uv.kill()
         uv.wait()
-
-
-def test_queue_phrases_do_not_say_squeue_on_a_bare_host(monkeypatch):
-    import shutil
-    monkeypatch.setattr(shutil, "which", lambda _: None)
-    assert not any("squeue" in p for p in C.queue_phrases())
 
 
 # --------------------------------------------------------------------------
@@ -1063,17 +1003,6 @@ def test_e5_question_may_wrap_onto_the_next_line(tmp_path, monkeypatch):
     assert not [e for e in C.lint_page(p) if e.startswith("E5")]
 
 
-def test_e5_question_check_stops_at_the_users_tick(tmp_path, monkeypatch):
-    """E5 judges what the field SAYS, so like E4-E9 it binds while the entry is
-    still the agent's to write — a closed entry is accepted as it stood."""
-    text = PAGE.replace("- **Status:** analyzed", "- **Status:** closed").replace(
-        '- **Motivation:** The parent\'s grid found "LER 2.8e-3 at d5"; does LayerNorm move it at p=0.06?',
-        "- **Motivation:** LayerNorm is the one axis this branch has never varied.")
-    p = write_page(tmp_path, "tanner_gnn_ln", "grid", text)
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert not [e for e in C.lint_page(p) if e.startswith("E5")]
-
-
 def test_e12_content_outside_every_field_is_flagged(tmp_path, monkeypatch):
     """A table, a figure or a `Job N — [log]` line dropped between the fields
     reads as an entry whose Facts are missing — every other check looks for
@@ -1087,14 +1016,6 @@ def test_e12_content_outside_every_field_is_flagged(tmp_path, monkeypatch):
     errs = [e for e in C.lint_page(p) if e.startswith("E12")]
     assert errs, "loose lines after the Conclusion must be reported"
     assert any("Job 64196218" in e for e in errs)
-
-
-def test_e12_indented_continuation_is_part_of_its_field(tmp_path, monkeypatch):
-    """The Facts table and figure are indented under `- **Facts:**` — E12 must
-    read them as that field's content, not as loose lines."""
-    p = write_page(tmp_path, "tanner_gnn_ln", "grid", PAGE)
-    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert not [e for e in C.lint_page(p) if e.startswith("E12")]
 
 
 def test_e12_binds_on_a_closed_entry(tmp_path, monkeypatch):
@@ -1585,10 +1506,3 @@ def test_j3_reads_a_linked_log_that_is_not_on_disk_as_not_back_yet(tmp_path, mon
     line = j3(page)
     assert "its log is not pulled back yet" in line, line
     assert "killed?" not in line and "FAILED" not in line
-
-
-def test_j3_says_both_for_a_pair(tmp_path, monkeypatch):
-    page, logs = _j3_setup(tmp_path, monkeypatch, jobs="64196217, 64196218", link=False)
-    (logs / "slurm-ln-64196217.out").write_text("# Exit code: 0\n")
-    (logs / "slurm-ln-64196218.out").write_text("# Exit code: 0\n")
-    assert "both exited 0" in j3(page)

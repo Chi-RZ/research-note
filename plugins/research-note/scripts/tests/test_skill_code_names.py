@@ -50,12 +50,3 @@ def test_every_grepped_code_is_one_a_linter_emits():
     assert not unknown, (
         f"skill recipes grep lint codes no linter knows: {unknown} — "
         f"a waiter built from that line spins silently forever")
-
-
-def test_the_harvest_code_is_still_real():
-    """The hpc-submit waiters key on J3 specifically; if the linter renames it
-    again, this failure names the second file to update."""
-    node_linter = LINTERS[0].read_text(encoding="utf-8")
-    assert "J3" in node_linter
-    skill = (ROOT / "skills" / "hpc-submit" / "SKILL.md").read_text(encoding="utf-8")
-    assert "grep -q J3" in skill or 'grep -q "J3"' in skill

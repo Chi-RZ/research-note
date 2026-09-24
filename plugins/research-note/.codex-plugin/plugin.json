@@ -1,6 +1,6 @@
 {
   "name": "research-note",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds \u2014 for agent-assisted computational research.",
   "author": {
     "name": "Chi-RZ",

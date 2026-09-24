@@ -73,7 +73,6 @@ OBJ_DIR = ROOT / "project_memory" / "objectives"
 SNAPSHOT = ROOT / ".fixer" / "remote_queue"
 STALE_MIN = 30          # matches the linter's own snapshot-staleness cutoff
 FIRST_SEEN = ROOT / ".research-note" / "state" / "harvest_first_seen.json"
-LEGACY_FIRST_SEEN = ROOT / ".fixer" / "harvest_first_seen.json"   # pre-0.2.3 location
 MIN_AGE_MIN = 15        # hook default; a Monitor passes --min-age 0
 
 RUNNING_RE = re.compile(r"^(?:-\s+\*\*)?Status:(?:\*\*)?\s*running\s*$", re.M)
@@ -186,8 +185,7 @@ def age_gate(keyed: list[tuple[str, str]], min_age: int) -> list[str]:
         return [line for _, line in keyed]
     now = time.time()
     try:
-        source = FIRST_SEEN if FIRST_SEEN.exists() else LEGACY_FIRST_SEEN
-        seen = json.loads(source.read_text(encoding="utf-8"))
+        seen = json.loads(FIRST_SEEN.read_text(encoding="utf-8"))
     except Exception:
         seen = {}
     current = {k for k, _ in keyed}

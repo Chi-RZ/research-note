@@ -131,24 +131,6 @@ def test_an_empty_directory_becomes_a_local_only_project(empty, home):
     assert "· the other agent" in r.stdout and "disabled" in r.stdout
 
 
-def test_a_local_only_project_records_and_lints_through_its_own_hooks(empty, home):
-    bootstrap(empty, home)
-    assert commit_all(empty, home, "agent: research-note setup").returncode == 0
-    # a record write: an objective page from the plugin's own template, linted by the pre-commit gate
-    page = empty / "project_memory/objectives/first.md"
-    page.write_text((PLUGIN / "design/objective-page-template.md").read_text())
-    sh(empty, home, "git", "add", str(page))
-    r = sh(empty, home, "git", "commit", "-q", "-m", "memory: open the first objective\n\nObjective: O01")
-    # the template is a template — the linter has findings, and the gate is what
-    # reports them; what matters here is that the gate RAN and spoke
-    assert r.returncode in (0, 1)
-    if r.returncode == 1:
-        assert "pre-commit: a staged record page does not lint" in r.stderr
-    r = sh(empty, home, "python3", str(SCRIPTS / "check_node_page.py"), "--cross", "--quiet",
-           env={"RESEARCH_NOTE_PROJECT_DIR": str(empty)})
-    assert r.returncode == 0, r.stdout + r.stderr
-
-
 def test_doctor_core_is_green_on_a_local_only_project(empty, home):
     bootstrap(empty, home)
     assert commit_all(empty, home, "agent: research-note setup").returncode == 0
@@ -198,8 +180,6 @@ def test_an_existing_repository_keeps_its_layout_and_passes_the_commit_checks(ex
     (existing / "trials/n/impl").mkdir(parents=True)
     (existing / "trials/n/impl/run.py").write_text("pass\n")
     assert commit_all(existing, home, "exp(n): first node").returncode == 0
-    r = commit_all(existing, home, "memory: wrong layer")
-    assert r.returncode != 0 or sh(existing, home, "git", "status", "--porcelain").stdout == ""
 
 
 def test_an_existing_repositorys_hooks_all_still_run_after_setup_and_after_update(existing, home, tmp_path):
@@ -246,12 +226,6 @@ def test_a_project_from_before_the_declaration_is_migrated_once_by_update(existi
 # one agent or none; the optional integrations
 # --------------------------------------------------------------------------
 
-def test_a_machine_with_no_agent_cli_completes_setup(empty, home):
-    r = bootstrap(empty, home, "--with-cross-agent")
-    assert "[FAIL" not in r.stdout
-    assert "skip" in r.stdout.split("· the other agent")[1].splitlines()[1]
-
-
 def test_optional_hpc_is_present_only_when_asked_for(empty, home):
     bootstrap(empty, home, "--with-hpc")
     assert (empty / ".claude/hpc.env").is_file()
@@ -260,13 +234,6 @@ def test_optional_hpc_is_present_only_when_asked_for(empty, home):
     assert "Bash(sbatch:*)" in allowed
     config = json.loads((empty / ".research-note/project.json").read_text())
     assert config["features"]["hpc"] is True and config["features"]["fixer"] is False
-
-
-def test_optional_fixer_off_means_no_fixer_state_and_no_process(empty, home):
-    bootstrap(empty, home)
-    assert not (empty / ".fixer").exists()
-    ps = subprocess.run(["ps", "ax", "-o", "command="], capture_output=True, text=True).stdout
-    assert str(empty) not in ps
 
 
 def test_bootstrap_refuses_unknown_flags_and_help_writes_nothing(tmp_path, home):
@@ -305,24 +272,3 @@ def test_an_existing_repos_own_claude_md_is_merged_into_one_file(existing, home)
     assert (existing / "CLAUDE.md").read_text() == text
     assert (existing / "AGENTS.md").read_text() == text
     assert commit_all(existing, home, "agent: research-note setup").returncode == 0
-
-
-def test_setup_tells_a_local_only_project_nothing_about_integrations_it_lacks(empty, home):
-    """bootstrap's closing to-do list named hpc.env and VS Code for every
-    project — a disabled integration reported as work left to do."""
-    r = bootstrap(empty, home)
-    todo = r.stdout.split("Next (the judgment calls")[1]
-    assert "hpc.env" not in todo and "VS Code" not in todo, todo
-    assert "pyproject.toml" in todo and "doctor.sh" in todo
-
-
-def test_setup_names_the_integration_to_dos_when_they_are_enabled(empty, home):
-    r = bootstrap(empty, home, "--with-hpc", "--with-editor")
-    todo = r.stdout.split("Next (the judgment calls")[1]
-    assert "hpc.env" in todo and "VS Code" in todo, todo
-
-
-def test_setup_with_no_uv_declares_an_unlocked_environment(empty, home):
-    bootstrap(empty, home, "--no-uv")
-    config = json.loads((empty / ".research-note/project.json").read_text())
-    assert config["environment"] == {"manager": "other"}

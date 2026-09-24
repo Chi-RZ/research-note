@@ -74,16 +74,6 @@ def test_bootstrap_skill_views_resolve_to_one_canonical_directory(tmp_path):
         assert link.resolve() == canonical.resolve()
 
 
-def test_bootstrap_memory_views_resolve_to_shared_memory(tmp_path):
-    bootstrap = _bootstrap()
-    shared = tmp_path / "project_memory" / "memory" / "shared"
-    shared.mkdir(parents=True)
-    for name in ("claude", "codex"):
-        link = shared.parent / name
-        link.symlink_to("shared", target_is_directory=True)
-        assert link.resolve() == shared.resolve()
-
-
 def test_bootstrap_only_preserves_old_feature_defaults_for_legacy_projects(tmp_path):
     bootstrap = _bootstrap()
     assert not bootstrap.needs_legacy_config(tmp_path)
@@ -147,14 +137,6 @@ def test_bootstrap_layout_artifacts_follow_configured_roles():
     ignored = bootstrap.gitignore_lines(config)
     assert "trials/*/logs" in ignored
     assert not any(line.startswith("experiments/") for line in ignored)
-
-
-def test_contracts_name_shared_memory_as_the_authority():
-    root = (PLUGIN / "templates" / "CLAUDE.md").read_text()
-    record = (PLUGIN / "templates" / "project_memory-CLAUDE.md").read_text()
-    assert "memory/shared/" in root
-    assert "memory/shared/" in record
-    assert "memory/claude/         the agent's own memory" not in record
 
 
 def _bootstrap():
@@ -256,36 +238,6 @@ def test_sync_other_agent_skips_without_the_other_cli(monkeypatch):
     assert [state for state, _, _ in b.report] == ["skip"]
 
 
-def test_marketplace_head_is_silent_off_a_clone(tmp_path):
-    """A `github`-source marketplace is a tarball with no .git — not an error."""
-    b = _bootstrap()
-    assert b.marketplace_head(str(tmp_path), "uni-plugin") == (None, None)
-    assert b.marketplace_head(None, None) == (None, None)
-
-
-def test_marketplace_head_reads_the_clone_and_says_unknown_without_origin(tmp_path):
-    """Local HEAD is read; the remote half is None rather than a false match.
-
-    Reporting "in step" when origin could not be reached would be the one
-    wrong answer here — the whole point is catching a side that has drifted.
-    """
-    import subprocess
-    b = _bootstrap()
-    run = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a],
-                                    capture_output=True, text=True, check=True)
-    run("init", "-q", "-b", "uni-plugin")
-    run("config", "user.email", "t@example.com")
-    run("config", "user.name", "t")
-    (tmp_path / "f").write_text("x")
-    run("add", "f")
-    run("commit", "-qm", "c")
-    head = run("rev-parse", "HEAD").stdout.strip()
-
-    local, remote = b.marketplace_head(str(tmp_path), None)   # ref read from the clone
-    assert local == head
-    assert remote is None                                     # no origin configured
-
-
 def test_each_cli_spells_the_same_two_operations_its_own_way():
     """The codex->claude half cannot be exercised live without uninstalling the
     agent running the suite, so its command shapes are pinned here instead.
@@ -311,15 +263,6 @@ def test_each_cli_spells_the_same_two_operations_its_own_way():
     assert ci[-1] == "research-note@claude-setup"
 
     assert codex["install"]("research-note@personal") == [
-        "codex", "plugin", "add", "research-note@personal"]
-    assert claude["refresh"]("claude-setup") == [
-        "claude", "plugin", "marketplace", "update", "claude-setup"]
-    assert codex["refresh"]("personal") == [
-        "codex", "plugin", "marketplace", "upgrade", "personal"]
-    assert claude["update"]("research-note@claude-setup") == [
-        "claude", "plugin", "update", "research-note@claude-setup",
-        "--scope", "user"]
-    assert codex["update"]("research-note@personal") == [
         "codex", "plugin", "add", "research-note@personal"]
 
 

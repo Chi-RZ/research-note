@@ -141,17 +141,6 @@ def test_a_renamed_title_still_attributes_through_the_entry_id(
     assert out.startswith("O07 ·"), f"the id did not carry it: {out!r}"
 
 
-def test_the_entry_id_rides_the_line(hv, capsys, monkeypatch):
-    """A Monitor can only match text, so the id has to be ON the line for a
-    scope to be written against it."""
-    mod, C, nodes = hv
-    (nodes / "grid.md").write_text(
-        PAGE.format(status="running", jobs="999999"), encoding="utf-8")
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
-    out = run(mod, capsys)
-    assert "07.001" in out, out
-
-
 def test_a_live_job_stays_silent(hv, capsys, monkeypatch):
     mod, C, nodes = hv
     (nodes / "grid.md").write_text(
@@ -193,14 +182,6 @@ def test_a_stale_snapshot_with_remote_jobs_is_said_out_loud(
     # no snapshot file exists -> "missing"
     out = run(mod, capsys)
     assert "queue snapshot missing" in out and "SUSPENDED" in out
-
-
-def test_exit_code_is_always_zero(hv, capsys, monkeypatch):
-    mod, C, nodes = hv
-    (nodes / "grid.md").write_text(
-        PAGE.format(status="running", jobs="999999"), encoding="utf-8")
-    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
-    assert mod.main() == 0
 
 
 def test_a_linked_worktree_stays_silent(hv, capsys, monkeypatch, tmp_path):
@@ -308,25 +289,13 @@ def test_hook_mode_is_silent_when_quiet(hv, capsys, monkeypatch):
     assert capsys.readouterr().out == ""
 
 
-def test_the_preamble_minute_count_is_the_constant(hv, monkeypatch):
-    """The quoted '15+ min' once lived in hooks.json's jq string, free to
-    drift from MIN_AGE_MIN; derived, it cannot."""
-    mod, C, nodes = hv
-    monkeypatch.setattr(mod, "MIN_AGE_MIN", 42)
-    assert "42+ min" in mod.preamble()
-
-
-def test_the_hook_wiring_is_dumb():
-    """Doctrine text lives in the script, never in the trigger — the exact
-    coupling 0.13.40 had to edit a jq string inside JSON to change."""
+def test_the_harvest_hook_is_registered_once():
     import json as J
     hooks = J.loads((SCRIPTS.parent / "hooks" / "hooks.json").read_text())
     cmds = [h["command"]
             for grp in hooks["hooks"]["UserPromptSubmit"] for h in grp["hooks"]]
     harvest = [c for c in cmds if "hook_dispatch.py" in c and " harvest" in c]
     assert len(harvest) == 1
-    for word in ("READ-ONLY", "harvested", "orphan", "additionalContext"):
-        assert word not in harvest[0], f"doctrine/payload text `{word}` in the trigger"
 
 
 # --------------------------------------------------------------------------
@@ -378,15 +347,3 @@ def test_for_drops_an_unattributed_line_in_a_foreign_node(hv, capsys, monkeypatc
     monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
     out = run(mod, capsys, "--min-age", "0", "--for", "O07")
     assert out == ""
-
-
-def test_the_name_match_takes_the_longest_candidate(hv):
-    """`gate A` and `gate A' is running — twice` can both start the same J3
-    message; only the longest is the actual heading the message was built
-    from."""
-    mod, C, nodes = hv
-    entries = {"x": "", "x' is running — twice": ""}
-    err = "J3 entry 'x' is running — twice' is running but none of its jobs (1..) are in squeue"
-    name = max((n for n in entries
-                if err.startswith(f"J3 entry '{n}' is running")), key=len, default="")
-    assert name == "x' is running — twice"

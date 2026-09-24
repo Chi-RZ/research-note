@@ -63,7 +63,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 ENV_MANAGERS = ("uv", "other")
-DEFAULT_RUNNERS = {"uv": "uv run --no-sync python -u", "other": "python -u"}
 
 # Missing configuration means an installed project from before schema 1. Those
 # projects already received these integrations by default. Preserving that
@@ -252,13 +251,6 @@ def environment_manager(config: dict[str, Any]) -> str:
     return config.get("environment", {}).get("manager", "uv")
 
 
-def python_runner(config: dict[str, Any]) -> str:
-    """How a recorded run invokes Python: the declared runner, else the
-    manager's default."""
-    env = config.get("environment", {})
-    return env.get("runner") or DEFAULT_RUNNERS[environment_manager(config)]
-
-
 def validate_config(config: dict[str, Any]) -> None:
     if config.get("schema") != SCHEMA:
         raise ConfigError(
@@ -396,7 +388,6 @@ def main(argv: list[str] | None = None) -> int:
     set_feature.add_argument("name")
     set_feature.add_argument("value", choices=("true", "false"))
     sub.add_parser("environment", help="print the environment manager: uv or other")
-    sub.add_parser("runner", help="print how a recorded run invokes Python")
     set_env = sub.add_parser("set-environment", help="declare the environment manager")
     set_env.add_argument("manager", choices=ENV_MANAGERS)
     set_env.add_argument("--runner", help="how a recorded run invokes Python (keep -u)")
@@ -414,9 +405,6 @@ def main(argv: list[str] | None = None) -> int:
         config = load_project_config(root)
         if args.command == "environment":
             print(environment_manager(config))
-            return 0
-        if args.command == "runner":
-            print(python_runner(config))
             return 0
         if args.command == "set-environment":
             config = copy.deepcopy(config)

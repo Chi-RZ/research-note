@@ -41,10 +41,24 @@ MAIN="$(dirname "$(git -C "$WT" rev-parse --path-format=absolute --git-common-di
 # Who is living in there?
 occupants() {
     if [ -r /proc/self/cwd ]; then
-        for p in /proc/[0-9]*; do
-            local cwd; cwd="$(readlink "$p/cwd" 2>/dev/null)" || continue
-            case "$cwd" in "$WT"|"$WT"/*) echo "${p#/proc/} $(tr '\0' ' ' < "$p/cmdline" 2>/dev/null | cut -c1-70)" ;; esac
-        done
+        # One process for the whole scan: a readlink and a subshell per pid
+        # cost ~9 s on a box running 2000 processes.
+        python3 - "$WT" <<'PY'
+import os, sys
+wt = sys.argv[1]
+for pid in filter(str.isdigit, os.listdir("/proc")):
+    try:
+        cwd = os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        continue
+    if cwd == wt or cwd.startswith(wt + "/"):
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                cmd = fh.read().replace(b"\0", b" ").decode(errors="replace")
+        except OSError:
+            cmd = ""
+        print(pid, cmd[:70])
+PY
     elif command -v lsof >/dev/null 2>&1; then
         lsof -a -d cwd -F pcn +D "$WT" 2>/dev/null \
             | awk '/^p/{pid=substr($0,2)} /^c/{print pid, substr($0,2)}' | sort -u

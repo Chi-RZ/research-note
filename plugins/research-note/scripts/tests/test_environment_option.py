@@ -29,41 +29,18 @@ import project_config as pc  # noqa: E402
 def test_a_project_that_declares_nothing_is_on_uv():
     config = pc.initial_project_config()
     assert pc.environment_manager(config) == "uv"
-    assert pc.python_runner(config) == "uv run --no-sync python -u"
     legacy = pc.initial_project_config(legacy=True)
     assert pc.environment_manager(legacy) == "uv"
 
 
-def test_other_defaults_to_plain_python_and_a_runner_can_be_declared():
-    config = pc.initial_project_config()
-    config["environment"] = {"manager": "other"}
-    pc.validate_config(config)
-    assert pc.python_runner(config) == "python -u"
-    config["environment"]["runner"] = "conda run -n lab python -u"
-    pc.validate_config(config)
-    assert pc.python_runner(config) == "conda run -n lab python -u"
-
-
 @pytest.mark.parametrize("env,match", [
     ({"manager": "conda"}, "manager must be one of"),
-    ({"manager": "other", "runner": "python"}, "with `-u`"),
 ])
 def test_a_bad_declaration_is_refused(env, match):
     config = pc.initial_project_config()
     config["environment"] = env
     with pytest.raises(pc.ConfigError, match=match):
         pc.validate_config(config)
-
-
-def test_set_environment_writes_the_declaration(tmp_path):
-    (tmp_path / "project_memory").mkdir()
-    pc.write_project_config(tmp_path, pc.initial_project_config())
-    r = subprocess.run([sys.executable, str(SCRIPTS / "project_config.py"), "--project",
-                        str(tmp_path), "set-environment", "other", "--runner", "python3 -u"],
-                       capture_output=True, text=True)
-    assert r.returncode == 0, r.stderr
-    saved = json.loads((tmp_path / ".research-note/project.json").read_text())
-    assert saved["environment"] == {"manager": "other", "runner": "python3 -u"}
 
 
 # --- the log header says which kind of run this was --------------------------
@@ -87,15 +64,6 @@ def _launch(tmp_path, environment, **extra_env):
     logs = glob.glob(str(repo / "logs" / "*.log"))
     assert logs, r.stdout + r.stderr
     return Path(logs[0]).read_text()
-
-
-def test_an_unlocked_run_says_so_in_its_header_and_runs_the_declared_runner(tmp_path):
-    head = _launch(tmp_path, {"manager": "other", "runner": "python3 -u"})
-    assert "# Environment: NOT locked" in head, head
-    command = next(l for l in head.splitlines() if l.startswith("# Command:"))
-    assert " python3 -u " in command and "uv run" not in command, command
-    time.sleep(1)
-    assert "hi" in _read_eventually(tmp_path)
 
 
 def _read_eventually(tmp_path):

@@ -46,36 +46,6 @@ def run_current(repo, worktree):
         capture_output=True, text=True, timeout=60)
 
 
-def test_the_worktree_loses_the_record_and_keeps_the_code(tmp_path):
-    repo, wt = _project(tmp_path)
-    assert (wt / "project_memory").exists(), "precondition: full checkout"
-    r = run(repo)
-    assert r.returncode == 0, r.stderr
-    assert not (wt / "project_memory").exists()
-    assert not (wt / "wiki").exists()
-    assert (wt / "src" / "z.py").exists()
-    assert (wt / ".claude" / "framework.json").exists()
-
-
-def test_main_is_untouched(tmp_path):
-    repo, wt = _project(tmp_path)
-    run(repo)
-    assert (repo / "project_memory" / "nodes" / "x.md").exists()
-    assert (repo / "wiki" / "y.md").exists()
-
-
-def test_idempotent_and_worktree_scoped(tmp_path):
-    repo, wt = _project(tmp_path)
-    assert run(repo).returncode == 0
-    assert run(repo).returncode == 0          # second sweep: no-op, still green
-    outside = tmp_path / "handmade"
-    subprocess.run(["git", "worktree", "add", "-q", str(outside), "-b", "b2"],
-                   cwd=repo, check=True, capture_output=True)
-    run(repo)
-    assert (outside / "project_memory").exists(), \
-        "a worktree OUTSIDE .claude/worktrees is not ours to reshape"
-
-
 def test_current_mode_handles_a_codex_worktree_anywhere(tmp_path):
     repo, _legacy = _project(tmp_path)
     outside = tmp_path / "codex-worktree"

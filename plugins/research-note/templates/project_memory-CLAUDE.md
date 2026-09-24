@@ -177,9 +177,8 @@ without them (`NO_OBJECTIVE=1` for a run that serves none).
 
 Every submission, the same turn: the id onto the owning entry's `Jobs:` field
 (ranges allowed, `63902601–04`; host tags, `@t6`), and the log's repo-relative
-link into the entry. A job belongs to its entry; there is no page-level table
-(P5). An empty `- **Jobs:**` is never
-silent: a `running` entry with no ids — or a linked launcher log with none —
+link into the entry. A job belongs to its entry; there is no page-level table.
+An empty `- **Jobs:**` is never silent: a `running` entry with no ids — or a linked launcher log with none —
 is J5, and an id the Facts name — or a `Job <id> —` line anywhere — missing
 from the field is J6, because the field is what every watcher, waiter and
 board reads. (Motivation and Refs quote OTHER entries' ids as provenance;

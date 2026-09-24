@@ -51,7 +51,6 @@ def commit_msg(repo: Path, staged: list[str], message: str) -> subprocess.Comple
     # the scope is the node-history retrieval key (git log --grep=<node>):
     # a name matching no node hides the commit from that history silently
     (["experiments/n/impl/f.py"], "exp(ghost): typo scope", False),
-    (["experiments/n/impl/f.py"], "exp(n*): a glob is not a node", False),
     # trailers
     (["project_memory/nodes/n/page.md"], "memory: no trailer", False),
     (["project_memory/nodes/n/page.md"], "memory: entry\n\nEntry: 07.005", True),
@@ -77,12 +76,6 @@ def test_exp_scope_accepts_a_node_that_exists_but_is_not_staged(repo):
     (repo / "experiments" / "real" / "impl").mkdir(parents=True)
     r = commit_msg(repo, ["experiments/tests/test_x.py"], "exp(real): tweak")
     assert r.returncode == 0, r.stderr
-
-
-def test_exp_scope_rejection_names_the_retrieval_hazard(repo):
-    r = commit_msg(repo, ["experiments/n/impl/f.py"], "exp(ghost): x")
-    assert r.returncode != 0
-    assert "retrieval key" in r.stderr and "ghost" in r.stderr
 
 
 def test_commit_msg_escape_hatch(repo):

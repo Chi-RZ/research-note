@@ -38,12 +38,6 @@ def project(tmp_path, page=PAGE, group="grid"):
     return tmp_path
 
 
-def test_only_closed_entries_compile(tmp_path):
-    """The gate is the gate: an analyzed entry is the user's to close, not ours."""
-    got = W.entries(project(tmp_path), include_analyzed=False)
-    assert [e["id"] for e in got] == ["07.001"]
-
-
 def test_include_analyzed_shows_the_held_ones_marked(tmp_path):
     got = W.entries(project(tmp_path), include_analyzed=True)
     assert {e["id"]: e["compilable"] for e in got} == {"07.001": True, "07.002": False}

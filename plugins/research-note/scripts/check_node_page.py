@@ -17,7 +17,6 @@ Codes (record v3 — DESIGN.md §10):
   E16 a cited <repo>@<sha> is retrievable (landed here, resolvable for a lib)
   P1 a title and at least one entry    P2 links and anchors resolve
   P3 figures render                    P4 a figure has a caption, embedded once
-  P5 no page-level Jobs
   J1 an entry with jobs links an artifact
   J2 a live BATCH job is named by some entry — an srun alloc is not one (--cross)
   J3 J4 entry status against the queue, both directions
@@ -502,17 +501,13 @@ def bare_log_live_job(path: Path) -> str | None:
     """The queue entry a bare-launcher log represents: its `# PID wrapper:` job
     id while the run is live, else ``None``.
 
-    `# PID wrapper:` is read (falling back to `# PID uv:` for logs older than
-    0.10.2) — that is the id hpc-submit Case B records in the entry's
+    `# PID wrapper:` is the id hpc-submit Case B records in the entry's
     `- **Jobs:**` field, so queue and record speak the same language."""
     if log_run_state(path) != "running":
         return None
     head = _log_head(path)
     uv = next((m.group(1) for l in head
                if (m := re.match(r"# PID wrapper:\s*(\d+)", l))), None)
-    if uv is None:   # logs older than 0.10.2 recorded the uv PID as the job id
-        uv = next((m.group(1) for l in head
-                   if (m := re.match(r"# PID uv:\s*(\d+)", l))), None)
     if uv is None or not _pid_alive(uv):
         return None                              # `unknown` pid, or already gone
     elapsed = _pid_elapsed_minutes(uv)
@@ -561,7 +556,7 @@ def resolve_link(s: str, page: Path | None) -> Path:
 #: when the job ends; the Slurm templates append it as the LAST line.
 EXIT_CODE_RE = re.compile(r"^# Exit code:\s*(\S+)", re.M)
 #: the job id a log belongs to, from its header
-LOG_JOB_ID_RE = re.compile(r"^# (?:PID wrapper|job_id|PID uv):\s*(\d+)", re.M)
+LOG_JOB_ID_RE = re.compile(r"^# (?:PID wrapper|job_id):\s*(\d+)", re.M)
 #: ...or from Slurm's `-%j.out` name. `.out` only: a launcher's `.log` is named by
 #: its timestamp, whose trailing digits would read as a job id.
 SLURM_LOG_NAME_RE = re.compile(r"-(\d+)\.out$")
@@ -778,31 +773,14 @@ JOB_STANZA_RE = re.compile(r"^[ \t]*(?:Evidence:\s*)?Job\s+\S+\s+—\s+\[log\]\(
 CONCL_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]+\)")
 VERDICT_RE = re.compile(r"\b(answers|partly answers|does not answer) the motivation")
 ENTRY_RE = re.compile(r"^#{2,4}\s+Entry:\s*(.+?)\s*$", re.M)
-JOBS_SEC_RE = re.compile(r"^## Jobs\n(.*?)(?=^#{1,6} |\Z)", re.S | re.M)
 #: E10 — a header field written bare instead of as `- **Key:** value`.
 BARE_FIELD_RE = re.compile(
-    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs|"
-    r"Findings|Result|Env):", re.M)
-#: E12 — a line that OPENS a field. Retired spellings count: E10 already names
-#: them, and treating them as field openers keeps E12 from reporting the same
-#: line twice under a second code.
+    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs):", re.M)
+#: E12 — a line that OPENS a field.
 FIELD_OPEN_RE = re.compile(
     r"^-\s+\*\*(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|"
-    r"Refs|Findings|Result|Env):\*\*|"
-    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs|"
-    r"Findings|Result|Env):")
-RETIRED_FIELDS = {
-    "Findings": "split into `- **Facts:**` (what happened) and "
-                "`- **Conclusion:**` (what it means) in v3",
-    "Result": "folded into the verdict in v2.1",
-    "Env": "retired in v2.2 — the instance belongs in the page's `task:` line",
-}
-RETIRED_STATUS = {
-    "blocked": "retired in v3 — a run that concluded nothing writes that "
-               "verdict and goes to `analyzed`",
-    "done-pending-analysis": "retired in v3 — analysis happens inside "
-                             "`running`; a handover's numbers wait as `running`",
-}
+    r"Refs):\*\*|"
+    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs):")
 
 
 def entry_job_ids(body: str) -> list[str]:
@@ -880,9 +858,7 @@ def entry_errors(name: str, body: str) -> list[str]:
                     f"(both zero-padded)")
 
     status = field(body, "Status")
-    if status in RETIRED_STATUS:
-        errs.append(f"E2 entry '{name}' `Status: {status}` — {RETIRED_STATUS[status]}")
-    elif status not in LEGAL_ENTRY_STATUS:
+    if status not in LEGAL_ENTRY_STATUS:
         errs.append(f"E2 entry '{name}' `Status: {status or '(missing)'}` not in "
                     f"{sorted(LEGAL_ENTRY_STATUS)}")
 
@@ -966,14 +942,11 @@ def entry_errors(name: str, body: str) -> list[str]:
         errs.append(f"E6 entry '{name}' has jobs but no `Recipe:` — every run's "
                     f"knob assignment is recorded on the entry that used it")
 
-    # E10 — one schema, one spelling; no retired field.
+    # E10 — one schema, one spelling.
     for m in BARE_FIELD_RE.finditer(body):
         k = m.group(1)
         errs.append(f"E10 entry '{name}' field `{k}:` is bare — write it as "
                     f"`- **{k}:** …`")
-    for k, why in RETIRED_FIELDS.items():
-        if field(body, k):
-            errs.append(f"E10 entry '{name}' carries the retired field `{k}:` — {why}")
 
     if status in CONCLUDED:
         facts = field(body, "Facts")
@@ -1046,8 +1019,7 @@ def id_order_errors(entries: dict[str, str]) -> list[str]:
 
 def jobs_errors(text: str, entries: dict[str, str],
                 page: Path | None = None) -> list[str]:
-    """P5  the retired page-level `## Jobs` table is present
-    J1  an entry that owns jobs carries a repo-relative artifact link
+    """J1  an entry that owns jobs carries a repo-relative artifact link
     J5  an entry that plainly RAN jobs left `Jobs:` empty
     J6  an id the Facts name — or a `Job <id> —` line anywhere — is missing
         from the `Jobs:` field (Motivation/Refs quote provenance and are exempt)
@@ -1064,10 +1036,6 @@ def jobs_errors(text: str, entries: dict[str, str],
     the field empty, which is how four entries here carried nine unrecorded job
     ids that only a hand-watched ssh session ever saw."""
     errs: list[str] = []
-    if JOBS_SEC_RE.search(text):
-        errs.append("P5 `## Jobs` section is RETIRED — a job belongs to its entry: "
-                    "move each row's id(s) into the owning entry's "
-                    "`- **Jobs:**` field and delete the section")
     for name, body in entries.items():
         ids = entry_job_ids(body)
         if ids and not FILELINK_RE.search(body):

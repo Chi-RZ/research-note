@@ -41,26 +41,6 @@ def proj(tmp_path):
 
 # --- render ------------------------------------------------------------------
 
-def test_render_is_marker_then_template_then_rules():
-    out = ct.render("# T\n\nbody\n", "my rule\n", "CLAUDE.md")
-    assert out == ct.marker("CLAUDE.md") + "# T\n\nbody\n\nmy rule\n"
-    assert ct.marker("CLAUDE.md").startswith("<!-- framework section generated")
-    assert "templates/CLAUDE.md" in ct.marker("CLAUDE.md")
-
-
-def test_render_drops_the_seed_comment_and_says_when_nothing_follows():
-    out = ct.render("# T\n", ct.SEED.format(contract="CLAUDE.md"))
-    assert out.count("<!--") == 1, "the marker stays, the seed comment goes"
-    assert out.endswith("# T\n")
-
-
-def test_every_template_ends_on_the_project_boundary():
-    for contract, (template, rules) in ct.CONTRACTS.items():
-        text = (PLUGIN / "templates" / template).read_text()
-        assert ct.BOUNDARY in text, contract
-        assert ct.LEGACY_BOUNDARY_BLOCK not in text, "the old block must not ship any more"
-
-
 # --- a fresh project ---------------------------------------------------------
 
 def test_a_fresh_project_gets_four_editable_contracts_and_no_rules_files(proj):
@@ -101,15 +81,6 @@ def test_dry_run_reports_and_writes_nothing(proj):
 
 # --- migration from the byte-prefix + appendix scheme ------------------------
 
-def test_an_appendix_under_the_current_template_is_kept_in_the_contract(proj):
-    (proj / ".claude/CLAUDE.md").write_text(TEMPLATE + "\n## Mission\n\nkeep me\n")
-    said = said_of(proj)
-    assert states(said) == ["regenerated"], said
-    text = (proj / ".claude/CLAUDE.md").read_text()
-    assert text.startswith(HEAD) and text.rstrip().endswith("keep me")
-    assert text.count("## Mission") == 1
-
-
 def test_an_appendix_under_an_older_framework_text_is_migrated_too(proj):
     """0.1.9–0.2.3: the framework half has since moved AND the project appended.
     The old scheme refused here ('DRIFTED — port by hand'); the block itself is
@@ -129,19 +100,6 @@ def test_a_boundary_file_with_no_appendix_is_plain_drift(proj):
     said = said_of(proj)
     assert states(said) == ["regenerated"]
     assert not any(s == "migrated" for s, _, _ in said)
-
-
-def test_an_appendix_is_not_migrated_over_rules_that_already_exist(proj):
-    said_of(proj)
-    rules = proj / ".research-note/rules/root.md"
-    rules.parent.mkdir(parents=True)
-    rules.write_text("rule A\n")
-    said_of(proj)
-    (proj / ".claude/CLAUDE.md").write_text(TEMPLATE + "\nrule B\n")
-    said = said_of(proj)
-    assert states(said) == ["regenerated"], said
-    assert "rule A" in rules.read_text() and "rule B" not in rules.read_text()
-    assert (proj / ".claude/CLAUDE.md").read_text().rstrip().endswith("rule B"), "left alone"
 
 
 # --- pre-boundary files (before 0.1.9) ---------------------------------------

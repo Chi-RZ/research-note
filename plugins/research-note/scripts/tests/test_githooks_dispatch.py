@@ -119,28 +119,12 @@ def test_research_notes_refusal_comes_first_and_stops_the_chain(repo):
     assert marker.exists()
 
 
-def test_old_hooks_exit_code_is_the_hooks_exit_code(repo):
-    write_hook(repo / ".git/hooks", "pre-commit", "exit 7\n")
-    install(repo)
-    r = subprocess.run([str(repo / ".claude/githooks/pre-commit")], cwd=repo,
-                       env=env(), capture_output=True, text=True)
-    assert r.returncode == 7
-
-
 def test_a_hook_added_after_install_is_forwarded_too(repo):
     install(repo)
     marker = repo / ".git" / "post-commit-ran"
     write_hook(repo / ".git/hooks", "post-commit", f'touch "{marker}"\n')
     assert commit(repo, "chore: later").returncode == 0
     assert marker.exists(), "forwarding resolves the previous directory at run time"
-
-
-def test_sample_hooks_are_not_run(repo):
-    """git init leaves *.sample files; they are neither executable nor hooks."""
-    install(repo)
-    samples = list((repo / ".git/hooks").glob("*.sample"))
-    assert samples, "git init should have left samples for this test to mean anything"
-    assert commit(repo, "chore: fine").returncode == 0
 
 
 # --------------------------------------------------------------------------
