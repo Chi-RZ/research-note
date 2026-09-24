@@ -121,7 +121,6 @@ AGENT_CLIS = {
 # rows; Codex does not. A shared registry is therefore the only way a Codex-only
 # machine can update every framework project without scanning the whole home
 # directory. Legacy Claude rows remain an import source in update_projects.sh.
-PROJECT_REGISTRY = Path.home() / ".config" / "research-note" / "projects.json"
 #: editor/<src> -> the folder it installs as, + the label the step prints. The
 #: version in the folder name is FROZEN on purpose: it is a stable overwrite
 #: target. Tracking each extension's real version would strand the old folder
@@ -443,27 +442,6 @@ def say(state: str, what: str, detail: str = "") -> None:
     print(f"  [{state:<4}] {what}{'  — ' + detail if detail else ''}")
 
 
-def register_project(proj: Path, dry: bool) -> None:
-    """Remember one framework root for agent-neutral bulk updates."""
-    try:
-        data = json.loads(PROJECT_REGISTRY.read_text(encoding="utf-8")) \
-            if PROJECT_REGISTRY.exists() else {"projects": []}
-    except (OSError, json.JSONDecodeError, ValueError):
-        data = {"projects": []}
-    projects = sorted({str(Path(p).resolve()) for p in data.get("projects", [])}
-                      | {str(proj.resolve())})
-    if data.get("projects") == projects:
-        say("kept", "project registry", str(PROJECT_REGISTRY))
-        return
-    if not dry:
-        PROJECT_REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-        tmp = PROJECT_REGISTRY.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"projects": projects}, indent=2) + "\n",
-                       encoding="utf-8")
-        tmp.replace(PROJECT_REGISTRY)
-    say("new", "project registry", str(PROJECT_REGISTRY))
-
-
 KNOWN_FLAGS = {"--dry-run", "--no-self-tests", "--remote", "--no-uv", *(
     flag for on, off in FEATURE_FLAGS.values() for flag in on + off)}
 
@@ -561,8 +539,6 @@ def main() -> int:
                 p.mkdir(parents=True, exist_ok=True)
             say("new", d)
 
-    print("\n· agent-neutral project registry")
-    register_project(proj, dry)
 
     print("\n· git")
     if (proj / ".git").exists():

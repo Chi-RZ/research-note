@@ -121,9 +121,9 @@ Add only the integrations the user asked for — each has a section in
 Bootstrap creates the role directories and `project_memory/`, runs `git init`
 if needed, writes the `.claude/` bindings and the instruction-file views,
 installs the git hooks, writes `.gitignore` when none exists, generates
-`_index.md` and `dashboard.html`, registers the project for later updates, and
-ends with both linters as its acceptance gate. It prints one line per step and
-a `needs attention` summary; read every `FAIL`/`WARN` before going on.
+`_index.md` and `dashboard.html`, and ends with both linters as its acceptance
+gate. It prints one line per step and a `needs attention` summary; read every
+`FAIL`/`WARN` before going on.
 
 It keeps existing project files (`kept`). Two things to know on an existing
 project:

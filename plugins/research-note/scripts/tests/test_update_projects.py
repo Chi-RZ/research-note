@@ -33,33 +33,27 @@ def run(home, *args):
         capture_output=True, text=True, timeout=60)
 
 
-def test_home_with_global_claude_dir_is_skipped(tmp_path):
-    home = _fake_home(tmp_path, [
-        {"scope": "project", "projectPath": str(tmp_path / "home")}])
-    r = run(home)
-    assert "not a framework project" in r.stdout
-    assert "needs project_memory/" in r.stdout
 
 
-def test_a_real_project_passes_the_gate(tmp_path):
-    proj = tmp_path / "proj"
-    (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
-    (proj / "project_memory").mkdir()
-    home = _fake_home(tmp_path, [
-        {"scope": "project", "projectPath": str(proj)}])
-    r = run(home)
-    assert "not a framework project" not in r.stdout
-    assert str(proj) in r.stdout
+
+def test_no_argument_means_the_current_project_only(tmp_path):
+    """An update touches the project it was asked from — never every project
+    on the machine, which changed hooks under projects with work running."""
+    home = _fake_home(tmp_path, [{"scope": "project", "projectPath": str(tmp_path / "other")}])
+    proj = _git_project(tmp_path)
+    r = subprocess.run(["bash", str(SCRIPT), "--dry-run"], cwd=proj,
+                       env={"HOME": str(home), "PATH": "/usr/bin:/bin:/usr/local/bin"},
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert f"projects: {proj}" in r.stdout
+    assert "other" not in r.stdout.split("projects:", 1)[1].splitlines()[0]
 
 
-def test_a_project_missing_project_memory_is_skipped(tmp_path):
-    proj = tmp_path / "half"
-    (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
-    home = _fake_home(tmp_path, [
-        {"scope": "project", "projectPath": str(proj)}])
-    r = run(home)
+def test_a_directory_that_is_not_a_project_is_skipped(tmp_path):
+    """HOME carries ~/.claude, and a bare `.claude` probe once sent the full
+    treatment there: contract files in HOME, the enclosing repo's hooksPath."""
+    home = _fake_home(tmp_path, [])
+    r = run(home, home)
     assert "not a framework project" in r.stdout
 
 
@@ -81,21 +75,6 @@ def test_explicit_project_works_without_any_claude_registry(tmp_path):
         (PLUGIN / ".codex-plugin" / "plugin.json").read_text())["version"]
     assert f"target version: {version}" in r.stdout
 
-
-def test_neutral_registry_drives_codex_only_no_arg_update(tmp_path):
-    home = tmp_path / "home"
-    registry = home / ".config" / "research-note" / "projects.json"
-    registry.parent.mkdir(parents=True)
-    proj = tmp_path / "proj"
-    (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
-    (proj / "project_memory").mkdir()
-    registry.write_text(json.dumps({"projects": [str(proj)]}))
-
-    r = run(home)
-
-    assert r.returncode == 0, r.stderr
-    assert f"projects: {proj}" in r.stdout
 
 
 def test_agent_selector_is_validated_before_work(tmp_path):

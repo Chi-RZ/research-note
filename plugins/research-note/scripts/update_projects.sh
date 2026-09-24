@@ -11,7 +11,12 @@
 # skill is the judgment (a project-specific hunk, a .slurm header to port).
 #
 # Usage: update_projects.sh [--dry-run] [<project-dir> ...]
-#        (no dirs: neutral registry + legacy Claude project rows)
+#        (no dirs: the current project — $RESEARCH_NOTE_PROJECT_DIR,
+#         $CLAUDE_PROJECT_DIR, or the git repository around $PWD)
+#
+# One project per request, the one the user asked from. It once updated every
+# project registered on the machine by default, which changed the hooks and
+# linters under projects with work running in them, unasked.
 #
 # It updates PROJECTS to the version of the copy running it. Installing that
 # version into Claude and Codex is theirs: each has its own update command, run
@@ -69,7 +74,6 @@ for key in d.get("plugins", {}):
         break
 PY
 )
-PROJECT_REGISTRY="$HOME/.config/research-note/projects.json"
 
 # The invoked script carries the framework version it deploys. Resolving only
 # through ~/.claude made the same package unusable on a Codex-only machine and
@@ -91,45 +95,14 @@ PY
 echo "target version: $VER   ($CACHE)"
 
 if [ ${#WANT[@]} -eq 0 ]; then
-    # `while read`, not mapfile: mapfile is a bash 4 builtin and macOS ships
-    # 3.2, so this script died on its first line of real work there. The loop
-    # is the same operation in the language every bash speaks.
-    while IFS= read -r p; do WANT+=("$p"); done < <(
-        python3 - "$PROJECT_REGISTRY" "$CLAUDE_REGISTRY" <<'PY'
-import json, sys
-from pathlib import Path
-
-projects = set()
-neutral, legacy = map(Path, sys.argv[1:])
-if neutral.is_file():
-    try:
-        projects.update(json.loads(neutral.read_text()).get("projects", []))
-    except (OSError, ValueError):
-        pass
-if legacy.is_file():
-    try:
-        data = json.loads(legacy.read_text())
-    except (OSError, ValueError):
-        data = {}
-    for key, rows in data.get("plugins", {}).items():
-        if key.split("@")[0] != "research-note":
-            continue
-        for row in rows:
-            p = row.get("projectPath")
-            if p:
-                projects.add(p)
-for p in sorted(projects):
-    # Managed worktrees are ephemeral views, not independent projects.
-    if "/.claude/worktrees/" not in p:
-        print(p)
-PY
-    )
+    cur=${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}}
+    [ -n "$cur" ] && WANT+=("$cur")
 fi
 # Guarded before the expansion: an empty array under `set -u` is an "unbound
 # variable" abort in bash 3.2, which would report a missing registry as a shell
 # error.
 [ ${#WANT[@]} -gt 0 ] || {
-    echo "update_projects: no framework project registered; pass a project path or run bootstrap_project.py once" >&2
+    echo "update_projects: not inside a project; run it from the project, or pass its path" >&2
     exit 2
 }
 echo "projects: ${WANT[*]}"

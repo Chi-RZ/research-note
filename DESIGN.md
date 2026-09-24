@@ -876,9 +876,9 @@ version and source commit; that was 250 lines of registry handling that broke
 each time an agent changed its registry (Codex refusing a marketplace renamed
 upstream was the last case), and it reported nothing the native commands do not.
 
-**One asymmetry the code has to know about.** Claude pins the plugin per project
-and Codex does not, so the updater moves each project's Claude pin — a project
-whose pin stays behind keeps loading the old version whatever was installed —
-and project discovery goes through a neutral registry
-(`~/.config/research-note/projects.json`) that bootstrap maintains, so a
-Codex-only machine can find its projects without scanning `$HOME`.
+**An update is one project, the one it was asked from.** It changes hooks and
+linters under whatever is running there, so no project moves unasked; the
+updater once took every project registered on the machine by default, and the
+registry that made that possible is gone. Claude pins the plugin per project
+and Codex does not, so the updater moves that project's Claude pin — a project
+whose pin stays behind keeps loading the old version whatever was installed.

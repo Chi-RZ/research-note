@@ -1,6 +1,6 @@
 ---
 name: update
-description: Use when a new version of this plugin should reach a machine and its projects — install it into Claude and Codex with their own commands, then bring each project's contracts, hooks and pins up to it. Not for editing the plugin itself.
+description: Use when the user asks to update research-note in a project — pull the newest plugin into Claude and Codex with their own commands, then bring THIS project's contracts, hooks and pin up to it. Other projects are left alone. Not for editing the plugin itself.
 ---
 
 # research-note:update
@@ -8,7 +8,9 @@ description: Use when a new version of this plugin should reach a machine and it
 Installing a plugin version does not update a project: its contracts, hooks
 and Claude pin live in the repository and stay on the version that wrote them.
 An update is therefore two steps — the agents, with their own commands, then
-the projects, with `update_projects.sh` from the copy just installed.
+the project the user asked from, with `update_projects.sh` from the copy just
+installed. Every other project stays on its version until someone updates it
+from there: an update changes hooks and linters under whatever is running.
 
 Run the whole sequence and report what moved. The user invoking this has
 already decided, so the steps run without asking between them.
@@ -39,7 +41,7 @@ marketplace. Codex refuses an upgrade whose marketplace was renamed upstream:
 `plugin add` re-registers it under the new name, and Codex asks once to trust
 the hooks again.
 
-## 2. Update the projects
+## 2. Update this project
 
 Run the updater from the copy just installed — not from
 `research-note.pluginRoot`, which still names the old one. Look only inside the
@@ -50,15 +52,14 @@ marketplaces (a renamed repository may restart at 0.1).
 ```bash
 PLUGIN=$(ls -d ~/.claude/plugins/cache/<mkt>/research-note/* | sort -V | tail -1)
 # Codex-only machine: ~/.codex/plugins/cache/<mkt>/research-note/*
-bash "$PLUGIN/scripts/update_projects.sh" --dry-run <project>   # preview
-bash "$PLUGIN/scripts/update_projects.sh" <project>
+bash "$PLUGIN/scripts/update_projects.sh" --dry-run   # preview
+bash "$PLUGIN/scripts/update_projects.sh"
 ```
 
-Name the project. Without one, the updater takes every project registered on
-this machine (`~/.config/research-note/projects.json` and Claude's project
-pins) — do that only when the user asked for all of them.
+Run from inside the project, it updates that project and nothing else. A path
+argument names a different project; pass one only when the user asked for it.
 
-Per project, in order, it:
+In order, it:
 
 1. **migrates once** — a project from before `.research-note/project.json`
    gets one with every integration ON, exactly what it had; an update never
@@ -105,8 +106,8 @@ exit 3 is expected** for a project whose `framework.json` declares an older
 `record`: migrating the record is its own step, never a side effect of an
 update.
 
-Commit each project separately as `agent: update to research-note <version>`,
-staging only the files the update changed.
+Commit it as `agent: update to research-note <version>`, staging only the
+files the update changed.
 
 ## 5. Make it take effect
 
@@ -123,7 +124,7 @@ clause to the agent doing it.
 
 ## 6. Report
 
-Per agent and per project, the version before and after, read from the
+Per agent and for the project, the version before and after, read from the
 registries rather than from command output; the contracts synced and the ones
 left alone, with why; what was ported into `.slurm` copies; doctor and lint;
 and what the user still has to do — `/reload-plugins`, a new Codex session.

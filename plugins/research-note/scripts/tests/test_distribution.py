@@ -323,21 +323,6 @@ def test_each_cli_spells_the_same_two_operations_its_own_way():
         "codex", "plugin", "add", "research-note@personal"]
 
 
-def test_project_registry_is_shared_and_idempotent(tmp_path, monkeypatch):
-    b = _bootstrap()
-    registry = tmp_path / "state" / "projects.json"
-    monkeypatch.setattr(b, "PROJECT_REGISTRY", registry)
-    b.report.clear()
-
-    project = tmp_path / "project"
-    project.mkdir()
-    b.register_project(project, dry=False)
-    b.register_project(project, dry=False)
-
-    assert read(registry) == {"projects": [str(project.resolve())]}
-    assert [s for s, what, _ in b.report if what == "project registry"] == [
-        "new", "kept"]
-
 
 def test_the_ignore_list_covers_every_uncommitted_output_kind_at_both_depths():
     """`checkpoint/` was promised uncommitted by two contracts and ignored by
