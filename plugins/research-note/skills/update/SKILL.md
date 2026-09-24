@@ -1,35 +1,41 @@
 ---
 name: update
-description: Use when the user asks to update research-note in a project — pull the newest plugin into Claude and Codex with their own commands, then bring THIS project's contracts, hooks and pin up to it. Other projects are left alone. Not for editing the plugin itself.
+description: Use when the user asks to update research-note in a project — pull the newest plugin into the agent running this session (Claude or Codex, not both), then bring THIS project's contracts, hooks and pin up to it. Other projects and the other agent are left alone. Not for editing the plugin itself.
 ---
 
 # research-note:update
 
 Installing a plugin version does not update a project: its contracts, hooks
 and Claude pin live in the repository and stay on the version that wrote them.
-An update is therefore two steps — the agents, with their own commands, then
-the project the user asked from, with `update_projects.sh` from the copy just
-installed. Every other project stays on its version until someone updates it
+An update is therefore two steps — the agent running this session, with its
+own command, then the project the user asked from, with `update_projects.sh`
+from the copy just installed. Every other project stays on its version until someone updates it
 from there: an update changes hooks and linters under whatever is running.
 
 Run the whole sequence and report what moved. The user invoking this has
 already decided, so the steps run without asking between them.
 
-## 1. Install the new version into each agent
+## 1. Install the new version into the agent you are
 
-Read the marketplace name each agent registered — it is the installer's, not
-this repository's, and may differ between the two:
+Update only the agent running this session — you know whether you are Claude
+Code or Codex. The other agent is not yours to move: Codex installs one
+version for the whole machine, so updating it moves every project used from
+Codex at once, which is the user's call, not a side effect of updating this
+one. Name its command in the report instead.
+
+Read the marketplace name your agent registered — it is the installer's, not
+this repository's, and may differ between the two agents:
 
 ```bash
-claude plugin list | grep -A1 'research-note@'    # research-note@<mkt>
-codex plugin list | grep 'research-note@'
+claude plugin list | grep -A1 'research-note@'    # Claude: research-note@<mkt>
+codex plugin list | grep 'research-note@'         # Codex
 ```
 
-Then, for each agent present:
+Then update it:
 
 ```bash
-claude plugin marketplace update <mkt> && claude plugin update research-note@<mkt>
-codex plugin marketplace upgrade <mkt> && codex plugin add research-note@<mkt>
+claude plugin marketplace update <mkt> && claude plugin update research-note@<mkt>   # Claude
+codex plugin marketplace upgrade <mkt> && codex plugin add research-note@<mkt>       # Codex
 ```
 
 A marketplace refreshes from the plugin's remote, so an unpushed commit reaches
@@ -50,10 +56,14 @@ earlier under another name, and version numbers do not compare across
 marketplaces (a renamed repository may restart at 0.1).
 
 ```bash
+# Claude
 PLUGIN=$(ls -d ~/.claude/plugins/cache/<mkt>/research-note/* | sort -V | tail -1)
-# Codex-only machine: ~/.codex/plugins/cache/<mkt>/research-note/*
 bash "$PLUGIN/scripts/update_projects.sh" --dry-run   # preview
 bash "$PLUGIN/scripts/update_projects.sh"
+
+# Codex — --agents codex leaves the project's Claude pin where it is
+PLUGIN=$(ls -d ~/.codex/plugins/cache/<mkt>/research-note/* | sort -V | tail -1)
+bash "$PLUGIN/scripts/update_projects.sh" --agents codex
 ```
 
 Run from inside the project, it updates that project and nothing else. A path
@@ -65,8 +75,9 @@ In order, it:
    gets one with every integration ON, exactly what it had; an update never
    disables anything. `--dry-run` first prints the ownership table: who owns
    each managed path and what this run may do to it;
-2. moves the project's Claude pin to the version just installed (Codex has no
-   per-project pin); `--agents none` skips this;
+2. moves the project's Claude pin to the version just installed, renaming it
+   when the project still names an earlier marketplace (Codex has no
+   per-project pin); `--agents codex` or `none` skips this;
 3. updates the framework section of the four contracts, copies the page
    templates, refreshes the git hooks, merges the permissions the template
    gained, and points `research-note.pluginRoot` at this copy — every
@@ -124,7 +135,9 @@ clause to the agent doing it.
 
 ## 6. Report
 
-Per agent and for the project, the version before and after, read from the
+Your agent and the project, the version before and after, read from the
 registries rather than from command output; the contracts synced and the ones
 left alone, with why; what was ported into `.slurm` copies; doctor and lint;
-and what the user still has to do — `/reload-plugins`, a new Codex session.
+and what the user still has to do — `/reload-plugins`, or a new Codex session.
+Then the other agent: its installed version, and the command that would
+update it, noting that updating Codex moves every project used from Codex.

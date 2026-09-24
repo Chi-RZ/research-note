@@ -107,20 +107,23 @@ in the same environment. Setup installs uv if it is missing, after asking you.
 
 ## 3. Update
 
-First update the plugin in each agent with its own command:
+In a project, tell the agent:
+
+> update research-note
+
+It pulls the newest plugin into the agent you are using, then brings that one
+project up to it: its instruction files, git hooks and settings. Other
+projects stay on their version until you update them. The other agent is left
+alone; update it yourself when you are ready — for Codex that moves every
+project you use from Codex, since Codex keeps one version per machine:
 
 ```bash
 claude plugin marketplace update research-tools && claude plugin update research-note@research-tools
 codex plugin marketplace upgrade research-tools && codex plugin add research-note@research-tools
 ```
 
-Then, in a project, tell the agent:
-
-> update research-note
-
-This brings that project up to the new version: its instruction files, git
-hooks and settings. Your rules sections are kept, and a project from an
-earlier version is migrated on its first update. Ask for a dry run to see the
+Your rules sections are kept, and a project from an earlier version is
+migrated on its first update. Ask for a dry run to see the
 changes first. Nothing is committed for you: review the output and commit it
 yourself.
 

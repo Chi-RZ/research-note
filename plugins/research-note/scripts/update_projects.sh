@@ -25,8 +25,9 @@
 # check that they agreed — 250 lines that broke whenever an agent changed its
 # registry, and found nothing the native commands do not report.
 #
-# `--agents none` skips moving each project's Claude pin; any other `--agents`
-# value is accepted for older callers and changes nothing.
+# `--agents none` or `--agents codex` leaves the project's Claude pin alone —
+# the update skill run from Codex passes `codex`, since the Claude side is not
+# its to move. `both` and `claude` move it.
 #
 # Does NOT: commit (it prints what to commit; staging is the caller's), or
 # reload the session (impossible from a script — see the skill).
