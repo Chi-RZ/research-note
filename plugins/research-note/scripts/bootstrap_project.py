@@ -223,9 +223,37 @@ def feature_choices(argv: list[str], *, has_remote: bool = False) -> dict[str, b
     return choices
 
 
+def claude_selector(default: str) -> str:
+    """`research-note@<marketplace>` as Claude registered it on THIS machine.
+
+    The template names the marketplace this repository declares, which is what
+    a README install registers. A machine that added it under another name
+    (an earlier name, a fork, a local path) needs that name, or the project's
+    `enabledPlugins` names a plugin Claude does not have. Read from where this
+    copy is installed (`~/.claude/plugins/cache/<marketplace>/research-note/<v>`),
+    else from Claude's registry, else the template's."""
+    cache = Path.home() / ".claude" / "plugins" / "cache"
+    try:
+        rel = PLUGIN.resolve().relative_to(cache.resolve())
+        return f"research-note@{rel.parts[0]}"
+    except (ValueError, IndexError):
+        pass
+    try:
+        reg = json.loads((cache.parent / "installed_plugins.json").read_text())
+        return next(k for k in reg.get("plugins", {})
+                    if k.split("@", 1)[0] == "research-note")
+    except (OSError, ValueError, StopIteration):
+        return default
+
+
 def settings_text(*, hpc: bool) -> str:
     """Render the smallest settings file needed by the selected features."""
     settings = json.loads((TEMPLATES / "settings.json").read_text(encoding="utf-8"))
+    enabled = settings.get("enabledPlugins", {})
+    default = next((k for k in enabled if k.split("@", 1)[0] == "research-note"), None)
+    if default:
+        settings["enabledPlugins"] = {
+            (claude_selector(default) if k == default else k): v for k, v in enabled.items()}
     if hpc:
         extra = json.loads(
             (TEMPLATES / "hpc-permissions.json").read_text(encoding="utf-8")

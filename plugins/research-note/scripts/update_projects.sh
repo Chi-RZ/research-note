@@ -62,18 +62,7 @@ CLAUDE_REGISTRY="$HOME/.claude/plugins/installed_plugins.json"
 # Hardcoding it made the project-scope update below a no-op there — silently,
 # since a selector that matches nothing is not an error. The block that reads
 # the pin back, twenty lines down, has always derived it correctly.
-CLAUDE_SELECTOR=$(python3 - "$CLAUDE_REGISTRY" 2>/dev/null <<'PY' || true
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-except Exception:
-    raise SystemExit
-for key in d.get("plugins", {}):
-    if key.split("@", 1)[0] == "research-note":
-        print(key)
-        break
-PY
-)
+
 
 # The invoked script carries the framework version it deploys. Resolving only
 # through ~/.claude made the same package unusable on a Codex-only machine and
@@ -93,6 +82,10 @@ else:
 PY
 ) || { echo "update_projects: cannot read plugin version from $CACHE" >&2; exit 2; }
 echo "target version: $VER   ($CACHE)"
+
+# The Claude selector this copy was installed under — `research-note@<marketplace>`,
+# the installer's name, read from bootstrap (the one place that derives it).
+CLAUDE_SELECTOR=$(cd "$HERE" && python3 -c "import bootstrap_project as b; print(b.claude_selector(''))" 2>/dev/null || true)
 
 if [ ${#WANT[@]} -eq 0 ]; then
     cur=${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}}
@@ -152,9 +145,40 @@ for P in "${WANT[@]}"; do
     if [ "$AGENTS" != none ] && [ "$AGENTS" != codex ] \
             && command -v claude >/dev/null 2>&1 \
             && [ -f "$CLAUDE_REGISTRY" ]; then
-        # No selector means no row to update; the read-back below reports it.
-        [ -n "$CLAUDE_SELECTOR" ] && \
+        # A project still naming the plugin under ANOTHER marketplace (an
+        # earlier name, e.g. `rzchi` before `research-tools`) is moved to the
+        # one this copy was installed from: its enabledPlugins key renamed, the
+        # new pin installed, the old one removed. Otherwise the pin is updated.
+        OLD_SEL=$(python3 - "$P/.claude/settings.json" "$CLAUDE_SELECTOR" <<'PY' 2>/dev/null
+import json, sys
+path, want = sys.argv[1], sys.argv[2]
+try:
+    s = json.load(open(path))
+except Exception:
+    raise SystemExit
+for k in s.get("enabledPlugins", {}):
+    if k.split("@", 1)[0] == "research-note" and k != want:
+        print(k)
+        break
+PY
+)
+        if [ -n "$CLAUDE_SELECTOR" ] && [ -n "$OLD_SEL" ]; then
+            echo "   claude plugin: $OLD_SEL -> $CLAUDE_SELECTOR"
+            CHANGED+=("$P")
+            if [ "$DRY" != 1 ]; then
+                python3 - "$P/.claude/settings.json" "$OLD_SEL" "$CLAUDE_SELECTOR" <<'PY'
+import json, sys
+path, old, new = sys.argv[1:]
+s = json.load(open(path))
+s["enabledPlugins"] = {(new if k == old else k): v for k, v in s["enabledPlugins"].items()}
+json.dump(s, open(path, "w"), indent=2); open(path, "a").write("\n")
+PY
+                ( cd "$P" && claude plugin install "$CLAUDE_SELECTOR" --scope project >/dev/null 2>&1
+                  claude plugin uninstall "$OLD_SEL" --scope project >/dev/null 2>&1 ) || true
+            fi
+        elif [ -n "$CLAUDE_SELECTOR" ]; then
             ( cd "$P" && run claude plugin update "$CLAUDE_SELECTOR" --scope project >/dev/null 2>&1 )
+        fi
         got=$(python3 - "$CLAUDE_REGISTRY" "$P" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -171,7 +195,9 @@ PY
         # A pin AHEAD of this copy is the normal state right after an update —
         # the script executing is the old version by construction. Only a pin
         # BEHIND is a finding.
-        if [ "$got" = "$VER" ]; then
+        if [ "$got" = "(no row)" ]; then
+            echo "   claude project pin: none — this project loads the plugin from user scope, if at all"
+        elif [ "$got" = "$VER" ]; then
             echo "   claude project pin: $VER"
         elif [ "$(printf '%s\n%s\n' "$VER" "$got" | sort -V | tail -1)" = "$got" ]; then
             echo "   claude project pin: $got  (ahead of this copy $VER — fine)"
