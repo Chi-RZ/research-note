@@ -12,7 +12,7 @@ Codes (DESIGN.md §10):
   O2  Goal, Plan, Verdict, in order, nothing else
   O3  links resolve and land on real entries; a backticked id beside an entry
       link matches that entry's `Id:`
-  O4  the Goal is byte-unchanged (vs git HEAD)
+  O4  Goal revisions carry user authorization bound to the old/new text
   O5  the Plan is a DAG: phase headers parse, `needs:` names existing phases,
       no cycles
   O6  a probe spawned by a live Plan appears on some plan
@@ -24,21 +24,23 @@ Codes (DESIGN.md §10):
       (the Goal is the user's and may carry its target table)
   O10 `attention:` present only while the loop is stopped — never on a closed
       objective
-  O11 the Verdict stays the answer — bounded length; the reasoning is in the
+  O11 advisory: the Verdict stays the answer — the reasoning is in the
       phases
   O12 the id is unique across objectives/ — a duplicate silently merges two
       goals' trailer histories
   M1  one record language, where framework.json declares it
 
-Nothing here is auto-fixable: entry links are provenance only the deciding
-turn can supply, and a bot picking a side in a stale-reading dispute would be
-fabricating evidence.
+Review counts are derived and maintained by objective_state.py. Entry links
+and phase judgements still require the deciding turn; an explicit review is
+bound to its evidence, never inferred from a timestamp alone.
 
 Usage: check_objective_page.py [PATH ...] [--quiet]
 Exit: 0 clean · 1 findings · 3 record-version mismatch.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -47,7 +49,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from projroot import nth_parent, resolve_root  # noqa: E402
 from check_node_page import (  # noqa: E402
-    CJK_RE, CONCLUDED, _record_language, record_version_check)
+    CJK_RE, CONCLUDED, _record_language, record_version_check, field_block)
 
 ROOT = resolve_root(nth_parent(Path(__file__), 2))
 OBJ_DIR = ROOT / "project_memory" / "objectives"
@@ -158,9 +160,9 @@ def _entry_field(text: str, key: str) -> dict[str, str]:
     out: dict[str, str] = {}
     parts = ENTRY_HEAD_RE.split(text)
     for i in range(1, len(parts) - 1, 2):
-        m = re.search(rf"^- \*\*{key}:\*\*(.*)$", parts[i + 1], re.M)
-        if m:
-            out[_slug(parts[i])] = " ".join(m.group(1).split())
+        value = field_block(parts[i + 1], key)
+        if value:
+            out[_slug(parts[i])] = " ".join(value.split())
     return out
 
 
@@ -228,6 +230,41 @@ def _rel(path: Path) -> str:
         return str(path.relative_to(ROOT))
     except ValueError:
         return str(path)
+
+
+ADVISORY_CODES = {"O11"}
+REVIEW_RE = re.compile(r"^  - Review: .+ <!-- rn-review:([0-9a-f]{64}) -->$", re.M)
+
+
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def phase_blocks(text: str) -> list[str]:
+    return re.split(r"(?=^-\s*\[[ xX]\]\s*\*\*P\d+)", body_of(text, "Plan"), flags=re.M)
+
+
+def phase_fingerprint(path: Path, block: str) -> str:
+    """Bind an explicit review to this reading and every full linked conclusion."""
+    evidence = []
+    for rel, slug in sorted(set(ENTRY_REF_RE.findall(block))):
+        page = (path.parent / rel).resolve()
+        if not page.is_file():
+            raise ValueError(f"missing review source: {rel}")
+        conclusion = _entry_field(page.read_text(encoding="utf-8"), "Conclusion").get(slug)
+        if not conclusion:
+            raise ValueError(f"missing conclusion: {rel}#entry-{slug}")
+        evidence.append((rel, slug, conclusion))
+    if not evidence:
+        raise ValueError("phase has no conclusions to review")
+    reading = REVIEW_RE.sub("", block).strip()
+    return digest(json.dumps([reading, evidence], ensure_ascii=True, sort_keys=True))
+
+
+def goal_change_approved(fm: dict, previous: str, current: str) -> bool:
+    return (bool(fm.get("goal-approval", "").strip())
+            and fm.get("goal-approved-from") == digest(body_of(previous, "Goal").strip())
+            and fm.get("goal-approved-to") == digest(body_of(current, "Goal").strip()))
 
 
 def lint(path: Path) -> list[str]:
@@ -425,6 +462,15 @@ def lint(path: Path) -> list[str]:
         for block in re.split(r"(?=^-\s*\[[ xX]\]\s*\*\*P\d+)", plan_body, flags=re.M):
             if not CHECKBOX_RE.match(block) or "▶" not in block:
                 continue
+            review = REVIEW_RE.search(block)
+            if review:
+                try:
+                    current = phase_fingerprint(path, block)
+                except ValueError:
+                    current = None
+                if current != review.group(1):
+                    errs.append("O7 phase evidence or reading changed since its explicit review — re-read and review again")
+                continue
             dates = [d for line in block.splitlines()
                      if (d := DATE_TAIL_RE.search(line))]
             if not dates:
@@ -521,10 +567,11 @@ def lint(path: Path) -> list[str]:
     # O4 — the Goal is the user's, byte-unchanged against the committed version.
     prev = git_show(path)
     if prev is not None:
-        if body_of(text, "Goal").strip() != body_of(prev, "Goal").strip():
+        if (body_of(text, "Goal").strip() != body_of(prev, "Goal").strip()
+                and not goal_change_approved(fm, prev, text)):
             errs.append("O4 Goal changed — the Goal is the user's; a different "
-                        "goal is a different objective. If the user rewrote it, "
-                        "this clears on the next commit")
+                        "goal requires explicit user authorization. Record the instruction with "
+                        "objective_state.py approve-goal before committing")
 
     # M1 — one record language, where the project declares it.
     if _record_language() == "en":
@@ -580,10 +627,11 @@ def main() -> int:
     for p in paths:
         errs = lint(p)
         if errs:
-            bad += 1
+            bad += any(e.split()[0] not in ADVISORY_CODES for e in errs)
             print(f"{_rel(p)}:")
             for e in errs:
-                print(f"  {e}")
+                prefix = "warning: " if e.split()[0] in ADVISORY_CODES else ""
+                print(f"  {prefix}{e}")
         elif not quiet:
             print(f"{_rel(p)}: OK")
     for p, e in duplicate_id_errors():

@@ -308,7 +308,7 @@ which parts the loop may rewrite, and which are the user's alone.
 |---|---|
 | **id** | Never |
 | **status**<br>**created** | `status` moves to `closed` by the user; `created` never |
-| **Goal** | **Never.** A different goal is a different objective |
+| **Goal** | Only on explicit user instruction, recorded with hashes of the old and new Goal; an independent goal gets a new objective |
 | **budget**<br>**wake-me-if**<br>**attention** | The user sets the first two, freely; the loop sets and clears `attention` |
 | **Plan** | Freely — appended, rewritten, renumbered, dropped |
 | **Verdict** | Freely, rewritten at milestones |
@@ -342,6 +342,21 @@ entry states it.
 
 A route the work backed out of says so in its reading — a phase that closed a direction settled
 something. If it is no longer part of the route at all, the phase goes and git holds it.
+
+The record bus maintains O8's review count before saving an objective and after
+entry changes. The launcher does the same when a job changes an entry's status.
+Count-only updates to clean objectives use separate Objective commits under the
+record lock. They skip record lint only for this derived text, preserving other
+Git hooks: O7/O13 may still require an authored phase review, and the count
+update must not fabricate one. Pending edits are left to their owner; their
+count refreshes on the next bus save. Failures are reported and the derived edit
+is restored. O8 still checks saved counts independently.
+
+An O7 review can leave the phase reading unchanged. `objective_state.py
+review-phase` records a note and a fingerprint of the phase plus its full linked
+conclusions, so a subsequent evidence change requires a new review. O4's
+`approve-goal` command records the user's instruction and the exact Goal change;
+it provides an audit trail, not independent proof of permission.
 
 ### What makes free rewriting safe
 
@@ -610,7 +625,7 @@ validation entry that carries it is — `V1`. A `closed` entry is released from
 `E4`–`E9`, the checks that judge what a field SAYS: the user's ✓ accepted it as
 it stood, and those bind while the entry is still the agent's to write, which
 every entry is at `analyzed`. Everything else still binds — `E10` and
-`E12`–`E15`, which judge only WHERE a line sits, and `E11` and `E16`, which ask
+`E12`–`E14`, which judge only WHERE a line sits, and `E11` and `E16`, which ask
 whether a claim can still be followed at all. A tick accepts a reading; it
 cannot make an unreachable SHA reachable again.
 
@@ -619,10 +634,10 @@ cannot make an unreachable SHA reachable again.
 | | node pages | objective pages |
 |---|---|---|
 | **the tree joins up** | `N1` node.md's frontmatter, its `node:` matching the folder, and at least one `### Entry:` · `N2` an implementation exists under `experiments/<node>/` · `N3` the regenerated roster matches the tree · `FW` record version matches the linter | |
-| **the entry says what it must** | `E1` id unique, in `Date` order · `E2` status ∈ the four states · `E3` date · `E4` `Code` names its commits · `E5` motivation in its form: source named, fact quoted, one question · `E6` recipe is a knob map · `E7` `Facts`: the sentence, the table, the evidence links · `E8` a displayed number this entry did not run has a `Refs` row · `E9` a conclusion once `analyzed`, in its form · `E10` one spelling, no retired field · `E11` one computation script per entry · `E12` every line sits inside a field · `E13` `Facts` holds no bare `Job — [log]` stanza · `E14` the Conclusion carries no link · `E15` the Conclusion ends at its verdict · `E16` a cited `<repo>@<sha>` is retrievable — landed on the default branch for this repo, resolvable for a pinned lib | `O1` frontmatter: id, status, created, budget, wake-me-if · `O2` Goal, Plan, Verdict, in order, nothing else |
+| **the entry says what it must** | `E1` id unique and stable; dates may be backfilled · `E2` status ∈ the four states · `E3` date · `E4` `Code` names its commits · `E5` motivation in its form: source named, fact quoted, one question · `E6` recipe is a knob map · `E7` `Facts`: evidence and a numerical table, or an explicit no-measurements reason · `E8` a displayed number this entry did not run has a `Refs` row · `E9` a substantive conclusion once `analyzed`, wording flexible · `E10` one spelling, no retired field · `E11` one computation script per entry · `E12` every line sits inside a field · `E13` `Facts` holds no bare `Job — [log]` stanza · `E14` the Conclusion carries no link · `E15` retired · `E16` a cited `<repo>@<sha>` is retrievable — landed on the default branch for this repo, resolvable for a pinned lib | `O1` frontmatter: id, status, created, budget, wake-me-if · `O2` Goal, Plan, Verdict, in order, nothing else |
 | **a claim can be followed** | `P1` page frontmatter, its `node:` matching the folder, and at least one `### Entry:` · `P2` links and anchors resolve · `P3` figures render · `P4` a figure has a caption, embedded once · `P5` no page-level Jobs | `O3` links resolve and land on real entries |
-| **work in flight has an owner** | `J1` an entry with jobs links an artifact · `J2` a live BATCH job is named by some entry — an interactive allocation is exempt, and so is one younger than the reuse tolerance · `J3` `J4` entry status against the queue, both directions · `J5` an entry that ran jobs left `Jobs:` empty · `J6` an id the Facts name (or a `Job` line anywhere) is missing from the field | `O8` the awaiting-review count matches the Plan |
-| **the route stays honest** | `V1` a validation entry NAMES the entry it replays. That the recipe and the reproduced number are also there is the writer's, not the linter's: reading them is a judgement (§10.4's own boundary) | `O4` the Goal is byte-unchanged · `O5` the Plan is a DAG · `O6` a spawned probe appears on some plan · `O12` the id is unique across objectives/ · `O7` a reading is not older than the conclusions it reads · `O9` no figure and no table · `O10` no `attention:` on a CLOSED objective — that it is present while stopped is the loop's to honour, not a check · `O11` the Verdict stays the answer — bounded length · `O13` a phase's box matches the entries under it · `O14` an entry launched with jobs is named by some phase, the same turn |
+| **work in flight has an owner** | `J1` an entry with jobs links an artifact · `J2` a live BATCH job is named by some entry — an interactive allocation is exempt, and so is one younger than the reuse tolerance · `J3` `J4` entry status against the queue, both directions · `J5` an entry that ran jobs left `Jobs:` empty · `J6` an id the Facts name (or a `Job` line anywhere) is missing from the field | `O8` the tool-maintained awaiting-review count matches the Plan |
+| **the route stays honest** | `V1` a validation entry NAMES the entry it replays. That the recipe and the reproduced number are also there is the writer's, not the linter's: reading them is a judgement (§10.4's own boundary) | `O4` Goal changes require recorded user authorization bound to the exact revision · `O5` the Plan is a DAG · `O6` a spawned probe appears on some plan · `O12` the id is unique across objectives/ · `O7` a reading follows its conclusions, or has an explicit review bound to their current content · `O9` no figure and no table · `O10` no `attention:` on a CLOSED objective — that it is present while stopped is the loop's to honour, not a check · `O11` a long Verdict receives a non-blocking reminder · `O13` a phase's box matches the entries under it · `O14` an entry launched with jobs is named by some phase, the same turn |
 | **project policy, opt-in** | `M1` one record language, where `framework.json` declares it | `M1` |
 
 **When they run:**
@@ -684,7 +699,7 @@ A fixer (an optional, session-started daemon with its own state in `.fixer/`;
 the core state it once held lives in `.research-note/state/`, `lib_state.sh`
 below) each cycle
 pulls finished logs and data back (`remote.sh pull`), refreshes the remote queue
-snapshot, runs both linters, regenerates the board, and where a page and the
+snapshot, runs both linters, regenerates the board when enabled, and where a page and the
 world disagree raises `attention:`. **It repairs nothing** — status moves are
 the watching session's (§8, §9); the record has one live instance with one
 door. That is a SETTING, not a structural guarantee, and the distinction
@@ -694,7 +709,9 @@ venue records at launch, so an unattended agent has nothing left to repair.
 Turning one on puts a second writer on the record — which is why it is off, and
 why "it repairs nothing" is a line to re-read whenever that config changes.
 
-The board is a **view, never a source**: `dashboard.html` is rewritten from the
+The board is an **optional view, never a source**. New projects leave
+`features.dashboard` off; older declarations without this key retain their
+previous behavior. While enabled, `dashboard.html` is rewritten from the
 pages after every record write — by the bus, and by the launcher's record step,
 detached so no write waits for it — and each fixer cycle when a fixer runs; it
 is gitignored and written atomically. It renders the node roster, the attention
@@ -765,13 +782,18 @@ the skill.**
 `bootstrap_project.py` lays down the core project in one idempotent run: the
 layout, the four editable contracts (§10.1) and `framework.json`, core
 `settings.json`, the eight contract symlinks (§12), the githooks (§10.5), the
-auto-memory wiring, `.gitignore`, `_index.md`, the board, then the acceptance
-gate. The fixer, HPC, editor and cross-agent support are integrations, each
+auto-memory wiring, `.gitignore`, `_index.md`, then the acceptance
+gate. The dashboard, fixer, HPC, editor and cross-agent support are integrations, each
 enabled by a flag that is persisted in `.research-note/project.json` rather
 than affecting one run — later runs, the hooks and doctor all read the same
 choice. The fixer is a detached daemon and never also a cron line: two
 schedulers for one job serialize on the same lock, so the second only ever
 loses the race, while writing the user's global crontab to do it.
+
+The normal setup runs bootstrap once, then `bootstrap_project.py PROJECT --check`
+for read-only wiring verification after the skill's edits. A dry run is available
+for an explicit preview. Doctor is a deeper diagnostic when a check fails;
+setup no longer invokes doctor and then reruns the installer by default.
 
 It deliberately leaves to the skill everything requiring judgment: the project's
 mission paragraph, which domain libraries belong in log headers, the environment

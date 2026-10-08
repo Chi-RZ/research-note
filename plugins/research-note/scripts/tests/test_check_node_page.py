@@ -226,11 +226,11 @@ def test_e1_duplicate_id_fires(tmp_path, monkeypatch):
     assert any(e.startswith("E1") and "never reused" in e for e in C.lint_page(p))
 
 
-def test_e1_ids_follow_date_order(tmp_path, monkeypatch):
+def test_e1_ids_allow_backfilled_dates(tmp_path, monkeypatch):
     p = write_page(tmp_path, "tanner_gnn_ln", "grid",
                    PAGE + _second_entry("07.002", "2026-07-20 10:00"))
     monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("E1") and "Date` order" in e for e in C.lint_page(p))
+    assert not any(e.startswith("E1") for e in C.lint_page(p))
 
 
 def test_e1_duplicate_entry_heading_fires(tmp_path, monkeypatch):
@@ -435,11 +435,11 @@ def test_e9_placeholder_conclusion_fires(tmp_path, monkeypatch):
     assert any(e.startswith("E9") for e in C.lint_page(p))
 
 
-def test_e9_conclusion_without_a_verdict_fires(tmp_path, monkeypatch):
+def test_e9_conclusion_without_an_english_suffix_is_valid(tmp_path, monkeypatch):
     text = PAGE.replace(" — answers the motivation.", ".")
     p = write_page(tmp_path, "tanner_gnn_ln", "grid", text)
     monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("E9") and "verdict" in e for e in C.lint_page(p))
+    assert not any(e.startswith("E9") for e in C.lint_page(p))
 
 
 @pytest.mark.parametrize("verdict", ["partly answers", "does not answer"])
@@ -1085,16 +1085,14 @@ def test_e14_a_link_in_the_conclusion_is_flagged(tmp_path, monkeypatch):
     assert any(e.startswith("E14") for e in C.lint_page(p))
 
 
-def test_e15_a_conclusion_running_past_its_verdict_is_flagged(tmp_path, monkeypatch):
-    """The retired tail (`; not covered: <Z>`) is the canonical offender: since
-    0.13.28 the sentence ENDS at the verdict, and what a tail held moves into
-    the because (a partly's gap: Facts + because)."""
+def test_e15_a_conclusion_can_state_its_boundary_after_the_verdict(tmp_path, monkeypatch):
+    """An explicit boundary can follow the answer without an English suffix gate."""
     text = PAGE.replace(
         "— answers the motivation.",
         "— partly answers the motivation; not covered: the p=0.1 corner.")
     p = write_page(tmp_path, "tanner_gnn_ln", "grid", text)
     monkeypatch.setattr(C, "NODES_DIR", tmp_path)
-    assert any(e.startswith("E15") for e in C.lint_page(p))
+    assert not any(e.startswith("E15") for e in C.lint_page(p))
     assert not any(e.startswith("E15") for e in C.lint_page(
         write_page(tmp_path, "tanner_gnn_ln", "clean", PAGE)))
 
@@ -1506,3 +1504,16 @@ def test_j3_reads_a_linked_log_that_is_not_on_disk_as_not_back_yet(tmp_path, mon
     line = j3(page)
     assert "its log is not pulled back yet" in line, line
     assert "killed?" not in line and "FAILED" not in line
+
+
+def test_e7_no_measurements_needs_a_reason_and_still_needs_evidence():
+    body = PAGE.split("### Entry:", 1)[1].split("\n", 1)[1]
+    body = body.replace("  | d | LER |\n  |---|---|\n  | 5 | 2.31e-3 |\n", "")
+    assert any(e.startswith("E7") for e in C.entry_errors("failed", body))
+    body = body.replace("We ran the d5 cell, one job at seed 0, and got one LER", "The d5 job failed during import, before producing measurements")
+    marked = body + "\n- **Measurements:** none — import failed before any measurements\n"
+    assert not any(e.startswith(("E7", "E12")) for e in C.entry_errors("failed", marked))
+    no_reason = body + "\n- **Measurements:** none\n"
+    assert any(e.startswith("E7") for e in C.entry_errors("failed", no_reason))
+    no_evidence = marked.replace("[log](../../../experiments/tanner_gnn_ln/scc/logs/slurm-ln-64196217.out)", "log missing")
+    assert any(e.startswith("E7") and "evidence" in e for e in C.entry_errors("failed", no_evidence))

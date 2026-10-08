@@ -64,3 +64,17 @@ def test_fixer_can_launch_claude(monkeypatch, tmp_path):
         "claude", "-p", "repair this", "--model", "sonnet",
         "--max-turns", "7", "--permission-mode", "acceptEdits",
     ]
+
+
+def test_disabled_dashboard_does_not_start_a_renderer(monkeypatch, tmp_path):
+    mod = _load(monkeypatch, tmp_path)
+    config = tmp_path / ".research-note/project.json"
+    config.parent.mkdir(exist_ok=True)
+    config.write_text('{"features": {"dashboard": false}}')
+    calls = []
+    def track_run(*args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(mod.subprocess, "run", track_run)
+    mod.regen_dashboard()
+    assert calls == [], "disabled dashboard launched a process"

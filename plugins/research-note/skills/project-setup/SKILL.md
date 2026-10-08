@@ -7,7 +7,7 @@ description: Use when starting a new research project or bringing an existing on
 
 Turn a directory into a research project: confirmed directory roles, the
 `project_memory/` record, the instruction files (`CLAUDE.md` and `AGENTS.md`
-are two views of one contract), git hooks, a dashboard, and a uv environment.
+are two views of one contract), git hooks and a uv environment; the dashboard is optional.
 `scripts/bootstrap_project.py` does the mechanical part in one idempotent run;
 this skill owns the judgment — which directory is which, and the environment.
 
@@ -109,19 +109,21 @@ Nothing is written and bootstrap does not run before the user confirms.
 `git config --get research-note.pluginRoot` names it.
 
 ```bash
-python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD" --dry-run   # preview
 python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"
 ```
 
+Use `--dry-run` when the user requests a preview or the proposed changes need
+inspection before applying them. The normal path runs bootstrap once.
+
 Add only the integrations the user asked for — each has a section in
 [integrations.md](integrations.md), read it for the ones chosen:
-`--remote HOST:DIR` (a cluster; repeatable), `--with-fixer`, `--with-editor`,
+`--remote HOST:DIR` (a cluster; repeatable), `--with-dashboard`, `--with-fixer`, `--with-editor`,
 `--with-cross-agent`. The choices land in `.research-note/project.json`.
 
 Bootstrap creates the role directories and `project_memory/`, runs `git init`
 if needed, writes the `.claude/` bindings and the instruction-file views,
 installs the git hooks, writes `.gitignore` when none exists, generates
-`_index.md` and `dashboard.html`, and ends with both linters as its acceptance
+`_index.md` (plus `dashboard.html` when enabled), and ends with both linters as its acceptance
 gate. It prints one line per step and a `needs attention` summary; read every
 `FAIL`/`WARN` before going on.
 
@@ -137,10 +139,6 @@ project:
   exit code intact. A hook tool installed *after* setup goes into
   `.git/hooks/` by hand (`pre-commit install` refuses while `core.hooksPath` is
   set). `githooks_install.py uninstall PROJECT` puts everything back.
-
-A project that already tracks `project_memory/dashboard.html` needs
-`git rm --cached project_memory/dashboard.html` once: the board is rewritten
-on every record write, and bootstrap only adds the ignore rule.
 
 ## Step 3 — The environment
 
@@ -206,35 +204,25 @@ writing `pyproject.toml`.
 write there only when asked. The git remote stays local unless the user asks
 for a GitHub repository.
 
-## Step 5 — Verify
+## Step 5 — Verify installation once
 
 ```bash
-bash "$PLUGIN/scripts/doctor.sh"                      # the wiring, with a fix per problem
-python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD"  # re-runs the gate after Step 4 edits
+python3 "$PLUGIN/scripts/bootstrap_project.py" "$PWD" --check
 ```
 
-Doctor checks the core and every integration the project enabled; a disabled
-one is listed, never failed. Setup is complete when bootstrap reports zero
-`FAIL` and every contract view resolves — a dangling link loads as nothing,
-silently:
-
-```bash
-for f in CLAUDE.md project_memory/CLAUDE.md; do
-  test -e "$f" && echo "OK  $f" || echo "DANGLING  $f"
-done
-for role in experiments knowledge; do
-  python3 "$PLUGIN/scripts/project_config.py" role "$role" | while read -r root; do
-    test -e "$root/CLAUDE.md" && echo "OK  $root/CLAUDE.md" || echo "DANGLING  $root/CLAUDE.md"
-  done
-done
-```
+This read-only check verifies the project declaration, contract views, shared
+memory and skills, plugin binding and Git hooks. It leaves files, environments
+and services untouched. Setup is complete when it exits zero and the earlier
+bootstrap reported zero `FAIL`. If a check fails, use `doctor.sh` to diagnose
+it, repair the reported problem, then repeat the check. Verify enabled
+integrations through their sections in `integrations.md`.
 
 ## Step 6 — Commit and hand over
 
 Commit one layer per commit — `.claude/` and `.research-note/` under `agent:`,
 root files under `chore:`, never folded into another layer's commit. Then tell
-the user: the roles declared, the environment command, where the dashboard is
-(`project_memory/dashboard.html`), what each chosen integration still needs
+the user: the roles declared, the environment command, and, if enabled, the
+dashboard path (`project_memory/dashboard.html`); what each chosen integration still needs
 from them, and that the next step is `research-note:plan`.
 
 ## Checklist
@@ -246,6 +234,6 @@ Tick on the evidence named, not on the intention.
 - [ ] bootstrap reports zero `FAIL`; every contract view prints `OK`
 - [ ] `INDEX.md` in the first library root, `## Domain libraries` filled in (or "none")
 - [ ] `uv sync` done; `uv run python -c "import <pkg>"` succeeds
-- [ ] doctor green for the core and each enabled integration
+- [ ] `bootstrap_project.py PROJECT_DIR --check` exits zero
 - [ ] each chosen integration's section in `integrations.md` followed
 - [ ] layered commits made; `research-note:plan` suggested

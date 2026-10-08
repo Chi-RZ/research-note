@@ -73,6 +73,7 @@
     }
   },
   "features": {
+    "dashboard": false,
     "fixer": false,
     "hpc": false,
     "editor": false,

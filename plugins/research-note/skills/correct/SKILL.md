@@ -62,11 +62,13 @@ You hold the context; nobody else can do this correctly later.
    (E5) — where the corrected number makes the question pointless, the
    Conclusion's verdict and `because` say so. Re-run a descendant only if its
    own numbers consumed the contaminated output.
-2. **Update every owning phase**: the ▶ reading is rewritten where it stood on
-   the moved conclusion (O7); the correction's own entries join their phase
+2. **Update every owning phase**: re-read the ▶ reading against
+   the moved conclusion (O7). Rewrite it when invalidated; otherwise record
+   the review with `objective_state.py review-phase <page> P<n> --note
+   '<review finding>'` and save through the bus; the correction's own entries join their phase
    (O6).
-3. **Recount the Verdict's awaiting-review count** (O8) — your restatements
-   changed it.
+3. **Save the owning objectives through the bus** — it refreshes the
+   awaiting-review count (O8); author only the changed judgments.
 
 ## 4. Commit and verify
 

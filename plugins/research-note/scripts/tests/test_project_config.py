@@ -40,6 +40,7 @@ def test_new_config_defaults_optional_integrations_off(tmp_path):
     path.write_text("{}")
     cfg = m.load_project_config(root)
     assert cfg["features"] == {
+        "dashboard": True,  # an existing declaration predates this option
         "fixer": False,
         "hpc": False,
         "editor": False,
@@ -51,6 +52,17 @@ def test_first_schema_config_preserves_integrations_for_legacy_projects():
     m = module()
     cfg = m.initial_project_config(legacy=True)
     assert cfg["features"] == m.LEGACY_FEATURES
+
+
+@pytest.mark.parametrize("features", [None, [], "dashboard", False])
+def test_malformed_features_reports_a_config_error(tmp_path, features):
+    m = module()
+    root = project(tmp_path)
+    path = root / m.CONFIG_PATH
+    path.parent.mkdir()
+    path.write_text(json.dumps({"features": features}))
+    with pytest.raises(m.ConfigError, match="features must be an object"):
+        m.load_project_config(root)
 
 
 def test_first_schema_config_uses_core_only_defaults_for_new_projects():

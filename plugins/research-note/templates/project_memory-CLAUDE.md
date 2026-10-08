@@ -59,8 +59,9 @@ cited here by id.
 
 Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
 
-- **Id** (E1): node number from `_index.md`, then a per-node sequence in `Date`
-  order. Both zero-padded, assigned at creation, never reused.
+- **Id** (E1): node number from `_index.md`, then a per-node sequence.
+  Both zero-padded, assigned at creation, never reused or renumbered to match
+  dates; backfilled records may have earlier dates.
 - **Status** (E2): the four states, nothing else. **Date** (E3): creation,
   never changes.
 - **Code** (E4): the newest commit at submission touching `<library-root>`, the node's
@@ -79,7 +80,9 @@ Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
 - **Recipe** (E6): every knob this run assigned — a map, never prose. An entry
   with jobs records one.
 - **Facts** (E7, E8): no interpretation; never a restatement of `Code`, of
-  `Recipe`, or of the table. The table is required, so the sentence does not
+  `Recipe`, or of the table. Numerical results require a table. If a run produced no measurements, add
+  `- **Measurements:** none — <reason>`; Facts still describes the failure or
+  interruption and links its evidence. Otherwise the sentence does not
   announce what it holds — the sentence carries the instance, the job layout,
   the script and the evidence links, and prose after the table carries only
   what the table cannot: a wall time, an exit status, the provenance of a job
@@ -87,19 +90,13 @@ Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
   from, here or one `Refs` hop away. Unmarked means this entry produced it; a
   quoted number carries the `[n]` of the entry that RAN it, and every `[n]`
   has a `Refs` row. Grows only toward more complete or more accurate.
-- **Conclusion** (E9): one claim, one reason, one verdict — `answers` /
-  `partly answers` / `does not answer` the motivation, and the sentence ends
-  there: what a `partly` leaves un-run is the Facts' to state and the
-  `because`'s to bound, and a `does not answer`'s reason is part of its
-  `because`. **One SENTENCE with three slots, not
-  three bullets**: the Conclusion IS the entry's interpretation, so what belongs
-  in it is whatever bears on the Motivation's question — and an observation that
-  answers a question the Motivation did not ask goes to `Facts` if it is a
-  measurement, or to its own entry if answering it needs a run. The `because`
-  states any premise a reader could object to — the yardstick, the baseline,
-  the assumed comparability, whatever a skeptic would deny first — and the
-  detection floor when the evidence is a draw. Rewritten freely; git holds the
-  previous version.
+- **Conclusion** (E9): state what the result establishes, why, how fully it
+  answers the Motivation, and the relevant limits. Keep it concise and scoped
+  to that question. State any premise a reader could dispute, and the detection
+  floor when the evidence is a draw. Wording and sentence order are flexible;
+  no English suffix is required (E15 retired). The linter checks presence and
+  placeholders; the analyzing agent reviews the reasoning. Rewritten freely;
+  git holds previous versions.
 - **One computation script per entry** (E11). A probe that exists only because
   another's result exists is a different entry.
 - **An entry is its fields and nothing else** (E12). Every line either opens a
@@ -109,13 +106,12 @@ Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
   here look for content under the key that owns it. E12 binds at every status,
   like E10 and unlike E4-E9: those judge what a field SAYS and stop at the
   user's ✓, while this one judges only WHERE a line sits.
-- **Evidence and interpretation each stay in their field** (E13, E14, E15).
+- **Evidence and interpretation each stay in their field** (E13, E14).
   `Facts:` holds no standalone `Job <id> — [log](…)` stanza — a log link
   belongs in the sentence's `evidence <links>` clause, or rides `- **Jobs:**`
   as an indented continuation (which is what `record_submit` writes). The
   `Conclusion:` carries no link — an artifact is `Facts:`'s, a borrowed entry
-  a `Refs:` `[n]` — and it ENDS at its verdict: what follows the verdict is a
-  `because`'s to hold, a Fact's to state, or its own entry's to answer.
+  a `Refs:` `[n]`. Boundaries and reasoning stay in the Conclusion.
   Placement checks like E10/E12 — they bind at every status, `closed` included.
 - **A cited SHA is retrievable** (E16). `Code:`'s claim is only as good as
   the commit it names: for THIS repo the SHA must have LANDED — be an
@@ -207,7 +203,11 @@ loop sets and clears `attention`; the user closes `status`.
 Three sections, in order, nothing else (O2):
 
 - **`## Goal`** — the question and what would count as answering it. The
-  user's, byte-immutable after intake (O4).
+  user's; unchanged after intake unless the user explicitly authorizes a
+  revision (O4). Record that instruction and the exact old/new Goal hashes
+  with `objective_state.py approve-goal <page> --instruction '<user instruction>'`
+  after editing, then save through the record bus. This records authorization
+  already given; it is not permission for the agent to change the goal.
 - **`## Plan`** — one block per phase:
 
 ```
@@ -215,6 +215,12 @@ Three sections, in order, nothing else (O2):
   - [entry name](page.md#entry-slug) `<id>` — <the role it plays in answering it> (<date>)
   - ▶ <what this settles for the Goal> one sentence
 ```
+
+  A changed conclusion requires re-reading its owning phase (O7). If the
+  reading still holds, keep it and run
+  `objective_state.py review-phase <page> P<n> --note '<review finding>'`.
+  The review binds to the current reading and full linked conclusions; a later
+  change invalidates it. Save the updated page through the record bus.
 
   **The box flips when every entry under the phase has concluded (O13)**,
   linted in both directions — the step that gets skipped, because unlike the ▶
@@ -235,14 +241,20 @@ Three sections, in order, nothing else (O2):
   away (O9). `needs:` makes the Plan a DAG (O5); absent, it means the phase
   above. A follow-up spawned by a live phase joins some plan (O6).
 
-- **`## Verdict`** — in this form, and nothing else (O8, O11):
+- **`## Verdict`** — answer, key boundaries, and derived review count (O8, O11):
 
   ```
   **<the answer against the Goal>** <at most two more sentences, each a
   conclusion — a boundary, a caveat — never reasoning> <N> entries await review.
   ```
 
-  The reasoning is in the phases.
+  The reasoning is in the phases. Over ten non-empty lines triggers an advisory
+  to move detail there; it does not block a save. The record bus maintains the
+  awaiting-review count on objective saves and after entry changes; the launcher
+  also refreshes it when recording jobs. Clean dependent objectives receive a
+  separate count-only commit. A page with pending authored edits is left alone
+  and refreshed on its next record-bus save. This never closes an entry or
+  changes a phase reading. O8 still checks the count against the linked statuses.
 
 ## Language
 

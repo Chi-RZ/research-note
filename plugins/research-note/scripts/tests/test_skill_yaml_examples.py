@@ -67,3 +67,13 @@ def test_yaml_example_parses(rel, i, text):
                 assert isinstance(s["id"], str), (
                     f"{rel} block {i}: id {s['id']!r} loaded as "
                     f"{type(s['id']).__name__}, not a string — quote it")
+
+
+@pytest.mark.parametrize("skill", sorted((ROOT / "skills").glob("*/SKILL.md")),
+                         ids=lambda p: p.parent.name)
+def test_skill_frontmatter_parses(skill):
+    text = skill.read_text()
+    assert text.startswith("---\n")
+    metadata = yaml.safe_load(text.split("---", 2)[1])
+    assert isinstance(metadata.get("name"), str)
+    assert isinstance(metadata.get("description"), str)

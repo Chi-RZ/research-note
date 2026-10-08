@@ -27,7 +27,7 @@ The user writes nothing; they answer. Ask, at most, and one round only:
    `budget: <per-run and total>`; `wake-me-if: success met | 2 consecutive
    phases settle nothing | budget exceeded`.
 
-Their answers become `## Goal` (byte-immutable after intake, O4). Frontmatter:
+Their answers become `## Goal` (user-controlled after intake, O4). Frontmatter:
 `id: O<nn>` first — the next free number, READ OFF `_index.md`'s Objectives
 section (regenerate with gen_index.py if stale; a project's FIRST objective
 finds no section and takes O01; O12 refuses a duplicate) — then
@@ -77,8 +77,10 @@ lands on the entry. The turn-boundary harvest hook stays as the net behind it
 (entries unharvested for 15+ min, project-wide).
 
 **Re-plan, whenever the Plan is exhausted or a finding invalidated it.** The
-gate: is the Goal still the goal? A changed success criterion is a NEW
-objective — route to `new`. Read-first (root contract), plus this objective's
+gate: is the Goal still the goal? An agent-proposed change to the success criterion needs the user's decision.
+For an explicit user revision of this objective, edit Goal and record the
+authorization with `objective_state.py approve-goal <page> --instruction
+'<user instruction>'`, then save through the bus. A separate goal routes to `new`. Read-first (root contract), plus this objective's
 own page and the entries it links — never from conversation memory. The Plan
 is rewritten freely; a phase that closed a direction keeps its reading, a
 phase no longer on the route goes, and git holds it.
@@ -136,7 +138,11 @@ Each iteration:
    mechanism, no figure, no table (O9). **The checkbox flips when all the
    phase's entries concluded** (O13, linted in both directions) — the ▶ line
    gets written every time and the box is the step that gets skipped. At
-   milestones update `## Verdict`, in the record contract's form (O8, O11).
+   milestones update `## Verdict`; the record bus maintains its review count
+   (O8). O11 is a length reminder. When a changed entry conclusion leaves the
+   phase reading valid, record the completed review with
+   `objective_state.py review-phase <page> P<n> --note '<review finding>'` (O7)
+   and save through the bus.
    **A probe the analysis spawned joins some plan** (O6): the SAME phase when
    it serves that phase's question — a control or diagnostic decided after the
    first result included — or a new phase with `needs: P<n>` when it starts a

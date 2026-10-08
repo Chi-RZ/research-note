@@ -4,6 +4,16 @@ Read the section for each integration the user asked for. None is on by
 default; each is a bootstrap flag and a `features` switch in
 `.research-note/project.json`.
 
+## Dashboard (`--with-dashboard`)
+
+Enables `features.dashboard` and creates `project_memory/dashboard.html`.
+Record writes and fixer cycles refresh it while enabled. `--no-dashboard`
+disables generation and refresh without deleting an existing file. Older
+projects without this feature key keep their previous dashboard behavior.
+Editor support is a separate choice; request both for a live board in VS Code.
+If a project already tracks the generated HTML, untrack it with
+`git rm --cached project_memory/dashboard.html` and add an ignore rule.
+
 ## Cluster (`--remote HOST:DIR`, enables `hpc`)
 
 Pass the host at bootstrap — the ssh alias and where the project lives there;

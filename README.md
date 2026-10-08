@@ -69,14 +69,15 @@ it writes anything. You get:
   Codex as `AGENTS.md`, with a section at the end for your project's own rules;
 - git hooks that keep each commit to one part of the project;
 - checks, run on every edit and every commit, that keep each record page
-  complete and in one format;
-- a dashboard, `project_memory/dashboard.html`, of what is running and what
-  needs your attention, rewritten every time the record changes. Open it in any
-  browser and reload to see changes; on a remote server, the VS Code viewer
-  ("with editor support") shows it and follows each rewrite by itself.
+  complete and in one format.
 
 If the project has a git remote, each record entry is pushed to it as soon as
 it is committed. Code commits are left for you to push.
+
+Setup runs bootstrap once, then a read-only installation check. A dry run is
+available on request; doctor is used for diagnosis if a check fails.
+Dashboard generation is off for new projects. Existing projects keep their
+previous behavior until explicitly disabled with `--no-dashboard`.
 
 An existing project keeps its own layout. You tell the agent which directories
 hold code, tests and experiments, and nothing is moved. A `CLAUDE.md` you
@@ -88,9 +89,10 @@ Everything else is optional. Mention it in the same request:
 
 | Say | You get |
 |---|---|
+| "with a dashboard" | an HTML status view, refreshed after record writes |
 | "with a cluster at `host:/path`" | cluster settings and job submission there |
 | "with the fixer" | a background scanner that flags forgotten work and keeps job status current |
-| "with editor support" | VS Code extensions, including the dashboard viewer |
+| "with editor support" | VS Code extensions; also request the dashboard to use its viewer |
 | "for both agents" | registration with the other installed agent |
 
 **Clusters.** Setup asks which partition, reservation and account your jobs

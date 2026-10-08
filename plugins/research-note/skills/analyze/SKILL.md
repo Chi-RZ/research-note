@@ -51,13 +51,14 @@ Modified a plot script? `git add` it, and see the backfill rule below.
 
 ## 3. Write the Conclusion — the verdict is yours
 
-You declared what would count: `The result shows <X>, because <Y> — <verdict>
-the motivation.` One sentence, ending at the verdict (E15); the `because`
-holds any premise a reader could object to, and the detection floor when the
-evidence is a draw. Judging is the work — a run that concluded nothing writes
-`does not answer the motivation`, its reason inside the `because`, and goes to
-`analyzed` like any other. A result that crosses the objective's budget: write
-the conclusion, then stop and ask.
+State the answer to the Motivation, its evidence, and the limits on the claim.
+Keep the conclusion concise; wording and sentence order are flexible. Include
+any premise a reader could dispute and the detection floor when the evidence
+is a draw. A run with no answer explains why and still goes to `analyzed`.
+A run with no measurements uses the record contract's `Measurements: none`
+exception with a reason and evidence, rather than an empty results table.
+A result that crosses the objective's budget: write the conclusion, then stop
+and ask.
 
 `closed` is the user's (root contract, "Stop and ask").
 

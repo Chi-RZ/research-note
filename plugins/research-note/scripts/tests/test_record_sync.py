@@ -181,7 +181,7 @@ def test_a_roster_the_caller_passed_is_not_added_twice(repo):
 
 
 # --------------------------------------------------------------------------
-# The dashboard is core: the bus keeps it current, no fixer needed.
+# Enabled dashboards refresh through the bus, no fixer needed.
 # --------------------------------------------------------------------------
 
 def _wait_for(path: Path, timeout: float = 30.0) -> bool:
@@ -219,3 +219,145 @@ def test_the_refresh_does_not_hold_the_record_lock(repo):
     with open(repo / ".research-note" / "state" / "record.lock", "a") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)      # raises if still held
     assert "9>&-" in BUS.read_text(), "the child must close the lock descriptor"
+
+
+OBJECTIVE = """---
+id: O01
+status: active
+created: 2026-10-08
+budget: none
+wake-me-if: review
+---
+
+## Goal
+
+Compare the gate.
+
+## Plan
+
+- [x] **P1 — does the gate hold?** (done)
+  - [run](../nodes/tanner_gnn_ln/grid.md#entry-ln-at-d5-p006) `07.001` — evidence
+  - ▶ The gate holds.
+
+## Verdict
+
+The gate holds with limited evidence. 1 entry awaits review.
+"""
+
+
+def add_objective(repo, text=OBJECTIVE):
+    obj = repo / "project_memory/objectives/gate.md"
+    obj.parent.mkdir(exist_ok=True)
+    obj.write_text(text)
+    git(repo, "add", str(obj))
+    git(repo, "commit", "-m", "memory: add objective\n\nObjective: O01")
+    return obj
+
+
+def test_entry_save_updates_count_in_separate_commit_and_preserves_authored_text(repo):
+    obj = add_objective(repo)
+    page = repo / REL
+    page.write_text(GREEN.replace("Status:** analyzed", "Status:** closed"))
+    r = bus(repo, "-m", "memory: reviewed\n\nEntry: 07.001", REL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert obj.read_text() == OBJECTIVE.replace("1 entry awaits review", "0 entries await review")
+    assert "Objective: O01" in git(repo, "log", "-1", "--pretty=%B")
+    assert "Entry: 07.001" in git(repo, "log", "-1", "HEAD~1", "--pretty=%B")
+
+
+def test_count_refresh_never_commits_pending_objective_edits(repo):
+    obj = add_objective(repo)
+    pending = OBJECTIVE.replace("limited evidence", "pending interpretation")
+    obj.write_text(pending)
+    (repo / REL).write_text(GREEN.replace("Status:** analyzed", "Status:** closed"))
+    r = bus(repo, "-m", "memory: reviewed\n\nEntry: 07.001", REL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert obj.read_text() == pending
+    assert "pending edits" in r.stdout
+    rel = str(obj.relative_to(repo))
+    assert git(repo, "show", "HEAD:" + rel) == OBJECTIVE
+    r = bus(repo, "-m", "memory: interpretation\n\nObjective: O01", rel)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "0 entries await review" in obj.read_text()
+    assert "pending interpretation" in obj.read_text()
+
+
+def test_goal_revision_passes_real_git_gate_only_with_bound_authorization(repo):
+    import os
+    obj = add_objective(repo)
+    subprocess.run(["python3", str(SCRIPTS / "githooks_install.py"), "install", str(repo)],
+                   check=True, capture_output=True)
+    git(repo, "config", "research-note.pluginRoot", str(SCRIPTS.parent))
+    rel = str(obj.relative_to(repo))
+    obj.write_text(OBJECTIVE.replace("Compare the gate.", "Compare the larger gate."))
+    r = bus(repo, "-m", "memory: goal revision\n\nObjective: O01", rel)
+    assert r.returncode != 0 and "O4" in r.stderr
+    env = {**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(repo), "CLAUDE_PROJECT_DIR": str(repo)}
+    r = subprocess.run(["python3", str(SCRIPTS / "objective_state.py"), "approve-goal",
+                        str(obj), "--instruction", "User requested the larger gate."],
+                       cwd=repo, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    r = bus(repo, "-m", "memory: authorized goal revision\n\nObjective: O01", rel)
+    assert r.returncode == 0, r.stdout + r.stderr
+    obj.write_text(obj.read_text().replace("Compare the larger gate.", "Another goal."))
+    r = bus(repo, "-m", "memory: another revision\n\nObjective: O01", rel)
+    assert r.returncode != 0 and "O4" in r.stderr
+
+
+def test_count_refresh_does_not_hide_pending_phase_review(repo):
+    # A resumed entry makes the old checked phase stale (O13). Only the count
+    # moves automatically; the linter must still report that judgement gap.
+    import os
+    obj = add_objective(repo)
+    subprocess.run(["python3", str(SCRIPTS / "githooks_install.py"), "install", str(repo)],
+                   check=True, capture_output=True)
+    git(repo, "config", "research-note.pluginRoot", str(SCRIPTS.parent))
+    (repo / REL).write_text(GREEN.replace("Status:** analyzed", "Status:** open"))
+    r = bus(repo, "-m", "memory: reopen\n\nEntry: 07.001", REL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "0 entries await review" in obj.read_text()
+    assert "[x]" in obj.read_text() and "▶ The gate holds." in obj.read_text()
+    env = {**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(repo), "CLAUDE_PROJECT_DIR": str(repo)}
+    lint = subprocess.run(["python3", str(SCRIPTS / "check_objective_page.py"), str(obj)],
+                          env=env, capture_output=True, text=True)
+    assert lint.returncode == 1 and "O13" in lint.stdout
+    assert "O8" not in lint.stdout
+
+
+def test_record_submit_refreshes_count_when_binding_a_job(repo):
+    import os
+    obj = add_objective(repo)
+    (repo / REL).write_text(GREEN.replace("Status:** analyzed", "Status:** open"))
+    git(repo, "add", REL)
+    git(repo, "commit", "-m", "memory: preparing another run")
+    config = repo / ".research-note/project.json"
+    config.parent.mkdir(exist_ok=True)
+    config.write_bytes((SCRIPTS.parent / "templates/project.json").read_bytes())
+    log = repo / "probe.log"
+    log.write_text("job starts here\n")
+    env = {**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(repo), "CLAUDE_PROJECT_DIR": str(repo)}
+    env.pop("RN_NO_DASHBOARD_REFRESH", None)
+    result = subprocess.run([
+        "python3", str(SCRIPTS / "record_submit.py"), "tanner_gnn_ln/grid",
+        "ln at d5 p0.06", "900123@testhost", str(log), "--phase", "O01/P1",
+        "--role", "rerun the gate"], cwd=repo, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Status:** running" in (repo / REL).read_text()
+    assert "900123@testhost" in (repo / REL).read_text()
+    assert "0 entries await review" in obj.read_text()
+    assert "Objective: O01" in git(repo, "log", "-1", "--pretty=%B")
+    assert not (repo / "project_memory/dashboard.html").exists()
+
+
+def test_failed_count_commit_restores_only_the_derived_edit(repo):
+    obj = add_objective(repo)
+    hook = repo / ".git/hooks/pre-commit"
+    hook.write_text('#!/bin/sh\nif [ "${SKIP_RECORD_LINT:-}" = 1 ]; then exit 1; fi\n')
+    hook.chmod(0o755)
+    (repo / REL).write_text(GREEN.replace("Status:** analyzed", "Status:** closed"))
+    r = bus(repo, "-m", "memory: reviewed\n\nEntry: 07.001", REL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "could not commit review count" in r.stdout
+    assert "Status:** closed" in git(repo, "show", "HEAD:" + REL)
+    assert obj.read_text() == OBJECTIVE
+    assert not git(repo, "status", "--porcelain", "--", str(obj)).strip()

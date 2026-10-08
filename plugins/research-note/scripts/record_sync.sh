@@ -146,7 +146,11 @@ for f in "${files[@]}"; do
     [[ -f $abs ]] || { echo "ERROR: $f not found in main checkout $MAIN" >&2; exit 1; }
     linter=""
     case "$f" in
-        project_memory/objectives/*.md)                   linter="$HERE/check_objective_page.py" ;;
+        project_memory/objectives/*.md)
+            RESEARCH_NOTE_PROJECT_DIR="$MAIN" CLAUDE_PROJECT_DIR="$MAIN" \
+                python3 "$HERE/objective_state.py" --lock-held sync-count "$abs"
+            linter="$HERE/check_objective_page.py" ;;
+
         project_memory/nodes/*.md | project_memory/note/*.md) linter="$HERE/check_node_page.py" ;;
     esac
     if [[ -n $linter ]]; then
@@ -155,6 +159,7 @@ for f in "${files[@]}"; do
             echo "$out" >&2
             exit 1
         fi
+        [[ -z $out ]] || echo "$out"
         echo "lint ok: $f"
     else
         echo "lint skipped (no linter covers it): $f"
@@ -191,16 +196,21 @@ fi
 git -C "$MAIN" commit -m "$msg" -- "${files[@]}"
 put_committed=1
 echo "committed: $msg (${#files[@]} file(s))"
+# Counts are derived. Update dependent clean objectives under this same lock,
+# with their own Objective commits; pending authored pages refresh on save.
+RESEARCH_NOTE_PROJECT_DIR="$MAIN" CLAUDE_PROJECT_DIR="$MAIN" \
+    python3 "$HERE/objective_state.py" --lock-held sync-dependents "${files[@]/#/$MAIN/}" \
+    || echo "WARNING: review-count refresh failed; run objective_state.py sync-count on the owning objective" >&2
 if git -C "$MAIN" remote get-url origin >/dev/null 2>&1; then
     git -C "$MAIN" push \
         || echo "WARNING: push failed — the commit is LOCAL ONLY. Do NOT retry the put (it landed); push when the remote is reachable — doctor.sh counts unpushed record commits" >&2
 fi
-# The dashboard is part of the core, so the record keeps it current, not the
-# fixer: regenerate it after every record commit. Detached, because on a large
+# When enabled, refresh the dashboard after every record commit. Detached, because on a large
 # record it takes seconds and a write must not wait for a view. `9>&-` closes
 # the record lock in the child — inherited, it would hold the lock for the
 # whole regeneration and every other writer would queue behind a view.
-if [ -z "${RN_NO_DASHBOARD_REFRESH:-}" ]; then
+if [ -z "${RN_NO_DASHBOARD_REFRESH:-}" ] && \
+    [ "$(python3 "$HERE/project_config.py" --project "$MAIN" feature dashboard)" = true ]; then
     RESEARCH_NOTE_PROJECT_DIR="$MAIN" CLAUDE_PROJECT_DIR="$MAIN" \
         nohup python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gen_dashboard.py" \
         </dev/null >/dev/null 2>&1 9>&- &

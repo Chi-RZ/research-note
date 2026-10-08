@@ -6,14 +6,14 @@ Codes (record v3 — DESIGN.md §10):
   N2 an implementation exists under <experiments root>/<node>/ (--cross)
   N3 the regenerated roster matches the tree              (--cross)
   FW record version matches the linter (exit 3 on mismatch)
-  E1 id unique, in Date order          E2 status in the four states
+  E1 id unique, stable          E2 status in the four states
   E3 date                              E4 Code names its commits
   E5 motivation in its form            E6 recipe is a knob map
   E7 Facts: sentence, table, evidence  E8 a displayed number has a Refs row
-  E9 a conclusion once analyzed        E10 one spelling, no retired field
+  E9 a substantive conclusion once analyzed E10 one spelling, no retired field
   E11 one computation script per entry   E12 every line inside a field
   E13 Facts holds no bare `Job — [log]` stanza  E14 the Conclusion carries no link
-  E15 the Conclusion ends at its verdict
+  E15 retired: conclusion wording is reviewed, not matched
   E16 a cited <repo>@<sha> is retrievable (landed here, resolvable for a lib)
   P1 a title and at least one entry    P2 links and anchors resolve
   P3 figures render                    P4 a figure has a caption, embedded once
@@ -771,16 +771,15 @@ JOB_STANZA_RE = re.compile(r"^[ \t]*(?:Evidence:\s*)?Job\s+\S+\s+—\s+\[log\]\(
 #: A markdown link inside `Conclusion:`. The Conclusion is the interpretation; the artifacts
 #: it rests on belong to `Facts:` and the entries it borrows from to `Refs:`.
 CONCL_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]+\)")
-VERDICT_RE = re.compile(r"\b(answers|partly answers|does not answer) the motivation")
 ENTRY_RE = re.compile(r"^#{2,4}\s+Entry:\s*(.+?)\s*$", re.M)
 #: E10 — a header field written bare instead of as `- **Key:** value`.
 BARE_FIELD_RE = re.compile(
-    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs):", re.M)
+    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Measurements|Refs):", re.M)
 #: E12 — a line that OPENS a field.
 FIELD_OPEN_RE = re.compile(
     r"^-\s+\*\*(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|"
-    r"Refs):\*\*|"
-    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Refs):")
+    r"Measurements|Refs):\*\*|"
+    r"^(Id|Status|Date|Jobs|Code|Motivation|Recipe|Facts|Conclusion|Measurements|Refs):")
 
 
 def entry_job_ids(body: str) -> list[str]:
@@ -869,7 +868,7 @@ def entry_errors(name: str, body: str) -> list[str]:
     elif not DATE_LINE_RE.match(date):
         errs.append(f"E3 entry '{name}' `Date: {date}` is not `YYYY-MM-DD HH:MM`")
 
-    # E13-E15 are placement, not judgment: WHERE evidence and interpretation sit is the
+    # E13/E14 are placement, not judgment: WHERE evidence and interpretation sit is the
     # field contract, the same business as E10/E12, so they hold for a closed entry too —
     # the `closed` return below exempts only the checks that would re-open the reading.
     facts_body = field_block(body, "Facts")
@@ -885,12 +884,6 @@ def entry_errors(name: str, body: str) -> list[str]:
                         f"first `{links[0][:48]}` — the Conclusion is the interpretation: an "
                         f"artifact link belongs in `Facts:` and a borrowed entry in `Refs:` "
                         f"as a `[n]`")
-        if (vm := VERDICT_RE.search(concl_body)) and (tail := concl_body[vm.end():].lstrip(" .:—-").strip()):
-            errs.append(f"E15 entry '{name}' Conclusion runs on past its verdict by "
-                        f"{len(tail.split())} word(s) — `{tail[:48]}` — the sentence ENDS at "
-                        f"the verdict; fold what follows into the `because` it belongs to, or "
-                        f"move it to `Facts:` if it is a measurement and its own entry if "
-                        f"answering it needs a run")
 
     if status == "closed":
         for m in BARE_FIELD_RE.finditer(body):
@@ -955,9 +948,12 @@ def entry_errors(name: str, body: str) -> list[str]:
             errs.append(f"E7 entry '{name}' is `{status}` without `Facts:` — `We ran "
                         f"<…> [script]; evidence <links>.` then the table")
         else:
-            if not has_table:
+            measurement_note = field(body, "Measurements")
+            no_measurements = bool(re.fullmatch(r"none\s+[—:-]\s*\S.*", measurement_note))
+            if not has_table and not no_measurements:
                 errs.append(f"E7 entry '{name}' `Facts:` has no table — the table is "
-                            f"required, at the aggregation the Conclusion cites")
+                            f"required, at the aggregation the Conclusion cites; if no measurements "
+                            f"were produced, add `- **Measurements:** none — <reason>`")
             if not FILELINK_RE.search(body):
                 errs.append(f"E7 entry '{name}' carries no evidence link — cite the "
                             f"script and the log/data behind the numbers "
@@ -966,17 +962,7 @@ def entry_errors(name: str, body: str) -> list[str]:
         conc = field(body, "Conclusion")
         if not conc or PLACEHOLDER_RE.match(conc):
             errs.append(f"E9 entry '{name}' is `{status}` without a `Conclusion:` — "
-                        f"`The result shows <X>, because <Y> — <verdict> the "
-                        f"motivation.`")
-        else:
-            # The whole Conclusion may wrap over several lines; the verdict may
-            # sit on any of them, so search the body from the field on.
-            m = re.search(r"^(?:-\s+\*\*)?Conclusion:(?:\*\*)?", body, re.M)
-            tail = body[m.start():] if m else conc
-            if not VERDICT_RE.search(" ".join(tail.split())):
-                errs.append(f"E9 entry '{name}' Conclusion has no verdict — end the "
-                            f"sentence with `answers` / `partly answers` / `does "
-                            f"not answer` the motivation")
+                        f"state the answer, evidence, and limits against the Motivation")
 
     # E8 — a displayed number this entry did not run has a Refs row: every
     # `[n]` quote marker used in the body resolves in the Refs block.
@@ -993,23 +979,15 @@ def entry_errors(name: str, body: str) -> list[str]:
 
 
 def id_order_errors(entries: dict[str, str]) -> list[str]:
-    """E1 — ids unique on the page, and the per-node sequence follows Date."""
+    """E1 — ids unique on the page; creation dates may be backfilled."""
     errs: list[str] = []
     seen: dict[str, str] = {}
-    parsed: list[tuple[str, str, str]] = []
     for name, body in entries.items():
-        eid, date = field(body, "Id"), field(body, "Date")
+        eid = field(body, "Id")
         if eid and eid in seen:
             errs.append(f"E1 id `{eid}` is on both '{seen[eid]}' and '{name}' — "
                         f"ids are assigned once and never reused")
         seen[eid or name] = name
-        if ID_RE.match(eid or "") and DATE_LINE_RE.match(date or ""):
-            parsed.append((eid, date, name))
-    parsed.sort()
-    for (a_id, a_dt, a_nm), (b_id, b_dt, b_nm) in zip(parsed, parsed[1:]):
-        if a_dt > b_dt:
-            errs.append(f"E1 id `{b_id}` ('{b_nm}') is dated before `{a_id}` "
-                        f"('{a_nm}') — the per-node sequence follows `Date` order")
     return errs
 
 

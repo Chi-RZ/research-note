@@ -41,4 +41,6 @@ seed budget — one or two sentences. The target table, when a reference exists:
 ## Verdict
 
 **<the answer against the Goal>** <at most two more sentences, each a
-conclusion — a boundary, a caveat — never reasoning> <N> entries await review.
+conclusion — a boundary, a caveat — never reasoning> 0 entries await review.
+
+<!-- The record bus maintains the review count; author the answer and boundaries. -->

@@ -1,6 +1,6 @@
 ---
 name: reorg
-description: Use when a capability in the reusable library layer belongs in another module, a file has grown several responsibilities, or a hasty lift now has a clear home. Non-breaking: the old path keeps working through a re-export.
+description: "Use when a capability in the reusable library layer belongs in another module, a file has grown several responsibilities, or a hasty lift now has a clear home. Non-breaking: the old path keeps working through a re-export."
 ---
 
 # Reorg Skill

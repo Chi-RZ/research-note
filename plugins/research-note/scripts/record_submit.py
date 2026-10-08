@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from projroot import nth_parent, resolve_root  # noqa: E402
-from project_config import state_dir  # noqa: E402
+from project_config import state_dir, feature_enabled, load_project_config  # noqa: E402
 
 def _main_checkout() -> Path | None:
     """The MAIN checkout, even when invoked from a linked worktree.
@@ -437,6 +437,11 @@ def main() -> int:
                     print(f"record_submit: the row landed but the Plan line did "
                           f"NOT — {err}. Add it THIS turn.", file=sys.stderr)
                 else:
+                    from objective_state import sync_count
+                    try:
+                        sync_count(obj)
+                    except (OSError, ValueError) as exc:
+                        print(f"record_submit: WARNING review count not refreshed: {exc}", file=sys.stderr)
                     bound = True
                     orel = obj.relative_to(ROOT)
                     subprocess.run(["git", "-C", str(ROOT), "add", "--", str(orel)],
@@ -446,10 +451,16 @@ def main() -> int:
                          f"memory: {oid} — {pnum} carries {eid}\n\nObjective: {oid}",
                          "--", str(orel)], capture_output=True, text=True, timeout=30)
                     print(f"record_submit: {eid} -> {oid} / {pnum} ({orel})")
+        from objective_state import sync_dependents
+        try:
+            sync_dependents([page])
+        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+            print(f"record_submit: WARNING review count refresh failed: {exc}", file=sys.stderr)
         # A new job row changes what the dashboard shows, and this commit does
         # not go through the bus, so it refreshes the board itself — detached,
         # and without the record lock (close_fds, the default, drops it).
-        if not os.environ.get("RN_NO_DASHBOARD_REFRESH"):
+        if (not os.environ.get("RN_NO_DASHBOARD_REFRESH")
+                and feature_enabled(load_project_config(ROOT), "dashboard")):
             subprocess.Popen([sys.executable, str(Path(__file__).resolve().parent / "gen_dashboard.py")],
                              cwd=ROOT, env={**os.environ, "RESEARCH_NOTE_PROJECT_DIR": str(ROOT),
                                             "CLAUDE_PROJECT_DIR": str(ROOT)},

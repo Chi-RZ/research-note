@@ -70,7 +70,7 @@ done: you take an entry to `analyzed` and write its conclusion — **only the
 user closes**.
 
 **A long goal gets an objective page**, and it is the interface — the user reads
-the page, not the session. Its Goal is the user's and never edited after intake;
+the page, not the session. Its Goal is the user's and changes only on their explicit instruction;
 its Plan is one block per phase, a phase being ONE question with the entries that
 answered it; its Verdict is the current answer, in a few lines. The Plan is
 rewritten freely — appended, renumbered, dropped; git holds every route it used

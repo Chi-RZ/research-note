@@ -436,7 +436,7 @@ for ext_dir in "$HOME/.vscode-server/extensions" "$HOME/.vscode/extensions"; do
     else bad "qdash board viewer missing from $ext_dir" "re-run bootstrap_project.py --with-editor, then Reload Window"; fi
 done
 [ "$ext_seen" = 1 ] || warn "no VS Code extensions directory on this machine" \
-    "nothing to install into — the board is still readable as project_memory/dashboard.html"
+    "nothing to install into — when enabled, project_memory/dashboard.html is readable in a browser"
 else not_checked editor; fi
 
 if want cross_agent; then

@@ -489,3 +489,52 @@ def test_o14_ignores_an_entry_that_never_launched(tmp_path, monkeypatch):
     monkeypatch.setattr(O, "ROOT", tmp_path)
     monkeypatch.setattr(O, "OBJ_DIR", tmp_path / "project_memory" / "objectives")
     assert not [e for e in O.lint(p) if e.startswith("O14")], O.lint(p)
+
+
+def test_o11_warning_does_not_fail_cli_but_other_errors_do(obj, monkeypatch, capsys):
+    obj.write_text(OBJ.replace("The route is running.", "\n".join(["More detail."] * 12)))
+    monkeypatch.setattr(sys, "argv", ["check_objective_page.py", str(obj)])
+    assert O.main() == 0
+    assert "O11" in capsys.readouterr().out
+    obj.write_text(obj.read_text().replace("## Plan", "## Extra"))
+    assert O.main() == 1
+
+
+def test_o4_approval_is_bound_to_exact_goal_change(obj, monkeypatch):
+    import objective_state as S
+    monkeypatch.setattr(O, "git_show", lambda p, rev="HEAD": OBJ)
+    obj.write_text(OBJ.replace("Find the knee.", "Find the cliff."))
+    S.approve_goal(obj, "User requested switching the target from knee to cliff.")
+    assert not any(e.startswith("O4") for e in O.lint(obj))
+    obj.write_text(obj.read_text().replace("Find the cliff.", "Find a third target."))
+    assert any(e.startswith("O4") for e in O.lint(obj))
+
+
+def test_o7_review_keeps_reading_but_new_evidence_invalidates_it(obj, monkeypatch):
+    import objective_state as S
+    old = TASK_PAGE.replace("d5 holds", "d5 fails")
+    monkeypatch.setattr(O, "blob_on", lambda pg, date: old)
+    assert any(e.startswith("O7") for e in O.lint(obj))
+    S.review_phase(obj, "P1", "Checked the correction; the gate reading still holds.")
+    assert "▶ The gate holds, so the axis is usable." in obj.read_text()
+    assert not any(e.startswith("O7") for e in O.lint(obj))
+    task = obj.parent.parent / "nodes/tanner_gnn_ln/grid.md"
+    task.write_text(task.read_text().replace("— answers the motivation.", "— answers the motivation.\n  A newly discovered limitation applies."))
+    assert any(e.startswith("O7") for e in O.lint(obj))
+
+
+def test_o8_generated_count_is_deduplicated_and_preserves_verdict(obj):
+    import objective_state as S
+    task = obj.parent.parent / "nodes/tanner_gnn_ln/grid.md"
+    task.write_text(TASK_PAGE.replace("Status:** closed", "Status:** analyzed"))
+    S.sync_count(obj)
+    assert "The route is running." in obj.read_text()
+    assert "1 entry awaits review" in obj.read_text()
+    assert not any(e.startswith("O8") for e in O.lint(obj))
+    before = obj.read_bytes()
+    S.sync_count(obj)
+    assert obj.read_bytes() == before
+    task.write_text(TASK_PAGE)
+    S.sync_count(obj)
+    assert "0 entries await review" in obj.read_text()
+    assert not any(e.startswith("O8") for e in O.lint(obj))

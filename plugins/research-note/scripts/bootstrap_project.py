@@ -9,7 +9,7 @@ versions. The skill owns those and calls this for the rest.
 
 IDEMPOTENT BY CONSTRUCTION: an existing file is kept and reported as `kept`,
 never overwritten (your edited contracts and settings survive
-a re-run). Generated artifacts (_index.md, dashboard.html) are refreshed.
+a re-run). The index and any enabled dashboard are refreshed.
 
 Also the FINISHING MOVE after either agent updates the plugin: re-run it and the
 project's qdash copy, board and fixer daemon all come back pointing at the new
@@ -17,10 +17,10 @@ version (everything else reports `kept`).
 
 Usage:
   bootstrap_project.py [PROJECT_DIR] [--dry-run]
-                       [--with-fixer] [--with-editor] [--with-cross-agent]
+                       [--check] [--with-dashboard] [--with-fixer] [--with-editor] [--with-cross-agent]
                        [--with-hpc | --remote HOST:DIR ...]
 
-New projects start with the record workflow only. Fixer, HPC, editor support
+New projects start with the record workflow only. Dashboard, fixer, HPC, editor support
 and cross-agent registration are opt-in and the choice is saved in
 `.research-note/project.json`. The old `--no-fixer`, `--no-qdash` and
 `--no-cross-agent` flags remain accepted and now persist their choice. Projects
@@ -193,6 +193,7 @@ def contract_links(config: dict) -> dict[str, str]:
 
 
 FEATURE_FLAGS = {
+    "dashboard": (("--with-dashboard",), ("--no-dashboard",)),
     "fixer": (("--with-fixer",), ("--no-fixer", "--without-fixer")),
     "hpc": (("--with-hpc",), ("--no-hpc", "--without-hpc")),
     "editor": (
@@ -441,7 +442,7 @@ def say(state: str, what: str, detail: str = "") -> None:
     print(f"  [{state:<4}] {what}{'  — ' + detail if detail else ''}")
 
 
-KNOWN_FLAGS = {"--dry-run", "--no-self-tests", "--remote", "--no-uv", *(
+KNOWN_FLAGS = {"--check", "--dry-run", "--no-self-tests", "--remote", "--no-uv", *(
     flag for on, off in FEATURE_FLAGS.values() for flag in on + off)}
 
 
@@ -451,6 +452,49 @@ def usage() -> str:
             "usage: bootstrap_project.py [PROJECT_DIR] [--remote HOST:DIR ...] [flags]\n"
             f"flags: {flags}\n"
             "PROJECT_DIR defaults to the current directory.\n")
+
+
+def check_installation(proj: Path, config: dict) -> int:
+    """Read-only wiring check; no environment build, record scan or services."""
+    checks = [(CONFIG_PATH, "file"), (Path(".claude/framework.json"), "file"),
+              (Path("project_memory/_index.md"), "file"),
+              (Path("project_memory/memory/shared"), "dir"),
+              (Path(".agent/skills"), "dir")]
+    for names in contract_views(config).values():
+        checks.extend((Path(name), "file") for name in names)
+    checks.extend((Path(name), "dir") for name in SKILL_LINKS)
+    checks.extend((Path(f"project_memory/memory/{agent}"), "dir")
+                  for agent in ("claude", "codex"))
+    failed = False
+    for rel, kind in checks:
+        p = proj / rel
+        ok = p.is_file() if kind == "file" else p.is_dir()
+        say("ok" if ok else "FAIL", str(rel), "" if ok else "missing or dangling")
+        failed |= not ok
+    links = {**contract_links(config), **SKILL_LINKS,
+             **{f"project_memory/memory/{agent}": "shared" for agent in ("claude", "codex")}}
+    for rel, target in links.items():
+        view = proj / rel
+        if view.resolve() != (view.parent / target).resolve():
+            say("FAIL", rel, "view points at a different source")
+            failed = True
+    try:
+        settings = json.loads((proj / ".claude/settings.local.json").read_text())
+        ok = settings.get("autoMemoryDirectory") == str(proj / "project_memory/memory/shared")
+    except (OSError, ValueError):
+        ok = False
+    say("ok" if ok else "FAIL", "shared memory binding")
+    failed |= not ok
+    binding = subprocess.run(["git", "-C", str(proj), "config", "--get",
+                              "research-note.pluginRoot"], capture_output=True, text=True)
+    ok = bool(binding.stdout.strip()) and (Path(binding.stdout.strip()) / "scripts/project_config.py").is_file()
+    say("ok" if ok else "FAIL", "research-note.pluginRoot")
+    failed |= not ok
+    for state, name, detail in githooks_install.status(proj):
+        bad = state in {"BAD", "FAIL", "WARN"}
+        say("FAIL" if bad else "ok", name, detail)
+        failed |= bad
+    return int(failed)
 
 
 def main() -> int:
@@ -513,6 +557,12 @@ def main() -> int:
     except ConfigError as exc:
         say("FAIL", str(CONFIG_PATH), str(exc))
         return 2
+
+    if "--check" in sys.argv:
+        if requested_features or remote_specs or "--no-uv" in sys.argv or dry:
+            print("bootstrap: --check is read-only; use it without setup flags", file=sys.stderr)
+            return 2
+        return check_installation(proj, project_config)
 
     def w(path: Path, text: str, label: str) -> None:
         """Write only when absent — an existing file is the user's."""
@@ -735,8 +785,12 @@ def main() -> int:
            "RESEARCH_NOTE_PROJECT_DIR": str(proj)}
 
     print("\n· generated artifacts")
-    for script, label in (("gen_index.py", "project_memory/_index.md"),
-                          ("gen_dashboard.py", "project_memory/dashboard.html")):
+    artifacts = [("gen_index.py", "project_memory/_index.md")]
+    if feature_enabled(project_config, "dashboard"):
+        artifacts.append(("gen_dashboard.py", "project_memory/dashboard.html"))
+    else:
+        say("skip", "dashboard", "disabled in .research-note/project.json")
+    for script, label in artifacts:
         if dry:
             say("new", label, f"would run {script}")
             continue
@@ -925,10 +979,12 @@ def main() -> int:
         todo.append(".claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
                     "     in log headers")
     if feature_enabled(project_config, "editor"):
-        todo.append("Reload Window in VS Code, then: Open Q Dashboard")
-    todo.append("Run the plugin's scripts/doctor.sh — it verifies every wire this\n"
-                "     script laid (and every one it could not), and prints the fix for\n"
-                "     whatever is not yet true")
+        editor_next = "Reload Window in VS Code"
+        if feature_enabled(project_config, "dashboard"):
+            editor_next += ", then: Open Q Dashboard"
+        todo.append(editor_next)
+    todo.append("Run bootstrap_project.py PROJECT_DIR --check once after setup;\n"
+                "     use doctor.sh if installation checks fail or for deeper diagnosis")
     print("\nNext (the judgment calls this script deliberately leaves to you):\n"
           + "\n".join(f"  {i}. {item}" for i, item in enumerate(todo, 1)))
     return 1 if any(s == "FAIL" for s, _, _ in report) else 0

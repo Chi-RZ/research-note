@@ -146,12 +146,12 @@ def lint(data: dict) -> int:
             capture_output=True,
             text=True,
         )
-        if run.returncode == 1 and (run.stdout or run.stderr).strip():
+        if (run.stdout or run.stderr).strip():
             findings.append((run.stdout + run.stderr).strip()[:1500])
     if findings:
         emit_context(
             hook_event(data, "PostToolUse"),
-            "Record lint on the page just edited (fix this turn):\n" + "\n".join(findings),
+            "Record lint on the page just edited (fix errors; warnings are advisory):\n" + "\n".join(findings),
         )
     return 0
 

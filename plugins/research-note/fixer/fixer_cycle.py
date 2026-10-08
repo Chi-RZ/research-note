@@ -52,6 +52,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent            # .claude/fixer (or plugin fixer/)
 SCRIPTS = HERE.parent / "scripts"                 # sibling of fixer/ wherever it ships
 sys.path.insert(0, str(SCRIPTS))
+from project_config import feature_enabled, load_project_config
 from projroot import nth_parent, resolve_root     # noqa: E402
 
 ROOT = resolve_root(nth_parent(HERE, 1))          # project root
@@ -133,7 +134,7 @@ def detect() -> tuple:
         s = line.strip()
         if not s:
             continue
-        if s.startswith("J2") or CLOSED_ENTRY_RE.match(s):
+        if s.startswith(("J2", "warning:")) or CLOSED_ENTRY_RE.match(s):
             continue
         if CROSS_RE.match(s):
             fmt.setdefault(INDEX_PAGE, []).append(s)
@@ -632,6 +633,8 @@ def regen_dashboard() -> None:
     stopped advancing, `last_error` stayed full, and doctor reported a dead
     daemon for six hours while the scan underneath ran correctly every time."""
     try:
+        if not feature_enabled(load_project_config(ROOT), "dashboard"):
+            return
         r = subprocess.run([sys.executable, str(SCRIPTS / "gen_dashboard.py")],
                            capture_output=True, text=True, timeout=600, cwd=ROOT)
         if r.returncode != 0:

@@ -48,6 +48,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "root": {"paths": [], "prefixes": ["chore"]},
     },
     "features": {
+        "dashboard": False,
         "fixer": False,
         "hpc": False,
         "editor": False,
@@ -68,6 +69,7 @@ ENV_MANAGERS = ("uv", "other")
 # projects already received these integrations by default. Preserving that
 # behaviour avoids an update silently disabling a user's working system.
 LEGACY_FEATURES = {
+    "dashboard": True,
     "fixer": True,
     "hpc": True,
     "editor": True,
@@ -353,6 +355,10 @@ def load_project_config(root: str | Path, *, legacy_if_missing: bool = True) -> 
         if not isinstance(raw, dict):
             raise ConfigError(f"{path} must contain a JSON object")
         config = _merge(DEFAULT_CONFIG, raw)
+        # Dashboard was always on before this option existed. New declarations
+        # explicitly write false; old declarations preserve their behavior.
+        if isinstance(config["features"], dict) and "dashboard" not in raw.get("features", {}):
+            config["features"]["dashboard"] = True
     else:
         config = initial_project_config(legacy=legacy_if_missing)
     validate_config(config)

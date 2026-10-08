@@ -123,6 +123,7 @@ def test_an_empty_directory_becomes_a_local_only_project(empty, home):
     assert (empty / ".research-note/.gitignore").read_text() == "state/\n"
     assert sh(empty, home, "git", "config", "core.hooksPath").stdout.strip() == ".claude/githooks"
     # what a disabled integration leaves behind: nothing
+    assert not (empty / "project_memory/dashboard.html").exists()
     assert not (empty / ".fixer").exists()
     assert not (empty / ".claude/hpc.env").exists()
     assert not (empty / ".claude/hpc-submit").exists()
@@ -272,3 +273,31 @@ def test_an_existing_repos_own_claude_md_is_merged_into_one_file(existing, home)
     assert (existing / "CLAUDE.md").read_text() == text
     assert (existing / "AGENTS.md").read_text() == text
     assert commit_all(existing, home, "agent: research-note setup").returncode == 0
+
+
+def test_dashboard_is_opt_in_and_the_choice_survives_setup(empty, home):
+    bootstrap(empty, home, "--with-dashboard")
+    board = empty / "project_memory/dashboard.html"
+    assert board.is_file()
+    board.unlink()
+    bootstrap(empty, home)
+    assert board.is_file()
+    board.unlink()
+    bootstrap(empty, home, "--no-dashboard")
+    assert not board.exists()
+
+
+def test_install_check_is_read_only_and_detects_broken_views(empty, home):
+    bootstrap(empty, home)
+    before = {str(p.relative_to(empty)): p.read_bytes() for p in empty.rglob("*")
+              if p.is_file() and ".git" not in p.parts}
+    r = sh(empty, home, sys.executable, str(BOOTSTRAP), str(empty), "--check")
+    assert r.returncode == 0, r.stdout + r.stderr
+    after = {str(p.relative_to(empty)): p.read_bytes() for p in empty.rglob("*")
+             if p.is_file() and ".git" not in p.parts}
+    assert before == after
+    (empty / "AGENTS.md").unlink()
+    r = sh(empty, home, sys.executable, str(BOOTSTRAP), str(empty), "--check")
+    assert r.returncode != 0
+    assert "AGENTS.md" in r.stdout
+    assert not (empty / "AGENTS.md").exists()
