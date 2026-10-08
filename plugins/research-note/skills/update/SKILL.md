@@ -1,143 +1,82 @@
 ---
 name: update
-description: Use when the user asks to update research-note in a project — pull the newest plugin into the agent running this session (Claude or Codex, not both), then bring THIS project's contracts, hooks and pin up to it. Other projects and the other agent are left alone. Not for editing the plugin itself.
+description: Use when the user asks to update research-note in a project — fetch a release and pin this project’s Claude, Codex, hooks and scripts to it. Other projects and user-level plugin installations stay unchanged. Not for editing the plugin itself.
 ---
 
 # research-note:update
 
-Installing a plugin version does not update a project: its contracts, hooks
-and Claude pin live in the repository and stay on the version that wrote them.
-An update is therefore two steps — the agent running this session, with its
-own command, then the project the user asked from, with `update_projects.sh`
-from the copy just installed. Every other project stays on its version until someone updates it
-from there: an update changes hooks and linters under whatever is running.
+Update the current project's shared framework for both agents. The project's
+`.research-note/plugin-lock.json` selects an immutable snapshot; updating an
+agent's user-level plugin is neither necessary nor part of this procedure.
 
-Run the whole sequence and report what moved. The user invoking this has
-already decided, so the steps run without asking between them.
+## 1. Fetch and update this project
 
-## 1. Install the new version into the agent you are
-
-Update only the agent running this session — you know whether you are Claude
-Code or Codex. The other agent is not yours to move: Codex installs one
-version for the whole machine, so updating it moves every project used from
-Codex at once, which is the user's call, not a side effect of updating this
-one. Name its command in the report instead.
-
-Read the marketplace name your agent registered — it is the installer's, not
-this repository's, and may differ between the two agents:
+Resolve `$PLUGIN` from `git config --get research-note.pluginRoot`. Read the
+current lock when present; a project without one is migrated by this update.
+Run from the main checkout (the script also resolves a worktree to its main):
 
 ```bash
-claude plugin list | grep -A1 'research-note@'    # Claude: research-note@<mkt>
-codex plugin list | grep 'research-note@'         # Codex
+bash "$PLUGIN/scripts/update_projects.sh" --latest
 ```
 
-Then update it:
+The command fetches the published repository into a temporary checkout and
+runs that release's updater against this project only. If the user names a
+branch, tag or commit, add `--ref REF`; a requested fork uses `--repository URL`.
+Use `--dry-run` for a requested preview. With `--latest`, the preview reports
+what would be fetched without contacting the remote. To inspect the actual
+file changes, fetch the requested source first and run its updater with
+`--dry-run PROJECT_DIR`.
+
+For an older installed release that lacks this flow, fetch the repository
+into a temporary directory and run the new copy's
+`plugins/research-note/scripts/update_projects.sh PROJECT_DIR`. Do not run
+`claude plugin update`, `codex plugin add`, or upgrade a shared marketplace.
+A maintainer testing unpublished edits runs the updater from the source
+checkout without `--latest`. An unpushed commit is unavailable to other users.
+
+The updater checks contract conflicts before writing, stages a snapshot of
+the complete plugin, and carries over the project's existing rules and
+permissions. It updates Git hooks and templates, then binds both agents and
+`research-note.pluginRoot` to the same snapshot. Different project/release
+marketplace IDs prevent host-cache collisions. Old releases remain available.
+A failed write restores managed project files and Git configuration; the
+unused staged snapshot can remain. No user plugin registry is rewritten.
+
+## 2. Read the result
+
+A contract conflict stops the update before activation. Move project-specific
+text below `## Project-specific rules`; if a framework rule was intentionally
+edited, reconcile it with the new rule rather than overwriting it blindly.
+Then run the update again.
+
+`framework.json` is a migration marker and is not copied. A record-version
+mismatch still requires a separate record migration. HPC settings and edited
+submit templates also stay project-owned; port a changed log header manually
+when the report requests it. Neither operation is silently resolved by pinning.
+
+Doctor and both record linters report the project's state. Verify the complete
+runtime binding separately from environment or record findings:
 
 ```bash
-claude plugin marketplace update <mkt> && claude plugin update research-note@<mkt>   # Claude
-codex plugin marketplace upgrade <mkt> && codex plugin add research-note@<mkt>       # Codex
+PLUGIN=$(git config --get research-note.pluginRoot)
+python3 "$PLUGIN/scripts/project_runtime.py" check
 ```
 
-A marketplace refreshes from the plugin's remote, so an unpushed commit reaches
-neither agent — a maintainer pushes first. Claude's refresh replaces its
-marketplace clone; if that clone is an editable checkout, uncommitted work in
-it is lost, so a maintainer never registers their working checkout as the
-marketplace. Codex refuses an upgrade whose marketplace was renamed upstream:
-`codex plugin remove`, `marketplace remove`, `marketplace add <url>`,
-`plugin add` re-registers it under the new name, and Codex asks once to trust
-the hooks again.
+A zero exit confirms the pinned files and local agent bindings. It does not
+claim a running agent has reloaded them or override the host's trust policies.
 
-## 2. Update this project
+## 3. Commit and start fresh sessions
 
-Run the updater from the copy just installed — not from
-`research-note.pluginRoot`, which still names the old one. Look only inside the
-marketplace from step 1: a cache can hold copies from a marketplace registered
-earlier under another name, and version numbers do not compare across
-marketplaces (a renamed repository may restart at 0.1).
+Stage only this update's project files: the lock, changed contracts and hooks,
+and the project agent settings. Keep `.research-note/runtime/` and machine-local
+settings out of Git. Commit as `agent: update research-note to <version>`.
 
-```bash
-# Claude
-PLUGIN=$(ls -d ~/.claude/plugins/cache/<mkt>/research-note/* | sort -V | tail -1)
-bash "$PLUGIN/scripts/update_projects.sh" --dry-run   # preview
-bash "$PLUGIN/scripts/update_projects.sh"
+Report the old and new version/hash, affected project, retained project rules,
+any outstanding doctor or record findings, and the commit. Tell the user to
+start new Claude and Codex sessions in that project and check each host's
+plugin listing for the lock's selector. An existing session already contains
+old skills; changing files cannot remove those instructions from its context.
 
-# Codex — --agents codex leaves the project's Claude pin where it is
-PLUGIN=$(ls -d ~/.codex/plugins/cache/<mkt>/research-note/* | sort -V | tail -1)
-bash "$PLUGIN/scripts/update_projects.sh" --agents codex
-```
-
-Run from inside the project, it updates that project and nothing else. A path
-argument names a different project; pass one only when the user asked for it.
-
-In order, it:
-
-1. **migrates once** — a project from before `.research-note/project.json`
-   gets one with every integration ON, exactly what it had; an update never
-   disables anything. `--dry-run` first prints the ownership table: who owns
-   each managed path and what this run may do to it;
-2. moves the project's Claude pin to the version just installed, renaming it
-   when the project still names an earlier marketplace (Codex has no
-   per-project pin); `--agents codex` or `none` skips this;
-3. updates the framework section of the four contracts, copies the page
-   templates, refreshes the git hooks, merges the permissions the template
-   gained, and points `research-note.pluginRoot` at this copy — every
-   `$PLUGIN` script resolves through it;
-4. for a project that enables `hpc`, reports `hpc.env` keys it lacks and a
-   `.slurm` that differs from the plugin's; otherwise touches none of it;
-5. counts the `CONFLICT` lines — files whose two halves a person must sort;
-   nothing there was overwritten;
-6. runs doctor and both linters.
-
-It does not commit.
-
-## 3. Sort what the updater left for a person
-
-| File | What the update does |
-|---|---|
-| the four `CLAUDE.md` contracts | Framework section replaced; `## Project-specific rules` kept. A project's own `CLAUDE.md`/`AGENTS.md` standing where a view belongs is adopted into that section. A framework section edited in place is a `CONFLICT`, left alone |
-| `framework.json` | Never copied: `record` is the project's migration marker, and the linters' FW gate reads it |
-| `settings.json` | Permissions the template gained are added; everything the project has stays |
-| `hpc.env` | Never copied — values are the user's. Missing keys are reported |
-| `githooks/*` | Synced. A pre-declaration `commit-msg` carrying the project's own `RULES` rows is left alone until those rows move into `project.json` `layers` |
-| `hpc-submit/*.slurm` | Never copied. Port the plugin's log-header block by hand; the `#SBATCH` resources and script lines are the node's |
-
-For a `CONFLICT` on a contract, sort the project's text by why it is there:
-
-| The project's text is… | Resolution |
-|---|---|
-| an older wording of a framework rule | `contracts.py sync PROJECT --force` |
-| a machine fact (a path, a cluster, a partition) | move it to `hpc.env` or `settings.json`, then `--force` |
-| a rule the project decided for itself | move it below `## Project-specific rules`; if it would serve every project, say so |
-
-## 4. Verify, then commit
-
-Doctor and the linters ran in step 2; read their lines. A tightened rule can
-turn a green page red, and an update is where that shows. **One `FW` line with
-exit 3 is expected** for a project whose `framework.json` declares an older
-`record`: migrating the record is its own step, never a side effect of an
-update.
-
-Commit it as `agent: update to research-note <version>`, staging only the
-files the update changed.
-
-## 5. Make it take effect
-
-| What | Picks up the change |
-|---|---|
-| Scripts (the bus, linters, doctor, launchers) | immediately — each run reads the file |
-| Claude skills, hooks, agents | `/reload-plugins`, which the user runs; ask for it |
-| Codex skills and configuration | a new Codex session |
-| Contract files | not reloadable — Read the ones the updater synced; a fresh session is the clean answer |
-
-A reload pins to the moment it runs and cannot un-read what is already in
-context. When a changed rule matters to work in progress, quote the changed
-clause to the agent doing it.
-
-## 6. Report
-
-Your agent and the project, the version before and after, read from the
-registries rather than from command output; the contracts synced and the ones
-left alone, with why; what was ported into `.slurm` copies; doctor and lint;
-and what the user still has to do — `/reload-plugins`, or a new Codex session.
-Then the other agent: its installed version, and the command that would
-update it, noting that updating Codex moves every project used from Codex.
+Do not update a second project or user-level plugin as a side effect. Updating
+this project's shared rules intentionally applies to both agents in this
+project, whichever agent performed the update.

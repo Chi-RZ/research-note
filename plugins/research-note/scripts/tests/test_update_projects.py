@@ -133,38 +133,23 @@ def _git_project(tmp_path):
 
 
 
-def test_the_project_scope_update_targets_the_INSTALLED_marketplace(tmp_path):
-    """`research-note@<marketplace>` is the installer's string, not ours.
-
-    The marketplace name is whatever `claude plugin marketplace add` registered
-    on THAT machine — this repo only declares a default. The project-scope
-    update spelled it out, so on any machine that registered the marketplace
-    under another name the update targeted a selector matching nothing. Nothing
-    failed: an unmatched selector is not an error, the pin simply never moved,
-    and the version read back two lines later said `(no row)` — which looks
-    like a project that was never pinned rather than one the updater cannot
-    reach. The block reading that pin BACK always derived the key correctly, so
-    the two halves of one operation disagreed inside a single file.
-
-    Asserted from the CLI's own argv, not from stdout: that call is redirected
-    to /dev/null, so a dry run shows nothing and only a real invocation can be
-    observed.
-    """
+def test_project_update_disables_old_selector_without_upgrading_user_install(tmp_path):
     home = _fake_home(tmp_path, [])
     proj = _git_project(tmp_path)
-    (home / ".claude" / "plugins" / "installed_plugins.json").write_text(
-        json.dumps({"plugins": {"research-note@acme-labs": [
-            {"projectPath": str(proj), "version": "1.0.0"}]}}))
-    bin_dir = _stateful_claude(home, installed_version="99.0.0",
-                               published_version="99.0.0")
-    subprocess.run(["bash", str(SCRIPT), "--agents", "claude", str(proj)],
-                   env={"HOME": str(home),
-                        "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
-                   capture_output=True, text=True, timeout=300)
-
-    calls = (home / ".calls").read_text() if (home / ".calls").exists() else ""
-    assert "plugin update research-note@acme-labs --scope project" in calls, calls
-    assert "claude-setup" not in calls, calls
+    registry = home / ".claude/plugins/installed_plugins.json"
+    registry.write_text(json.dumps({"plugins": {"research-note@acme-labs": [
+        {"projectPath": str(proj), "version": "1.0.0"}]}}))
+    before = registry.read_bytes()
+    bin_dir = _stateful_claude(home, installed_version="99.0.0", published_version="99.0.0")
+    result = subprocess.run(["bash", str(SCRIPT), "--agents", "claude", str(proj)],
+                           env={"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
+                           capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (home / ".calls").exists(), "no agent CLI update or install"
+    assert registry.read_bytes() == before
+    settings = json.loads((proj / ".claude/settings.json").read_text())
+    assert settings["enabledPlugins"]["research-note@acme-labs"] is False
+    assert sum(settings["enabledPlugins"].values()) == 1
 
 
 # --------------------------------------------------------------------------

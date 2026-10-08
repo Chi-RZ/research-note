@@ -122,7 +122,8 @@ Add only the integrations the user asked for — each has a section in
 
 Bootstrap creates the role directories and `project_memory/`, runs `git init`
 if needed, writes the `.claude/` bindings and the instruction-file views,
-installs the git hooks, writes `.gitignore` when none exists, generates
+installs the git hooks, pins the complete plugin for both agents in this project,
+writes `.gitignore` when none exists, generates
 `_index.md` (plus `dashboard.html` when enabled), and ends with both linters as its acceptance
 gate. It prints one line per step and a `needs attention` summary; read every
 `FAIL`/`WARN` before going on.
@@ -139,6 +140,11 @@ project:
   exit code intact. A hook tool installed *after* setup goes into
   `.git/hooks/` by hand (`pre-commit install` refuses while `core.hooksPath` is
   set). `githooks_install.py uninstall PROJECT` puts everything back.
+
+Setup preserves an existing `.research-note/plugin-lock.json`; it does not
+upgrade a project because the user-level plugin changed. The generated
+`.codex/config.toml` and Claude settings select the same immutable runtime.
+Host trust prompts still apply. Start new sessions to load that version.
 
 ## Step 3 — The environment
 
@@ -219,7 +225,7 @@ integrations through their sections in `integrations.md`.
 
 ## Step 6 — Commit and hand over
 
-Commit one layer per commit — `.claude/` and `.research-note/` under `agent:`,
+Commit one layer per commit — `.claude/`, `.codex/` and `.research-note/` under `agent:`,
 root files under `chore:`, never folded into another layer's commit. Then tell
 the user: the roles declared, the environment command, and, if enabled, the
 dashboard path (`project_memory/dashboard.html`); what each chosen integration still needs

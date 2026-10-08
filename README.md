@@ -52,7 +52,8 @@ codex plugin marketplace add https://github.com/Chi-RZ/research-note.git
 codex plugin add research-note@research-tools
 ```
 
-If you use both agents, install it in each.
+Install in the agent you use for setup. Setup prepares project bindings for
+both Claude and Codex; start a fresh, trusted session in the other agent to use it.
 
 ## 2. Set up a project
 
@@ -93,7 +94,7 @@ Everything else is optional. Mention it in the same request:
 | "with a cluster at `host:/path`" | cluster settings and job submission there |
 | "with the fixer" | a background scanner that flags forgotten work and keeps job status current |
 | "with editor support" | VS Code extensions; also request the dashboard to use its viewer |
-| "for both agents" | registration with the other installed agent |
+| "for both agents" | both project bindings are already included; each host loads the pinned plugin |
 
 **Clusters.** Setup asks which partition, reservation and account your jobs
 should use, and records them once. It then clones the project onto the cluster
@@ -113,20 +114,20 @@ In a project, tell the agent:
 
 > update research-note
 
-It pulls the newest plugin from GitHub into the agent you are using, then
-brings that one project up to it: its instruction files, git hooks and settings. Other
-projects stay on their version until you update them. The other agent is left
-alone; update it yourself when you are ready — for Codex that moves every
-project you use from Codex, since Codex keeps one version per machine:
+It fetches the published release and updates **this project only**. Claude and
+Codex both use the project's locked version: skills, lifecycle hooks, scripts
+and Git hooks move together. Other projects and user-level plugin installations
+are unchanged. Start fresh sessions in both agents after updating this project.
 
-```bash
-claude plugin marketplace update research-tools && claude plugin update research-note@research-tools
-codex plugin marketplace upgrade research-tools && codex plugin add research-note@research-tools
-```
+The lock is `.research-note/plugin-lock.json`; local plugin snapshots live in
+`.research-note/runtime/` and stay out of Git. Setup reuses an existing pin;
+only an explicit update changes it. Project rules are preserved, contract
+conflicts stop activation, and failed updates restore the previous bindings.
+A new clone needs the pinned snapshot restored before the agents can load it:
+run `project_runtime.py restore --source /path/to/matching/plugin` from the
+project using a copy of the plugin with the locked content digest. For a moved
+checkout whose snapshot is still present, `restore` refreshes local paths.
+It refuses a different version instead of silently upgrading.
 
-Your rules sections are kept, and a project from an earlier version is
-migrated on its first update. Ask for a dry run to see the
-changes first. Nothing is committed for you: review the output and commit it
-yourself.
 
 MIT licensed.

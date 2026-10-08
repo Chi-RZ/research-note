@@ -799,7 +799,7 @@ It deliberately leaves to the skill everything requiring judgment: the project's
 mission paragraph, which domain libraries belong in log headers, the environment
 pins.
 
-`update_projects.sh` does the same for an upgrade — pins every scope and
+`update_projects.sh` does the same for an upgrade — pins both project bindings and
 *verifies by reading the pin file* rather than trusting a success line, syncs the
 contract files, merges the permissions the template gained, then runs doctor and
 the linters. It works from an **ownership table** (`project_config.OWNERSHIP`,
@@ -874,33 +874,32 @@ governs — eight links, four targets, one home per rule. `memory/claude/` and
 one agent learns, the other has, and the alternative is two memories that
 diverge on the same project.
 
-**Skills follow each agent; scripts follow one pin.** A skill is loaded by the
-CLI that owns it, from that CLI's own cache, and stays loaded until that session
-reloads — there is no way to make one agent's session pick up the other's. Every
-SCRIPT resolves through `research-note.pluginRoot`, a single git config per
-project, so the linters, the bus, the launchers and the fixer are the same files
-whichever agent is driving. That split is deliberate: the half that can be
-version-skewed is the half a session can re-read, and the half that must not be
-skewed is a path both sides share.
+**One project runtime for both agents.** `.research-note/plugin-lock.json`
+records the plugin version, payload SHA-256 and source commit when available.
+An immutable local snapshot under `.research-note/runtime/<sha256>/` contains
+skills, lifecycle hooks, scripts and templates together. Both hosts discover a
+local marketplace named for this checkout and content hash. Their cache keys
+cannot collide with a different project or release, even when the publisher
+reuses a version string. `research-note.pluginRoot` points at the same snapshot.
+The snapshot survives an upstream cache refresh or uninstall.
 
-**Push is the channel, not the tidying step.** Each agent's marketplace is a
-clone of the plugin's remote, so an unpushed commit is invisible to every one of
-them — on the maintainer's own machine included. A maintainer edits a checkout,
-commits, pushes; a user pulls; from the agents' own update commands onward the
-two run the identical steps, deliberately, so the path everyone else is on stays
-exercised.
+Claude's project and local settings select the snapshot and locally disable
+previous research-note selectors. Its local settings declare the absolute
+marketplace path. Codex's trusted project config declares the same marketplace
+and selects the same plugin. User settings and registries are never rewritten
+by setup or update. Hosts still apply their normal trust and managed policies;
+a check of project files is not proof of a running session's loaded context.
 
-**Installing a version is the agents' job; updating a project is ours.** Each
-agent updates the plugin with its own command, and `update_projects.sh`, run
-from the copy just installed, brings projects up to it. The updater once
-refreshed both agents' marketplaces itself and required the two to agree on
-version and source commit; that was 250 lines of registry handling that broke
-each time an agent changed its registry (Codex refusing a marketplace renamed
-upstream was the last case), and it reported nothing the native commands do not.
+**Update one project.** `update_projects.sh --latest` fetches the source into a
+temporary checkout, then runs that release's updater. Without `--latest`, the
+copy executing the updater is the requested source. Contract conflicts are
+checked first; a project installation lock and the record lock serialize the
+managed writes. Failure restores the previous managed files and Git settings;
+a staged, unused snapshot may remain. Old snapshots are not garbage-collected
+under another running session. Setup reuses the lock; update alone switches it.
+Worktrees resolve to the main checkout's installation, as the record bus does.
 
-**An update is one project, the one it was asked from.** It changes hooks and
-linters under whatever is running there, so no project moves unasked; the
-updater once took every project registered on the machine by default, and the
-registry that made that possible is gone. Claude pins the plugin per project
-and Codex does not, so the updater moves that project's Claude pin — a project
-whose pin stays behind keeps loading the old version whatever was installed.
+Both agents need a fresh session after a project update: already-loaded skills
+cannot be un-read. Separate projects keep their previous versions. A new clone
+or a moved checkout must restore its snapshot and refresh local paths. Source
+updates must be committed and pushed before another user can fetch them.

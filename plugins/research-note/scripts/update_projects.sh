@@ -1,37 +1,21 @@
 #!/usr/bin/env bash
-# update_projects.sh — do the mechanical half of research-note:update, for every
-# project on the framework, in one command.
+# update_projects.sh — update explicitly selected projects to one pinned runtime.
 #
-# Why a script and not just the skill's prose: a script is a separate process
-# that reads the newest file every run, so it needs no /reload-plugins to be
-# current. The skill's steps kept being executed by hand, and the same three
-# mistakes kept recurring — a scope updated from the wrong directory, a
-# permission the template had gained left unmerged, a contract file synced but
-# never re-read. Those are mechanical, so they belong here; what is left in the
-# skill is the judgment (a project-specific hunk, a .slurm header to port).
-#
-# Usage: update_projects.sh [--dry-run] [<project-dir> ...]
-#        (no dirs: the current project — $RESEARCH_NOTE_PROJECT_DIR,
-#         $CLAUDE_PROJECT_DIR, or the git repository around $PWD)
-#
-# One project per request, the one the user asked from. It once updated every
-# project registered on the machine by default, which changed the hooks and
-# linters under projects with work running in them, unasked.
-#
-# It updates PROJECTS to the version of the copy running it. Installing that
-# version into Claude and Codex is theirs: each has its own update command, run
-# first (the update skill names them), and this script is then run from the
-# copy they installed. It used to refresh both agents' marketplaces itself and
-# check that they agreed — 250 lines that broke whenever an agent changed its
-# registry, and found nothing the native commands do not report.
-#
-# `--agents none` or `--agents codex` leaves the project's Claude pin alone —
-# the update skill run from Codex passes `codex`, since the Claude side is not
-# its to move. `both` and `claude` move it.
-#
-# Does NOT: commit (it prints what to commit; staging is the caller's), or
-# reload the session (impossible from a script — see the skill).
+# Usage: update_projects.sh [--dry-run] [--latest [--ref REF]] [<project-dir> ...]
+# With no directory, use the current project. The public wrapper snapshots the
+# source, syncs contracts and hooks transactionally, and binds BOTH agents only
+# in that project. It never upgrades either host's user installation.
+# Legacy --agents / --no-cross-agent options are accepted; project bindings now
+# always share one version. --latest fetches source into a temporary checkout.
+# Does not commit or reload running sessions. Start new sessions after updating.
 set -uo pipefail
+
+# The public entry point stages an immutable runtime and rolls back a failed
+# project update. The internal pass never updates either agent's user install.
+if [ "${RN_RUNTIME_UPDATE_INTERNAL:-}" != 1 ]; then
+    runtime_here=$(cd "$(dirname "$0")" && pwd -P)
+    exec python3 "$runtime_here/project_runtime.py" update --source "$runtime_here/.." "$@"
+fi
 
 DRY=0; AGENTS=both; declare -a WANT=()
 while [ "$#" -gt 0 ]; do
@@ -55,16 +39,6 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-CLAUDE_REGISTRY="$HOME/.claude/plugins/installed_plugins.json"
-# The plugin's Claude selector, `research-note@<marketplace>`, read from the
-# registry rather than spelled. The marketplace NAME is the installer's, not
-# ours: it is whatever `claude plugin marketplace add` registered, and on any
-# machine but the author's that is not the name this repo happens to declare.
-# Hardcoding it made the project-scope update below a no-op there — silently,
-# since a selector that matches nothing is not an error. The block that reads
-# the pin back, twenty lines down, has always derived it correctly.
-
-
 # The invoked script carries the framework version it deploys. Resolving only
 # through ~/.claude made the same package unusable on a Codex-only machine and
 # could silently choose a version other than the caller invoked.
@@ -83,10 +57,6 @@ else:
 PY
 ) || { echo "update_projects: cannot read plugin version from $CACHE" >&2; exit 2; }
 echo "target version: $VER   ($CACHE)"
-
-# The Claude selector this copy was installed under — `research-note@<marketplace>`,
-# the installer's name, read from bootstrap (the one place that derives it).
-CLAUDE_SELECTOR=$(cd "$HERE" && python3 -c "import bootstrap_project as b; print(b.claude_selector(''))" 2>/dev/null || true)
 
 if [ ${#WANT[@]} -eq 0 ]; then
     cur=${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}}
@@ -128,7 +98,7 @@ for P in "${WANT[@]}"; do
     CONFLICTS=0
     HPC_ON=true
     if [ -f "$CACHE/scripts/project_config.py" ]; then
-        init_out=$(python3 "$CACHE/scripts/project_config.py" --project "$P" init $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        init_out=$(python3 "$CACHE/scripts/project_config.py" --project "$P" init $([ "$DRY" = 1 ] && echo --dry-run) 2>&1) || exit $?
         printf '%s\n' "$init_out" | grep -vE '^kept ' | sed 's/^/   /'
         printf '%s\n' "$init_out" | grep -qE '^(migrated|new) ' && CHANGED+=("$P")
         if [ "$DRY" = 1 ]; then
@@ -139,82 +109,14 @@ for P in "${WANT[@]}"; do
         HPC_ON=$(python3 "$CACHE/scripts/project_config.py" --project "$P" feature hpc 2>/dev/null || echo true)
     fi
 
-    # Claude pins the plugin per project; Codex installs it for the machine.
-    # A project whose pin stays behind keeps loading the old version whatever
-    # was installed, so the pin moves here — to what Claude's marketplace
-    # holds, which the native update just refreshed.
-    if [ "$AGENTS" != none ] && [ "$AGENTS" != codex ] \
-            && command -v claude >/dev/null 2>&1 \
-            && [ -f "$CLAUDE_REGISTRY" ]; then
-        # A project still naming the plugin under ANOTHER marketplace (an
-        # earlier name, e.g. `rzchi` before `research-tools`) is moved to the
-        # one this copy was installed from: its enabledPlugins key renamed, the
-        # new pin installed, the old one removed. Otherwise the pin is updated.
-        OLD_SEL=$(python3 - "$P/.claude/settings.json" "$CLAUDE_SELECTOR" <<'PY' 2>/dev/null
-import json, sys
-path, want = sys.argv[1], sys.argv[2]
-try:
-    s = json.load(open(path))
-except Exception:
-    raise SystemExit
-for k in s.get("enabledPlugins", {}):
-    if k.split("@", 1)[0] == "research-note" and k != want:
-        print(k)
-        break
-PY
-)
-        if [ -n "$CLAUDE_SELECTOR" ] && [ -n "$OLD_SEL" ]; then
-            echo "   claude plugin: $OLD_SEL -> $CLAUDE_SELECTOR"
-            CHANGED+=("$P")
-            if [ "$DRY" != 1 ]; then
-                python3 - "$P/.claude/settings.json" "$OLD_SEL" "$CLAUDE_SELECTOR" <<'PY'
-import json, sys
-path, old, new = sys.argv[1:]
-s = json.load(open(path))
-s["enabledPlugins"] = {(new if k == old else k): v for k, v in s["enabledPlugins"].items()}
-json.dump(s, open(path, "w"), indent=2); open(path, "a").write("\n")
-PY
-                ( cd "$P" && claude plugin install "$CLAUDE_SELECTOR" --scope project >/dev/null 2>&1
-                  claude plugin uninstall "$OLD_SEL" --scope project >/dev/null 2>&1 ) || true
-            fi
-        elif [ -n "$CLAUDE_SELECTOR" ]; then
-            ( cd "$P" && run claude plugin update "$CLAUDE_SELECTOR" --scope project >/dev/null 2>&1 )
-        fi
-        got=$(python3 - "$CLAUDE_REGISTRY" "$P" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1]))
-for key, rows in d.get("plugins", {}).items():
-    if key.split("@")[0] != "research-note":
-        continue
-    for e in rows:
-        if e.get("projectPath") == sys.argv[2]:
-            print(e.get("version", "?"))
-            raise SystemExit
-print("(no row)")
-PY
-        )
-        # A pin AHEAD of this copy is the normal state right after an update —
-        # the script executing is the old version by construction. Only a pin
-        # BEHIND is a finding.
-        if [ "$got" = "(no row)" ]; then
-            echo "   claude project pin: none — this project loads the plugin from user scope, if at all"
-        elif [ "$got" = "$VER" ]; then
-            echo "   claude project pin: $VER"
-        elif [ "$(printf '%s\n%s\n' "$VER" "$got" | sort -V | tail -1)" = "$got" ]; then
-            echo "   claude project pin: $got  (ahead of this copy $VER — fine)"
-        else
-            echo "   claude project pin: $got  ← BEHIND this copy $VER (verify by hand)"
-        fi
-    else
-        echo "   claude project pin: skipped"
-    fi
+    echo "   host plugins: activated together by the project runtime transaction"
 
     # --- the four contracts have a framework section followed by the project's
     # editable appendix. contracts.py updates the first and preserves the
     # second. Older .research-note/rules/<x>.md files are imported once for
     # compatibility; an edited framework section is reported as CONFLICT.
     if [ -f "$CACHE/scripts/contracts.py" ]; then
-        ct_out=$(python3 "$CACHE/scripts/contracts.py" sync "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        ct_out=$(python3 "$CACHE/scripts/contracts.py" sync "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1) || exit $?
         printf '%s\n' "$ct_out" | grep -vE '^same ' | sed 's/^/   contract: /'
         printf '%s\n' "$ct_out" | grep -qE '^(new|migrated|generated|regenerated) ' && CHANGED+=("$P")
         CONFLICTS=$(( CONFLICTS + $(printf '%s\n' "$ct_out" | grep -c '^CONFLICT ') ))
@@ -236,11 +138,11 @@ PY
     # --- page templates: framework text — copied over; the record contract
     # points at them.
     if ls "$CACHE"/design/*-template.md >/dev/null 2>&1; then
-        mkdir -p "$P/.claude/examples"
+        run mkdir -p "$P/.claude/examples" || exit $?
         for ex in "$CACHE"/design/*-template.md; do
             b=$(basename "$ex")
             if [ ! -f "$P/.claude/examples/$b" ] || ! diff -q "$ex" "$P/.claude/examples/$b" >/dev/null 2>&1; then
-                run cp "$ex" "$P/.claude/examples/$b"; echo "   example: $b synced"; CHANGED+=("$P")
+                run cp "$ex" "$P/.claude/examples/$b" || exit $?; echo "   example: $b synced"; CHANGED+=("$P")
             fi
         done
     fi
@@ -253,7 +155,7 @@ PY
     # warning: that hook carries the project's own layer rows until they move
     # into .research-note/project.json.
     if [ -f "$CACHE/scripts/githooks_install.py" ]; then
-        gh_out=$(python3 "$CACHE/scripts/githooks_install.py" install "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)
+        gh_out=$(python3 "$CACHE/scripts/githooks_install.py" install "$P" --plugin "$CACHE" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1) || exit $?
         printf '%s\n' "$gh_out" | grep -vE '^kept ' | sed 's/^/   githook: /'
         printf '%s\n' "$gh_out" | grep -qE '^(new|synced|moved|linked) ' && CHANGED+=("$P")
         CONFLICTS=$(( CONFLICTS + $(printf '%s\n' "$gh_out" | grep -c '^WARN ') ))
@@ -271,7 +173,7 @@ PY
     # overwritten every run.
     pr=$(git -C "$P" config --get research-note.pluginRoot 2>/dev/null)
     if [ "$pr" != "$CACHE" ]; then
-        run git -C "$P" config research-note.pluginRoot "$CACHE"
+        run git -C "$P" config research-note.pluginRoot "$CACHE" || exit $?
         echo "   research-note.pluginRoot -> $CACHE${pr:+   (was $pr)}"
     fi
 
@@ -293,7 +195,7 @@ if new and os.environ.get("DRY") != "1":
     json.dump(s, open(proj, "w"), indent=2); open(proj, "a").write("\n")
 print(" ".join(new))
 PY
-)
+) || exit $?
         [ -n "$added" ] && { echo "   permissions added: $added"; CHANGED+=("$P"); }
     fi
 
@@ -367,10 +269,10 @@ echo "   plus any contract file listed as synced above (those cannot be reloaded
 echo
 if [ ${#CHANGED[@]} -gt 0 ]; then
     printf '%s\n' "${CHANGED[@]}" | sort -u | while read -r p; do
-        echo "commit in $p:  git add .claude && git commit -m \"agent: update to research-note $VER\" -- .claude"
+        echo "review and commit the agent-layer changes in $p (.claude, .codex, .research-note)"
     done
     echo
-    echo "Then, for a session to SEE the new skills: ask the user to run /reload-plugins."
+    echo "Start new Claude and Codex sessions in this project after activation."
     echo "Contract files cannot be reloaded — Read the ones listed as synced above."
 else
     echo "nothing to sync — every project already on $VER"

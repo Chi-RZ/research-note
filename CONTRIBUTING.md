@@ -85,10 +85,11 @@ test fails until the current template is in the list.
 a clone of this repository's remote, so an unpushed commit is invisible to every
 installation — including the author's own machine. Commit, push, then update.
 
-`scripts/update_projects.sh` carries an installed version into every registered
-project. Run it from the cache of the version you just published, not from a
-checkout: it repoints `research-note.pluginRoot`, and a copy can only point at
-what it can see.
+`scripts/update_projects.sh --latest PROJECT` fetches the published source and
+updates only that project. For local validation, run the script from your
+checkout with an explicit temporary project path. It snapshots that source and
+binds both agents locally; neither flow upgrades user-scope plugins. Commit the
+project lock and configuration changes after review, then start new sessions.
 
 ## Scope
 

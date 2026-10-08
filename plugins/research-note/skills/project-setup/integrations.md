@@ -63,6 +63,8 @@ Palette. The viewer follows every rewrite of `dashboard.html` by itself.
 
 ## Both agents (`--with-cross-agent`)
 
-Registers the plugin with whichever of Claude and Codex is installed and lacks
-it, from the same marketplace source. The project side is dual regardless:
-every `CLAUDE.md` has its `AGENTS.md` view.
+Both project bindings are now prepared by core setup and select the same locked
+runtime. This older flag is accepted for compatibility; it no longer installs
+or upgrades either agent's user-level plugin. Install each host application
+separately, open this project, accept its normal trust prompts, and start a
+fresh session. The project's lock names the selector each host should load.

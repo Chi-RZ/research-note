@@ -11,9 +11,8 @@ IDEMPOTENT BY CONSTRUCTION: an existing file is kept and reported as `kept`,
 never overwritten (your edited contracts and settings survive
 a re-run). The index and any enabled dashboard are refreshed.
 
-Also the FINISHING MOVE after either agent updates the plugin: re-run it and the
-project's qdash copy, board and fixer daemon all come back pointing at the new
-version (everything else reports `kept`).
+Re-running setup preserves the project's pinned runtime. Use update_projects.sh
+for an explicit upgrade of its contracts, hooks and both agent bindings.
 
 Usage:
   bootstrap_project.py [PROJECT_DIR] [--dry-run]
@@ -21,18 +20,14 @@ Usage:
                        [--with-hpc | --remote HOST:DIR ...]
 
 New projects start with the record workflow only. Dashboard, fixer, HPC, editor support
-and cross-agent registration are opt-in and the choice is saved in
+are opt-in and the choice is saved in
 `.research-note/project.json`. The old `--no-fixer`, `--no-qdash` and
 `--no-cross-agent` flags remain accepted and now persist their choice. Projects
 created before this configuration existed keep their integrations enabled.
 
-ONE command can configure BOTH agents. The project-side bindings were always dual
-(AGENTS.md per layer, one shared memory dir, one shared skills dir); what was
-not was the machine, because each CLI keeps its own marketplace list and its
-own install pin. So this also registers the plugin with whichever of Claude /
-Codex is installed and does not have it yet, from the same marketplace source
-the running side was installed from. Idempotent, never fatal, and
---no-cross-agent opts out.
+Both agents receive project-local bindings to one immutable runtime snapshot.
+No host CLI install or user-scope configuration change is part of setup.
+--with-cross-agent remains accepted for compatibility.
 
 --remote HOST:DIR declares a remote HPC (ssh alias + project clone path on the
 cluster). REPEATABLE: the first occurrence is the default host (written as
@@ -490,6 +485,11 @@ def check_installation(proj: Path, config: dict) -> int:
     ok = bool(binding.stdout.strip()) and (Path(binding.stdout.strip()) / "scripts/project_config.py").is_file()
     say("ok" if ok else "FAIL", "research-note.pluginRoot")
     failed |= not ok
+    from project_runtime import LOCK, check as check_runtime
+    if (proj / LOCK).exists():
+        for problem in check_runtime(proj):
+            say("FAIL", "project runtime", problem)
+            failed = True
     for state, name, detail in githooks_install.status(proj):
         bad = state in {"BAD", "FAIL", "WARN"}
         say("FAIL" if bad else "ok", name, detail)
@@ -535,6 +535,25 @@ def main() -> int:
     if not proj.is_dir():
         print(f"bootstrap: {proj} is not a directory", file=sys.stderr)
         return 2
+
+    # Setup preserves a project's version. Only update_projects.sh switches it.
+    # Worktrees share the main checkout's installation, just like the record bus.
+    from project_runtime import main_project, locked_root, snapshot, activate, transaction
+    proj = main_project(proj)
+    try:
+        pinned = locked_root(proj)
+    except ValueError as exc:
+        print(f"bootstrap: {exc}", file=sys.stderr)
+        return 2
+    if pinned and pinned.resolve() != PLUGIN.resolve():
+        forwarded = list(sys.argv[1:])
+        if args:
+            forwarded[forwarded.index(args[0])] = str(proj)
+        else:
+            forwarded.insert(0, str(proj))
+        return subprocess.run([sys.executable, "-B", str(pinned / "scripts/bootstrap_project.py"),
+                               *forwarded], cwd=proj,
+                              env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}).returncode
 
     # Read this before the template loop creates .claude/framework.json. A
     # pre-schema project already had every integration enabled by default, so
@@ -948,7 +967,7 @@ def main() -> int:
     if not feature_enabled(project_config, "cross_agent"):
         say("skip", "other agent", "disabled in .research-note/project.json")
     else:
-        sync_other_agent(dry)
+        say("ok", "other agent", "both project bindings use the pinned runtime; no user-scope install")
 
     print("\n· acceptance gate")
     # The gate checks the project, not the plugin: both linters over whatever
@@ -965,6 +984,16 @@ def main() -> int:
                                capture_output=True, text=True, cwd=proj, env=env)
             say("ok" if r.returncode == 0 else "FAIL", script,
                 "" if r.returncode == 0 else (r.stdout + r.stderr).strip()[:200])
+
+    if not dry and not any(s in {"FAIL", "CONFLICT"} for s, _, _ in report):
+        try:
+            with transaction(proj):
+                pin = snapshot(proj, PLUGIN)
+                activate(proj, pin)
+            say("ok", "project runtime (Claude + Codex)",
+                f"{pin['version']} / {pin['sha256'][:12]} — start new sessions to load it")
+        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+            say("FAIL", "project runtime", str(exc))
 
     bad = [f"{w} ({d})" if d else w for s, w, d in report if s in ("FAIL", "WARN")]
     print(f"\nbootstrap: {sum(1 for s, _, _ in report if s == 'new')} created, "

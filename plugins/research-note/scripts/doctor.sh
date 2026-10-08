@@ -439,21 +439,15 @@ done
     "nothing to install into — when enabled, project_memory/dashboard.html is readable in a browser"
 else not_checked editor; fi
 
-if want cross_agent; then
-echo
-echo "the other agent"
-agents_seen=0
-if command -v codex >/dev/null 2>&1; then
-    agents_seen=1
-    if grep -q 'research-note@' "$HOME/.codex/config.toml" 2>/dev/null; then ok "codex has the plugin registered"
-    else bad "codex is installed but has no research-note plugin" "re-run bootstrap_project.py --with-cross-agent from the Claude cache, or codex plugin add"; fi
-fi
-if command -v claude >/dev/null 2>&1; then
-    agents_seen=1
-    if grep -q 'research-note@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then ok "claude has the plugin registered"
-    else bad "claude is installed but has no research-note plugin" "re-run bootstrap_project.py --with-cross-agent from the Codex cache, or claude plugin install"; fi
-fi
-[ "$agents_seen" = 1 ] || warn "neither claude nor codex is on PATH" "nothing to register the plugin with"
+if [ -f "$PROJ/.research-note/plugin-lock.json" ]; then
+    if python3 "$HERE/project_runtime.py" check "$PROJ" >/dev/null 2>&1; then
+        ok "Claude and Codex project runtime pinned"
+    else
+        bad "project runtime binding differs from lock" "run project_runtime.py check; restore the pinned snapshot and start fresh sessions"
+    fi
+    want cross_agent || not_checked cross_agent
+elif want cross_agent; then
+    warn "legacy project has no shared runtime pin" "update this project to pin both agents"
 else not_checked cross_agent; fi
 
 echo
