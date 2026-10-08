@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "paths": {
+    "record": "project_memory"
+  },
+  "roles": {
+    "libraries": ["src"],
+    "tests": ["tests"],
+    "experiments": ["experiments"],
+    "knowledge": ["wiki"]
+  },
+  "layers": {
+    "source": {
+      "paths": ["src", "tests"],
+      "prefixes": ["feat", "fix", "refactor"]
+    },
+    "experiments": {
+      "paths": ["experiments"],
+      "prefixes": ["exp"]
+    },
+    "record": {
+      "paths": ["project_memory"],
+      "prefixes": ["memory"]
+    },
+    "knowledge": {
+      "paths": ["wiki"],
+      "prefixes": ["wiki"]
+    },
+    "agent": {
+      "paths": [".research-note", ".agent", ".agents", ".claude", ".codex"],
+      "prefixes": ["agent"]
+    },
+    "root": {
+      "paths": [],
+      "prefixes": ["chore"]
+    }
+  },
+  "features": {
+    "dashboard": false,
+    "fixer": false,
+    "hpc": false,
+    "editor": false,
+    "cross_agent": false
+  },
+  "environment": {
+    "manager": "uv"
+  }
+}

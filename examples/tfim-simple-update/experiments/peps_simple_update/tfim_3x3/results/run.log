@@ -1,0 +1,17 @@
+warning: `VIRTUAL_ENV=/home/researcher/pyenv/quantum` does not match the project environment path `examples/tfim-simple-update/.venv` and will be ignored; use `--active` to target the active environment instead
+ED energy = -28.074198890889; per site = -3.119355432321
+{"steps": 50, "beta": 2.5, "energy": -28.073522020445637, "max_bond": 2, "D": 2, "energy_per_site": -3.1192802244939597, "abs_error": 0.0006768704432467132}
+{"steps": 100, "beta": 5.0, "energy": -28.073522020467486, "max_bond": 2, "D": 2, "energy_per_site": -3.1192802244963875, "abs_error": 0.0006768704213975241}
+{"steps": 200, "beta": 10.0, "energy": -28.073522020467486, "max_bond": 2, "D": 2, "energy_per_site": -3.1192802244963875, "abs_error": 0.0006768704213975241}
+{"steps": 400, "beta": 20.0, "energy": -28.073522020467486, "max_bond": 2, "D": 2, "energy_per_site": -3.1192802244963875, "abs_error": 0.0006768704213975241}
+D=2 elapsed_seconds=13.124
+{"steps": 50, "beta": 2.5, "energy": -28.074065259195788, "max_bond": 4, "D": 4, "energy_per_site": -3.1193405843550877, "abs_error": 0.00013363169309599243}
+{"steps": 100, "beta": 5.0, "energy": -28.07406525922712, "max_bond": 4, "D": 4, "energy_per_site": -3.119340584358569, "abs_error": 0.0001336316617646105}
+{"steps": 200, "beta": 10.0, "energy": -28.07406525922712, "max_bond": 4, "D": 4, "energy_per_site": -3.119340584358569, "abs_error": 0.0001336316617646105}
+{"steps": 400, "beta": 20.0, "energy": -28.074065259227122, "max_bond": 4, "D": 4, "energy_per_site": -3.1193405843585693, "abs_error": 0.00013363166176105779}
+D=4 elapsed_seconds=16.188
+{"steps": 50, "beta": 2.5, "energy": -28.074047209022527, "max_bond": 8, "D": 8, "energy_per_site": -3.119338578780281, "abs_error": 0.00015168186635605707}
+{"steps": 100, "beta": 5.0, "energy": -28.074047865115546, "max_bond": 8, "D": 8, "energy_per_site": -3.119338651679505, "abs_error": 0.00015102577333792055}
+{"steps": 200, "beta": 10.0, "energy": -28.074047718069696, "max_bond": 8, "D": 8, "energy_per_site": -3.1193386353410775, "abs_error": 0.00015117281918719527}
+{"steps": 400, "beta": 20.0, "energy": -28.07404774766248, "max_bond": 8, "D": 8, "energy_per_site": -3.1193386386291646, "abs_error": 0.00015114322640386035}
+D=8 elapsed_seconds=28.770

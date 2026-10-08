@@ -7,6 +7,10 @@ A record framework for agent-assisted computational research, for **Claude
 Code** and **Codex**. It records numerical results faithfully, and distils
 source code and knowledge as the work proceeds.
 
+See the [3×3 TFIM example](examples/tfim-simple-update/) for a complete small
+project with two objectives, a locked uv environment, Quimb simple update,
+QuSpin exact diagonalization, recorded evidence and compiled wiki knowledge.
+
 ## What it is for
 
 - A record that ties each result to its code, recipe, machine, and question.
