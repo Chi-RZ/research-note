@@ -1,6 +1,6 @@
 ---
 id: O02
-status: active
+status: closed
 created: 2026-10-08
 budget: "one exact trajectory and three PEPS trajectories through t=1"
 wake-me-if: "a trajectory becomes non-finite or D=8 fails to improve the observable | budget exceeded"
@@ -26,4 +26,4 @@ Success means measuring `mx(t)` through `t=1`, reporting the maximum absolute tr
 
 ## Verdict
 
-**The real-time trajectory continues to improve through D=8 over the measured window.** The result is limited to `t<=1` and does not separate Trotter error from PEPS truncation error. 1 entry awaits review.
+**The real-time trajectory continues to improve through D=8 over the measured window.** The result is limited to `t<=1` and does not separate Trotter error from PEPS truncation error. The user reviewed and closed the entry on 2026-10-08.

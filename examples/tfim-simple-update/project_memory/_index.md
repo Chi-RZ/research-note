@@ -12,9 +12,9 @@ of every entry id) are assigned once and never reused.
 
 | id | entry | status |
 |---|---|---|
-| 01.001 | [model convention gate on the 3x3 plus state](nodes/peps_simple_update/node.md#entry-model-convention-gate-on-the-3x3-plus-state) | analyzed |
-| 01.002 | [second-order ground-state scan at D 2 4 8](nodes/peps_simple_update/tfim_3x3/ground_state.md#entry-second-order-ground-state-scan-at-d-2-4-8) | analyzed |
-| 01.003 | [second-order plus-state quench at D 2 4 8](nodes/peps_simple_update/tfim_3x3/dynamics.md#entry-second-order-plus-state-quench-at-d-2-4-8) | analyzed |
+| 01.001 | [model convention gate on the 3x3 plus state](nodes/peps_simple_update/node.md#entry-model-convention-gate-on-the-3x3-plus-state) | closed |
+| 01.002 | [second-order ground-state scan at D 2 4 8](nodes/peps_simple_update/tfim_3x3/ground_state.md#entry-second-order-ground-state-scan-at-d-2-4-8) | closed |
+| 01.003 | [second-order plus-state quench at D 2 4 8](nodes/peps_simple_update/tfim_3x3/dynamics.md#entry-second-order-plus-state-quench-at-d-2-4-8) | closed |
 
 ## Objectives
 
@@ -22,5 +22,5 @@ O numbers are assigned once, read from here (the next free one), never reused.
 
 | id | objective | status | verdict |
 |---|---|---|---|
-| O01 | [ground_state_convergence](objectives/ground_state_convergence.md) | active | The ground-state scan improves substantially from D=2 to D=4, then becomes non-monotonic at D=8 u… |
-| O02 | [quench_dynamics](objectives/quench_dynamics.md) | active | The real-time trajectory continues to improve through D=8 over the measured window. The result is… |
+| O01 | [ground_state_convergence](objectives/ground_state_convergence.md) | closed | The ground-state scan improves substantially from D=2 to D=4, then becomes non-monotonic at D=8 u… |
+| O02 | [quench_dynamics](objectives/quench_dynamics.md) | closed | The real-time trajectory continues to improve through D=8 over the measured window. The result is… |

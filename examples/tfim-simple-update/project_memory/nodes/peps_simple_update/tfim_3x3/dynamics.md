@@ -5,7 +5,7 @@ task: Measure bond-dimension convergence of a 3x3 TFIM real-time quench
 
 ### Entry: second-order plus-state quench at D 2 4 8
 - **Id:** 01.003
-- **Status:** analyzed
+- **Status:** closed
 - **Date:** 2026-10-08 13:30
 - **Code:** `research-note@4dbcfb0`
 - **Motivation:** The ground-state scan found "D=4 and D=8 sit on a non-monotonic energy plateau"; how does the maximum absolute error in transverse magnetization through `t=1` change across `D=[2,4,8]`?

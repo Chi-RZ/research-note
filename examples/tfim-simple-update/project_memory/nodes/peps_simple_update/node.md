@@ -5,7 +5,7 @@ task: Validate the shared TFIM convention before using PEPS simple update
 
 ### Entry: model convention gate on the 3x3 plus state
 - **Id:** 01.001
-- **Status:** analyzed
+- **Status:** closed
 - **Date:** 2026-10-08 13:00
 - **Code:** `research-note@90af53b`
 - **Motivation:** The analytic calculation found "the `+x` product state has energy `-hN=-27` for the 3×3 open TFIM"; do QuSpin and Quimb reproduce this value within `1e-12`?

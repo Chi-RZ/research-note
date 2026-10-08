@@ -5,7 +5,7 @@ task: Measure bond-dimension convergence of the 3x3 TFIM ground-state energy
 
 ### Entry: second-order ground-state scan at D 2 4 8
 - **Id:** 01.002
-- **Status:** analyzed
+- **Status:** closed
 - **Date:** 2026-10-08 13:10
 - **Code:** `research-note@4dbcfb0`
 - **Motivation:** The user directive found "the requested comparison fixes `Lx=3`, `dt=0.05`, second order and `D=[2,4,8]`"; how far does the absolute energy error from QuSpin ED fall at `beta=20`?

@@ -1,6 +1,6 @@
 ---
 id: O01
-status: active
+status: closed
 created: 2026-10-08
 budget: "one local 3x3 ED reference and three PEPS arms through beta=20"
 wake-me-if: "a solver convention disagrees or an arm produces a non-finite value | budget exceeded"
@@ -29,4 +29,4 @@ Success means establishing the exact reference energy, measuring the final error
 
 ## Verdict
 
-**The ground-state scan improves substantially from D=2 to D=4, then becomes non-monotonic at D=8 under the fixed update schedule.** It supports a roughly `1.5e-4` total-energy accuracy floor for this recipe, rather than monotonic convergence in D. 2 entries await review.
+**The ground-state scan improves substantially from D=2 to D=4, then becomes non-monotonic at D=8 under the fixed update schedule.** It supports a roughly `1.5e-4` total-energy accuracy floor for this recipe, rather than monotonic convergence in D. The user reviewed and closed both entries on 2026-10-08.
