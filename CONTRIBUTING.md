@@ -4,10 +4,11 @@
 
 ```bash
 pip install pytest pyyaml
-python -m pytest plugins/research-note/scripts/tests -q
+python -m pytest plugins/research-note/scripts/tests -q -m "not integration"
 ```
 
-457 tests, about 75 seconds. Two test-only dependencies and nothing else:
+This is the fast core suite for normal edits. It covers parsers, lint policy,
+configuration and isolated runtime behavior. Two test-only dependencies and nothing else:
 `pytest`, and `pyyaml` for the single test that parses the skills' ```yaml
 examples with a real parser. The shipped code itself is standard-library
 Python, POSIX shell and git — nothing to install to RUN it. The suite builds its
@@ -15,8 +16,18 @@ own repositories and its own fake `HOME`, and it never calls the `claude` or
 `codex` CLIs — every test that needs one stubs it. So it passes on a machine
 with neither agent installed, which is also how CI runs it.
 
-If that command is green on your machine, you can change anything here and know
-whether you broke it.
+For parser, policy, configuration and isolated runtime changes, that is the
+complete local check.
+
+Changes to shell entrypoints, Git transactions, setup, update, rollback or
+worktree behavior also run the integration layer:
+
+```bash
+python -m pytest plugins/research-note/scripts/tests -q -m integration
+```
+
+CI runs the core suite at the Python/OS compatibility endpoints and runs the
+integration layer once on Linux/Python 3.10. Plain `pytest` still runs both.
 
 ## The one habit that matters
 

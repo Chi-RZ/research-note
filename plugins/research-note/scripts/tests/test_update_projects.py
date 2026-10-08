@@ -11,6 +11,10 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 SCRIPT = Path(__file__).resolve().parent.parent / "update_projects.sh"
 PLUGIN = SCRIPT.parent.parent
 

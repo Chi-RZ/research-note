@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 HOOKS = Path(__file__).resolve().parents[2] / "githooks" / "research-note"
 PLUGIN = HOOKS.parents[1]
 GITHOOKS = HOOKS.parent

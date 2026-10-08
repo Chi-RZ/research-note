@@ -76,12 +76,14 @@ def _read_eventually(tmp_path):
     return log.read_text()
 
 
+@pytest.mark.integration
 def test_a_project_without_a_declaration_runs_locked_on_uv(tmp_path):
     head = _launch(tmp_path, None)
     assert "# Environment: locked by uv.lock" in head, head
     assert "uv run --no-sync python -u" in head
 
 
+@pytest.mark.integration
 def test_an_explicit_runner_still_overrides_the_project(tmp_path):
     """RUNNER= is how a one-off run departs from the project's runner."""
     head = _launch(tmp_path, {"manager": "other"}, RUNNER="python3 -X dev -u")

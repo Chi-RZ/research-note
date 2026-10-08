@@ -5,6 +5,8 @@ on a page that lives forever). Smoke (ENTRY=none) stays legal anywhere."""
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parent.parent
 LAUNCHER = SCRIPTS.parent / "skills" / "hpc-submit" / "scripts" / "launch_bare_gpu.sh"
 
@@ -26,6 +28,7 @@ def _repo_with_worktree(tmp_path):
     return repo, wt
 
 
+@pytest.mark.integration
 def test_a_recorded_launch_from_a_worktree_is_refused(tmp_path):
     repo, wt = _repo_with_worktree(tmp_path)
     r = subprocess.run(
@@ -38,6 +41,7 @@ def test_a_recorded_launch_from_a_worktree_is_refused(tmp_path):
     assert not (wt / "logs").exists(), "nothing may be created before the guard"
 
 
+@pytest.mark.integration
 def test_the_same_launch_from_main_passes_the_guard(tmp_path):
     """From the main checkout the guard is silent — the run proceeds to the
     pre-flight, which fails on the missing record instead (proving we got
@@ -51,6 +55,7 @@ def test_the_same_launch_from_main_passes_the_guard(tmp_path):
     assert "WORKTREE" not in r.stderr
 
 
+@pytest.mark.integration
 def test_smoke_from_a_worktree_stays_legal(tmp_path):
     repo, wt = _repo_with_worktree(tmp_path)
     r = subprocess.run(

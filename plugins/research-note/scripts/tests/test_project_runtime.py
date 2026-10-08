@@ -126,6 +126,7 @@ def test_failed_activation_restores_previous_settings(tmp_path, monkeypatch):
         k: v for k, v in before.items() if "/runtime/" not in k and "/state/" not in k}
 
 
+@pytest.mark.integration
 def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     from test_compat_matrix import bootstrap, sh
     m = runtime()
@@ -160,6 +161,7 @@ def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     assert m.check(b) == []
 
 
+@pytest.mark.integration
 def test_real_failed_update_restores_contracts_pin_and_git_config(tmp_path):
     from test_compat_matrix import bootstrap, sh
     home = tmp_path / "home"
@@ -178,6 +180,7 @@ def test_real_failed_update_restores_contracts_pin_and_git_config(tmp_path):
         k: v for k, v in before.items() if "/runtime/" not in k}
 
 
+@pytest.mark.integration
 def test_worktree_update_resolves_to_main_installation(tmp_path):
     from test_compat_matrix import bootstrap, sh, commit_all
     home = tmp_path / "home"
@@ -225,6 +228,7 @@ def test_restore_clone_requires_matching_content(tmp_path):
         m.restore(p, src)
 
 
+@pytest.mark.integration
 def test_contract_conflict_prevents_runtime_switch(tmp_path):
     from test_compat_matrix import bootstrap, sh
     home = tmp_path / "home"

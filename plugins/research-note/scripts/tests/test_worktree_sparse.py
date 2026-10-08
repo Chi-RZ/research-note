@@ -7,6 +7,10 @@ main checkout must come through the sweep untouched."""
 import subprocess
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 SCRIPT = Path(__file__).resolve().parent.parent / "worktree_sparse.sh"
 
 

@@ -6,12 +6,9 @@ on:
   pull_request:
 
 jobs:
-  test:
-    # The suite needs python3, git and a POSIX shell — nothing else. It creates
-    # its own repositories and its own fake HOME, so it does not touch the
-    # runner's, and it never calls the `claude` or `codex` CLIs: every test that
-    # needs one stubs it. That is why this file is eight lines of setup and no
-    # service containers.
+  core:
+    # Fast parser, policy, configuration and isolated runtime checks run at both
+    # supported compatibility endpoints.
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -33,8 +30,20 @@ jobs:
       # the defect it catches (`03.014` loading as the float 3.014) is
       # invisible to anything less.
       - run: pip install pytest pyyaml
-      - name: git identity (the shell suite builds real repositories)
+      - run: python -m pytest plugins/research-note/scripts/tests -q -m "not integration"
+
+  integration:
+    # Real repositories, shell entrypoints and transactional setup/update paths
+    # run once instead of being repeated for every OS/Python pair.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pytest pyyaml
+      - name: git identity
         run: |
           git config --global user.email ci@example.com
           git config --global user.name ci
-      - run: python -m pytest plugins/research-note/scripts/tests -q
+      - run: python -m pytest plugins/research-note/scripts/tests -q -m integration

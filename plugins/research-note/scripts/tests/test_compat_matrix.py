@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 PLUGIN = SCRIPTS.parent
 BOOTSTRAP = SCRIPTS / "bootstrap_project.py"

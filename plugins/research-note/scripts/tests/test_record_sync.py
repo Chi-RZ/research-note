@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 SCRIPTS = Path(__file__).resolve().parent.parent
 BUS = SCRIPTS / "record_sync.sh"
 
