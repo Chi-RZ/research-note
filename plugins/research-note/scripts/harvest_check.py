@@ -47,7 +47,9 @@ every turn. Past the gate the entry is presumed forgotten or orphaned, which
 is exactly what a broadcast is for. A Monitor polls with --min-age 0 and
 keeps its immediacy.
 
-Usage: harvest_check.py [--min-age N]   plain text findings (a Monitor's poll)
+Usage: harvest_check.py [--min-age N] [--for O01 ...]
+                                        plain text findings (a Monitor's poll;
+                                        repeat --for for multiple objectives)
        harvest_check.py --hook          the COMPLETE hook payload, JSON and
                                         doctrine preamble included — hooks.json
                                         calls this with one dumb line and owns
@@ -221,21 +223,26 @@ def preamble() -> str:
             f"saying so.")
 
 
-def report(min_age: int, for_objective: str | None = None) -> str:
+def report(min_age: int, for_objective: str | list[str] | tuple[str, ...] | set[str] | None = None) -> str:
     """The findings text — empty string when all is quiet.
 
-    `for_objective="O07"` is the Monitor's scope, computed HERE because only
-    this side holds the attribution: a line is O07's when it attributes to
-    O07, or when it attributes to NOBODY but lives in a node O07's Plan
-    already works in — the launched-but-never-put-on-the-Plan case, which is
-    invisible to an `^O07 ` grep by construction. A grep over the printed
-    text can only match a pattern frozen at arming; this recomputes per call,
-    so the scope follows the Plan as it grows. Lines attributed to ANOTHER
-    objective are dropped — they are some other loop's to harvest, and every
-    unharvested line repeats each poll, which is how a watcher gets itself
-    rate-limited to death on a shared node."""
+    `for_objective` is one objective id or a collection owned by one session.
+    The scope is computed HERE because only this side holds the attribution: a
+    line belongs when its objective is selected, or when it attributes to
+    NOBODY but lives in a node a selected Plan already works in — the
+    launched-before-its-Plan-line case, invisible to a printed-text grep by
+    construction. Recomputing per call lets every scope follow its Plan as it
+    grows. Lines attributed to another objective are dropped; they belong to
+    another launching session, and repeating them every poll would rate-limit
+    this watcher."""
     if not NODES.is_dir() or in_linked_worktree():
         return ""
+    if isinstance(for_objective, str):
+        objective_scope = {for_objective}
+    else:
+        objective_scope = set(for_objective or ())
+    scoped_nodes = set().union(*(_plan_nodes(oid) for oid in objective_scope)) \
+        if objective_scope else set()
     owners = None                      # built only if some page needs it
     by_id: dict[tuple[Path, str], str] = {}   # ditto, keyed by the entry id
     keyed: list[tuple[str, str]] = []  # (stable key, report line)
@@ -266,13 +273,13 @@ def report(min_age: int, for_objective: str | None = None) -> str:
             eid = C.field(entries.get(name, ""), "Id").strip("` ")
             oid = (by_id.get((page.resolve(), eid)) if eid else None) or \
                 owners.get((page.resolve(), _slug(name)), "—")
-            if for_objective is not None and oid != for_objective:
+            if objective_scope and oid not in objective_scope:
                 if oid != "—":
                     continue           # another loop's line, drop it
                 node = page.relative_to(ROOT / "project_memory" / "nodes"
                                         ).parts[0]
-                if node not in _plan_nodes(for_objective):
-                    continue           # a node this objective never touches
+                if node not in scoped_nodes:
+                    continue           # a node these objectives never touch
             rel = page.relative_to(ROOT).as_posix()
             keyed.append((f"{rel}#{_slug(name)}",
                           f"{oid} · {eid or '??'} · {rel}: {err}"))
@@ -310,10 +317,9 @@ def main() -> int:
     min_age = MIN_AGE_MIN
     if "--min-age" in sys.argv:
         min_age = int(sys.argv[sys.argv.index("--min-age") + 1])
-    for_objective = None
-    if "--for" in sys.argv:
-        for_objective = sys.argv[sys.argv.index("--for") + 1]
-    text = report(min_age, for_objective)
+    for_objectives = [sys.argv[i + 1] for i, arg in enumerate(sys.argv[:-1])
+                      if arg == "--for"]
+    text = report(min_age, for_objectives or None)
     if text:
         print(text)
     return 0

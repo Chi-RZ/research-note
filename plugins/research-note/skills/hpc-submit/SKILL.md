@@ -100,22 +100,23 @@ head: what is outstanding is every entry at `Status: running`, on disk, and
 the linter reports **J3** for one whose jobs have all ended — the harvest
 signal, the same check for every venue.
 
-1. **A `Monitor` with `persistent: true`**, at most one per objective. Before
-   arming, check whether yours already covers this objective — a later launch
-   under it is covered the moment its id lands on the entry, so a launch never
-   re-arms. Poll every 120–300 s:
+1. **A `Monitor` with `persistent: true`**, at most one per launching session.
+   Its scope is every objective whose background jobs that session owns. A
+   later launch under an already covered objective needs no change; replace
+   the Monitor only when that objective-id set changes. Poll every 120–300 s:
 
    ```bash
    # resolved inside the poll, so a plugin update reaches a live watcher
    PLUGIN="$(git config --get research-note.pluginRoot 2>/dev/null)"
    bash "$PLUGIN/scripts/remote.sh" queue >/dev/null 2>&1   # remote jobs only
-   python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn>
+   python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn> --for O<mm>
    ```
 
-   `--for O<nn>` scopes it to your objective, re-derived from the record on
-   every poll. Another objective's finished jobs are that loop's, and an
-   unharvested line repeats every poll. Work under no objective: drop `--for`
-   and keep only lines starting `— `.
+   Repeat `--for O<nn>` for each owned objective; every scope is re-derived
+   from the record on every poll. Another objective's finished jobs belong to
+   its launching session, and an unharvested line repeats every poll. Work
+   under no objective uses a separate unscoped check and keeps only lines
+   starting `— `.
 
 2. **No Monitor tool?** For a short job, a foreground `sleep 300` and the same
    check, inside the turn. A background shell is killed at about 30 minutes,
@@ -127,6 +128,7 @@ signal, the same check for every venue.
    an orphan needs the user's say-so.
 
 On the wake: re-run the check to see which entry, `remote.sh pull` if it ran
-remotely, and analyze it in-session with full context. The Monitor stays
-armed while others run. A lost watcher costs latency, never information —
-whoever resumes re-derives the same outstanding set from the pages.
+remotely, and analyze it in-session with full context. The Monitor stays armed
+while any owned background job remains and stops when none do. A lost watcher
+costs latency, never information — whoever resumes re-derives the same
+outstanding set from the pages.

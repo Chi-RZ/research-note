@@ -53,28 +53,29 @@ Execution starts only on `run`, after the user confirms the Goal.
 (the task pages' entry statuses, live jobs) — a session that died
 mid-iteration leaves the page at most one iteration stale.
 
-**Arm the watcher, second — idempotent, every entry into the loop.** A
-Monitor dies with its session, so a resumed loop never still has one; check
-whether a Monitor of yours covers this objective, and if not, arm ONE
-(`persistent: true`, poll every 2-5 min):
+**Cover outstanding background work, second.** Foreground-only work needs no
+Monitor. When this session owns background or batch jobs, keep ONE persistent
+Monitor for all of its active objectives (poll every 2-5 min). A resumed
+session re-derives those objective ids from their running entries; repeat
+`--for` once per objective:
 
 ```bash
 # PLUGIN resolved INSIDE the poll (a path baked in at arming freezes this
-# watcher on that version). --for O<nn> is the scope, computed by the script
-# per poll — never a grep frozen at arming. Reasons in full: hpc-submit,
+# watcher on that version). Each --for scope is computed by the script per
+# poll — never a grep frozen at arming. Reasons in full: hpc-submit,
 # "Watch".
 PLUGIN="$(git config --get research-note.pluginRoot 2>/dev/null)"
 [ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
 [ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
 bash "$PLUGIN/scripts/remote.sh" queue >/dev/null 2>&1   # only if the project declares a remote
-python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn>
+python3 "$PLUGIN/scripts/harvest_check.py" --min-age 0 --for O<nn> --for O<mm>
 ```
 
-One Monitor per objective, armed here and stopped when the loop ends — never
-re-armed per launch: the poll derives the outstanding set from the record, so
-every later submission under this objective is covered the moment its id
-lands on the entry. The turn-boundary harvest hook stays as the net behind it
-(entries unharvested for 15+ min, project-wide).
+Later launches under an already covered objective require no change. Replace
+the Monitor only when this session's set of objective ids changes, and stop it
+when none of those objectives has background work outstanding. The
+turn-boundary harvest hook stays as the net behind it (entries unharvested for
+15+ min, project-wide).
 
 **Re-plan, whenever the Plan is exhausted or a finding invalidated it.** The
 gate: is the Goal still the goal? An agent-proposed change to the success criterion needs the user's decision.
@@ -122,12 +123,14 @@ Each iteration:
    not — `NO_OBJECTIVE=1`, an ambiguity it refused to guess, or a run that
    reached the record another way — and then through the record bus, trailers
    as usual (`Entry: <id>` / `Objective: O<nn>`, never both in one commit).
-4. **Watch your own jobs** — the Monitor armed at loop entry IS the watcher;
-   launching adds nothing. Each wake: analyze THAT entry in-session
-   (research-note:analyze), write it back; the Monitor stays armed while
-   others run. The fixer never analyzes on the loop's behalf; if the loop
-   dies with work in flight it stamps `attention:` so a dead loop never
-   looks live, and the harvest hook shows the orphans to whoever comes next.
+4. **Watch your own jobs** — a foreground run stays in this turn. A background
+   or batch launch joins this session's existing Monitor scope, creating or
+   replacing that one Monitor only when its objective-id set changes. Each
+   wake: analyze THAT entry in-session (research-note:analyze), write it back;
+   the Monitor stays armed while owned background work remains. The fixer
+   never analyzes on the loop's behalf; if the loop dies with work in flight
+   it stamps `attention:` so a dead loop never looks live, and the harvest
+   hook shows the orphans to whoever comes next.
 5. **Review, at phase granularity**: re-read the key numbers from cells/logs;
    compare against the phase's question.
 6. **Write back the review, then re-read the page before taking the next
@@ -148,11 +151,11 @@ Each iteration:
    first result included — or a new phase with `needs: P<n>` when it starts a
    new one.
 7. Loop. `wake-me-if` fires → stop: write the Verdict line saying why, set
-   `attention: <one line — what needs the user>`, commit, and STOP the
-   objective's Monitor — a watcher outliving its loop wakes nobody who will
-   act, and the harvest hook covers the pause. The same stop applies when
-   the user closes the objective. Clear `attention:` and re-arm (the loop
-   entry step is idempotent) when the loop resumes; only the user sets
+   `attention: <one line — what needs the user>`, commit, and remove this
+   objective from the session Monitor's scope; stop the Monitor if its scope
+   is now empty. The harvest hook covers the pause. The same stop applies when
+   the user closes the objective. Clear `attention:` and restore its scope if
+   background work remains when the loop resumes; only the user sets
    `status: closed`.
 
 ## research-note:objective status [slug]

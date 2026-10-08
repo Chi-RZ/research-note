@@ -322,6 +322,27 @@ def test_for_drops_another_objectives_line(hv, capsys, monkeypatch):
     assert out == ""
 
 
+def test_repeated_for_covers_multiple_objectives_with_one_poll(
+        hv, capsys, monkeypatch):
+    mod, C, nodes = hv
+    (nodes / "grid.md").write_text(
+        PAGE.format(status="running", jobs="999999"), encoding="utf-8")
+    other = nodes.parent / "some_other_node"
+    other.mkdir()
+    (other / "grid.md").write_text(
+        PAGE.replace("07.001", "31.001").format(
+            status="running", jobs="999998"), encoding="utf-8")
+    obj8 = (OBJ.replace("id: O07", "id: O08")
+            .replace("../nodes/tanner_gnn_ln/grid.md",
+                     "../nodes/some_other_node/grid.md")
+            .replace("`07.001`", "`31.001`"))
+    (mod.OBJ_DIR / "other.md").write_text(obj8, encoding="utf-8")
+    monkeypatch.setattr(C, "_QUEUE_CACHE", (True, set()))
+    out = run(mod, capsys, "--min-age", "0", "--for", "O07", "--for", "O08")
+    assert "O07 · 07.001" in out
+    assert "O08 · 31.001" in out
+
+
 def test_for_admits_an_unattributed_line_in_a_plan_node(hv, capsys, monkeypatch):
     """The launched-before-its-Plan-line case: attributes to nobody, but lives
     in a node the objective's Plan already works in — the one gap every

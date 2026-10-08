@@ -181,9 +181,10 @@ from the field is J6, because the field is what every watcher, waiter and
 board reads. (Motivation and Refs quote OTHER entries' ids as provenance;
 those belong exactly where they are.)
 
-The launching session watches its own jobs — at most one watcher per
-objective, scopes disjoint, never one per job — and analyses them in-session.
-The fixer scans and raises `attention:`; it repairs nothing.
+The launching session watches its own background or batch jobs. It keeps at
+most one watcher for all objectives it currently owns, repeating `--for O<nn>`
+for each scope; foreground-only work needs none. It analyses completed jobs
+in-session. The fixer scans and raises `attention:`; it repairs nothing.
 
 ## Commits
 

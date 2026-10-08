@@ -133,14 +133,17 @@ record; a quick foreground smoke run does not.
   the main checkout and it keeps committing there, to main, for the rest of its
   run, found only by reading history afterwards — and `git worktree remove`
   cannot see it. `scripts/worktree_retire.sh <path>` refuses while any process
-  has its cwd inside; it only helps if it is what gets called.
-- **A code-editing agent works in its own worktree**; landing is
-  `merge --ff-only`, so main only advances — a branch that diverged REBASES
-  onto main first (rewriting your own branch is routine; the ban protects
-  main). Worktree branches land small and often — hours, not weeks. A worktree
-  session's non-record change that belongs on main (`.claude/` bindings, a
-  contract file) is HANDED to a main-checkout session for its own `agent:`
-  commit — until the branch lands, the whole machine would read the stale copy.
+  has its cwd inside. Worktree landing is complete only after a main-checkout
+  session runs that script once the worktree's processes have exited.
+- **Isolation follows concurrency.** A code-editing agent uses its own
+  worktree when another agent may write the checkout, when main is dirty with
+  work it does not own, or when the change needs an isolated branch. A sole
+  agent may make a short change directly in a clean main checkout. Worktree
+  landing is `merge --ff-only`; a diverged branch REBASES onto main first.
+  Branches land small and often — hours, not weeks. A worktree session's
+  non-record change that belongs on main (`.claude/` bindings, a contract
+  file) is HANDED to a main-checkout session for its own `agent:` commit —
+  until the branch lands, the whole machine would read the stale copy.
 - **Landing and launching in one breath is one transaction.** An agent that
   lands its own branch and then launches its own recorded job runs
   `scripts/land_and_launch.sh`, which holds one lock across rebase → merge →
