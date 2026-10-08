@@ -68,5 +68,6 @@ trajectory and figure under
 `experiments/peps_simple_update/tfim_3x3/dynamics/`.
 
 The research record under `project_memory/` keeps both goals, their recipes,
-evidence, figures and conclusions. The topic-oriented `wiki/` demonstrates
-how reviewed conclusions from separate objectives become shared knowledge.
+evidence, figures and conclusions. The topic-oriented
+[wiki](wiki/knowledge/index.md) demonstrates how reviewed conclusions from
+separate objectives become shared knowledge.
