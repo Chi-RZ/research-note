@@ -117,7 +117,9 @@ In a project, tell the agent:
 It fetches the published release and updates **this project only**. Claude and
 Codex both use the project's locked version: skills, lifecycle hooks, scripts
 and Git hooks move together. Other projects and user-level plugin installations
-are unchanged. Start fresh sessions in both agents after updating this project.
+are unchanged. Sessions already open remain usable with the version they loaded.
+Claude can run `/reload-plugins` to switch in place; Codex picks up the update in
+a new session.
 
 The lock is `.research-note/plugin-lock.json`; local plugin snapshots live in
 `.research-note/runtime/` and stay out of Git. Setup reuses an existing pin;

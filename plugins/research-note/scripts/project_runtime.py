@@ -361,7 +361,8 @@ def update(project: Path, source: Path, dry: bool = False) -> None:
         if errors:
             raise ValueError("; ".join(errors))
     print(f"pinned both agents: {pin['version']} {pin['sha256'][:12]} — {project}")
-    print("Start new Claude and Codex sessions in this project to load the pinned plugin.")
+    print("Running sessions remain usable on the version they already loaded.")
+    print("Claude can /reload-plugins to switch now; a new Codex session loads the new pin.")
 
 
 def main() -> int:

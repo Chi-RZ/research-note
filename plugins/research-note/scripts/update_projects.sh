@@ -7,7 +7,7 @@
 # in that project. It never upgrades either host's user installation.
 # Legacy --agents / --no-cross-agent options are accepted; project bindings now
 # always share one version. --latest fetches source into a temporary checkout.
-# Does not commit or reload running sessions. Start new sessions after updating.
+# Does not commit or force running sessions to switch versions.
 set -uo pipefail
 
 # The public entry point stages an immutable runtime and rolls back a failed
@@ -272,9 +272,9 @@ if [ ${#CHANGED[@]} -gt 0 ]; then
         echo "review and commit the agent-layer changes in $p (.claude, .codex, .research-note)"
     done
     echo
-    echo "Start new Claude and Codex sessions in this project after activation."
+    echo "Running sessions remain usable on the version they already loaded."
+    echo "Claude can /reload-plugins to switch now; a new Codex session loads the new pin."
     echo "Contract files cannot be reloaded — Read the ones listed as synced above."
 else
     echo "nothing to sync — every project already on $VER"
 fi
-

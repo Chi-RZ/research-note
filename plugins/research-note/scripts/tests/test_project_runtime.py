@@ -135,6 +135,8 @@ def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     a, b = project(tmp_path, "a"), project(tmp_path, "b")
     bootstrap(a, home)
     bootstrap(b, home)
+    a_old_root = m.locked_root(a)
+    a_old_digest = m.digest(a_old_root)
     before = files(b)
     b_root = sh(b, home, "git", "config", "--get", "research-note.pluginRoot").stdout
     src = source(tmp_path)
@@ -145,6 +147,10 @@ def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     result = sh(a, home, "bash", str(src / "scripts/update_projects.sh"), str(a))
     assert result.returncode == 0, result.stdout + result.stderr
     assert (m.locked_root(a) / "skills/analyze/SKILL.md").read_text().endswith("Release two.\n")
+    # An already-running host may still reference this release. Updates retain
+    # it so that session can finish normally while new sessions use the new pin.
+    assert a_old_root.is_dir()
+    assert m.digest(a_old_root) == a_old_digest
     assert m.check(a) == []
     assert files(b) == before
     assert sh(b, home, "git", "config", "--get", "research-note.pluginRoot").stdout == b_root

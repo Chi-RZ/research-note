@@ -144,7 +144,8 @@ project:
 Setup preserves an existing `.research-note/plugin-lock.json`; it does not
 upgrade a project because the user-level plugin changed. The generated
 `.codex/config.toml` and Claude settings select the same immutable runtime.
-Host trust prompts still apply. Start new sessions to load that version.
+Host trust prompts still apply. Running sessions keep their loaded version;
+Claude can `/reload-plugins`, while Codex loads the pin in a new session.
 
 ## Step 3 — The environment
 

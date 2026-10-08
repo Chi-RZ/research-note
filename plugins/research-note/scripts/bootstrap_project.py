@@ -991,7 +991,7 @@ def main() -> int:
                 pin = snapshot(proj, PLUGIN)
                 activate(proj, pin)
             say("ok", "project runtime (Claude + Codex)",
-                f"{pin['version']} / {pin['sha256'][:12]} — start new sessions to load it")
+                f"{pin['version']} / {pin['sha256'][:12]} — running sessions keep their loaded version")
         except (OSError, ValueError, subprocess.CalledProcessError) as exc:
             say("FAIL", "project runtime", str(exc))
 

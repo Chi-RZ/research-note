@@ -65,17 +65,18 @@ python3 "$PLUGIN/scripts/project_runtime.py" check
 A zero exit confirms the pinned files and local agent bindings. It does not
 claim a running agent has reloaded them or override the host's trust policies.
 
-## 3. Commit and start fresh sessions
+## 3. Commit and hand over the session boundary
 
 Stage only this update's project files: the lock, changed contracts and hooks,
 and the project agent settings. Keep `.research-note/runtime/` and machine-local
 settings out of Git. Commit as `agent: update research-note to <version>`.
 
 Report the old and new version/hash, affected project, retained project rules,
-any outstanding doctor or record findings, and the commit. Tell the user to
-start new Claude and Codex sessions in that project and check each host's
-plugin listing for the lock's selector. An existing session already contains
-old skills; changing files cannot remove those instructions from its context.
+any outstanding doctor or record findings, and the commit. A running session
+stays usable on the version it loaded because its snapshot remains present.
+Claude may run `/reload-plugins` to switch in place. Codex switches in a new
+session; its current session continues with its loaded skills. After switching,
+check the host's plugin listing for the lock's selector.
 
 Do not update a second project or user-level plugin as a side effect. Updating
 this project's shared rules intentionally applies to both agents in this

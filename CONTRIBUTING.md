@@ -89,7 +89,8 @@ installation — including the author's own machine. Commit, push, then update.
 updates only that project. For local validation, run the script from your
 checkout with an explicit temporary project path. It snapshots that source and
 binds both agents locally; neither flow upgrades user-scope plugins. Commit the
-project lock and configuration changes after review, then start new sessions.
+project lock and configuration changes after review. Running sessions keep their
+loaded version; use Claude's `/reload-plugins` or a new Codex session to switch.
 
 ## Scope
 

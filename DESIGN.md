@@ -899,7 +899,9 @@ a staged, unused snapshot may remain. Old snapshots are not garbage-collected
 under another running session. Setup reuses the lock; update alone switches it.
 Worktrees resolve to the main checkout's installation, as the record bus does.
 
-Both agents need a fresh session after a project update: already-loaded skills
-cannot be un-read. Separate projects keep their previous versions. A new clone
-or a moved checkout must restore its snapshot and refresh local paths. Source
-updates must be committed and pushed before another user can fetch them.
+Running sessions remain usable on the version they loaded because old snapshots
+are retained. Claude can `/reload-plugins` to switch the current session; Codex
+loads the new pin in a new session because an existing session does not reload
+plugin tools. Separate projects keep their previous versions. A new clone or a
+moved checkout must restore its snapshot and refresh local paths. Source updates
+must be committed and pushed before another user can fetch them.
