@@ -67,10 +67,9 @@ def test_two_projects_keep_both_hosts_on_their_snapshot(tmp_path, monkeypatch):
         market = Path(local["extraKnownMarketplaces"][pin["marketplace"]]["source"]["path"])
         entry = json.loads((market / ".claude-plugin/marketplace.json").read_text())["plugins"][0]
         assert (market / entry["source"]).resolve() == m.locked_root(p)
-        import tomllib
-        codex = tomllib.loads((p / ".codex/config.toml").read_text())
-        assert codex["plugins"][selector]["enabled"] is True
-        assert Path(codex["marketplaces"][pin["marketplace"]]["source"]) == market
+        # project_runtime.check owns the Python 3.10-compatible Codex config
+        # verification; parsing it again here used Python 3.11's tomllib and
+        # duplicated the same assertions.
         assert m.check(p) == []
 
 

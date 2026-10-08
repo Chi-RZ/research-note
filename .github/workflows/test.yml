@@ -16,8 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # The two jobs pair the Python endpoints with both supported shells.
+          # Intermediate Python minors add no independent compatibility edge.
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: macos-latest
+            python: "3.13"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

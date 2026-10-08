@@ -81,36 +81,6 @@ SKILL_LINKS = {
     ".agents/skills": "../.agent/skills",
 }
 
-#: The two agent CLIs this plugin serves, and the verbs each spells differently
-#: for the same two operations. Both were run to find this out, because they
-#: agree on nothing: Claude installs with `install` and takes the git ref as a
-#: `#ref` SUFFIX on the source; Codex installs with `add` and takes it as a
-#: separate `--ref`. `home` is the plugin tree each keeps, and is also how a
-#: running bootstrap tells which side it was launched from.
-AGENT_CLIS = {
-    "claude": {
-        "home": Path.home() / ".claude" / "plugins",
-        "mkt_add": lambda url, ref: ["claude", "plugin", "marketplace", "add",
-                                     f"{url}#{ref}" if ref else url],
-        # --scope user: registering the OTHER agent is a machine fact, not this
-        # project's. -y: `claude plugin install` prompts when a marketplace
-        # declares an install command; this one does not, but a bootstrap has
-        # no one to answer if that ever changes.
-        "install": lambda sel: ["claude", "plugin", "install",
-                                "--scope", "user", "-y", sel],
-    },
-    "codex": {
-        "home": Path.home() / ".codex" / "plugins",
-        "mkt_add": lambda url, ref: ["codex", "plugin", "marketplace", "add", url]
-                                    + (["--ref", ref] if ref else []),
-        "install": lambda sel: ["codex", "plugin", "add", sel],
-    },
-}
-
-# Agent-neutral project discovery. Claude happens to keep project-scoped plugin
-# rows; Codex does not. A shared registry is therefore the only way a Codex-only
-# machine can update every framework project without scanning the whole home
-# directory. Legacy Claude rows remain an import source in update_projects.sh.
 #: editor/<src> -> the folder it installs as, + the label the step prints. The
 #: version in the folder name is FROZEN on purpose: it is a stable overwrite
 #: target. Tracking each extension's real version would strand the old folder
@@ -219,37 +189,9 @@ def feature_choices(argv: list[str], *, has_remote: bool = False) -> dict[str, b
     return choices
 
 
-def claude_selector(default: str) -> str:
-    """`research-note@<marketplace>` as Claude registered it on THIS machine.
-
-    The template names the marketplace this repository declares, which is what
-    a README install registers. A machine that added it under another name
-    (an earlier name, a fork, a local path) needs that name, or the project's
-    `enabledPlugins` names a plugin Claude does not have. Read from where this
-    copy is installed (`~/.claude/plugins/cache/<marketplace>/research-note/<v>`),
-    else from Claude's registry, else the template's."""
-    cache = Path.home() / ".claude" / "plugins" / "cache"
-    try:
-        rel = PLUGIN.resolve().relative_to(cache.resolve())
-        return f"research-note@{rel.parts[0]}"
-    except (ValueError, IndexError):
-        pass
-    try:
-        reg = json.loads((cache.parent / "installed_plugins.json").read_text())
-        return next(k for k in reg.get("plugins", {})
-                    if k.split("@", 1)[0] == "research-note")
-    except (OSError, ValueError, StopIteration):
-        return default
-
-
 def settings_text(*, hpc: bool) -> str:
     """Render the smallest settings file needed by the selected features."""
     settings = json.loads((TEMPLATES / "settings.json").read_text(encoding="utf-8"))
-    enabled = settings.get("enabledPlugins", {})
-    default = next((k for k in enabled if k.split("@", 1)[0] == "research-note"), None)
-    if default:
-        settings["enabledPlugins"] = {
-            (claude_selector(default) if k == default else k): v for k, v in enabled.items()}
     if hpc:
         extra = json.loads(
             (TEMPLATES / "hpc-permissions.json").read_text(encoding="utf-8")
@@ -274,162 +216,6 @@ def fixer_processes(proj: Path) -> list[tuple[str, str]]:
     return processes
 
 
-
-
-def _cli_json(cmd: list[str], timeout: int = 120):
-    """Run a CLI that speaks --json. Returns None for every failure mode.
-
-    Absent binary, non-zero exit, a human line printed ahead of the JSON — all
-    of them mean "this agent cannot answer", and none of them should abort a
-    bootstrap whose real work is the project.
-    """
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if r.returncode != 0:
-        return None
-    out = r.stdout
-    starts = [i for i in (out.find("{"), out.find("[")) if i >= 0]
-    for text in (out, out[min(starts):] if starts else ""):
-        try:
-            return json.loads(text)
-        except (json.JSONDecodeError, ValueError):
-            continue
-    return None
-
-
-def _marketplaces(agent: str) -> list[dict]:
-    """[{name, url, ref}] for one agent's configured marketplaces.
-
-    The same three facts, two shapes: Claude emits a flat list carrying url and
-    ref outright; Codex emits {marketplaces: [{name, root, marketplaceSource}]}
-    with NO ref field at all — its ref is whatever the clone at `root` sits on,
-    so it is read back from that clone.
-    """
-    if agent == "claude":
-        rows = _cli_json(["claude", "plugin", "marketplace", "list", "--json"])
-        return [{"name": m.get("name"), "url": m.get("url"), "ref": m.get("ref"),
-                 "root": m.get("installLocation")}
-                for m in (rows if isinstance(rows, list) else [])]
-    out = _cli_json(["codex", "plugin", "marketplace", "list", "--json"])
-    rows = out.get("marketplaces", []) if isinstance(out, dict) else []
-    res = []
-    for m in rows:
-        ref, root = None, m.get("root")
-        if root and Path(root).is_dir():
-            g = subprocess.run(["git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"],
-                               capture_output=True, text=True)
-            ref = g.stdout.strip() or None
-        res.append({"name": m.get("name"),
-                    "url": (m.get("marketplaceSource") or {}).get("source"),
-                    "ref": ref, "root": root})
-    return res
-
-
-def installed(agent: str) -> list[dict]:
-    """[{id, version}] for what one agent has installed — id is plugin@marketplace.
-
-    Shared with update_projects.sh, which imports this module rather than
-    re-deriving two CLIs' JSON shapes in shell.
-    """
-    if agent == "claude":
-        rows = _cli_json(["claude", "plugin", "list", "--json"])
-        return [{"id": r.get("id", ""), "version": r.get("version", "")}
-                for r in (rows if isinstance(rows, list) else [])]
-    out = _cli_json(["codex", "plugin", "list", "--json"])
-    rows = out.get("installed", []) if isinstance(out, dict) else []
-    return [{"id": r.get("pluginId", ""), "version": r.get("version", "")}
-            for r in rows]
-
-
-def origin_agent() -> str | None:
-    """The agent CLI this plugin was installed from — None off any cache.
-
-    Off a cache means a dev checkout, where there is no marketplace to point
-    the other agent at, so the cross-agent step has nothing to do.
-    """
-    return next((a for a, s in AGENT_CLIS.items()
-                 if str(PLUGIN).startswith(str(s["home"]))), None)
-
-
-def other_agent() -> str | None:
-    """The agent CLI this plugin was NOT installed from, or None off a cache."""
-    origin = origin_agent()
-    return None if origin is None else ("codex" if origin == "claude" else "claude")
-
-
-def sync_other_agent(dry: bool) -> None:
-    """Register this plugin with the OTHER agent's CLI, so ONE setup serves both.
-
-    The project side is already dual and has been for versions — AGENTS.md at
-    every layer, memory/claude and memory/codex on one shared dir, both skill
-    dirs on one .agent/skills. The MACHINE is not: each CLI keeps its own
-    marketplace list and its own install pin, and neither reads the other's.
-    So a project bootstrapped from Claude left Codex able to read every word of
-    the doctrine and unable to run one step of it — measured on the machine
-    this was written for: 12 skills in the Claude cache, 0 reachable by codex.
-
-    Nothing here is fatal. A project with one agent installed is complete; the
-    second agent is a convenience, and a machine without it just says `skip`.
-    """
-    origin, target = origin_agent(), other_agent()
-    if target is None:
-        say("skip", "other agent", "not running from an agent's plugin cache")
-        return
-    if not shutil.which(target):
-        say("skip", target, f"no {target} CLI on this machine")
-        return
-
-    # <home>/cache/<marketplace>/<plugin>/<version> — PLUGIN is the version dir.
-    plugin_name, mkt_name = PLUGIN.parent.name, PLUGIN.parent.parent.name
-    already = [r["id"] for r in installed(target)
-                if r["id"].split("@")[0] == plugin_name]
-    if already:
-        say("kept", f"{target}: {already[0]}")
-        return
-
-    src = next((m for m in _marketplaces(origin) if m.get("name") == mkt_name), None)
-    if not src or not src.get("url"):
-        say("WARN", f"{target}: {plugin_name}",
-            f"cannot read marketplace `{mkt_name}` from the {origin} side")
-        return
-    url, ref = src["url"], src.get("ref")
-    if dry:
-        say("new", f"{target}: {plugin_name}",
-            f"would add {url}" + (f" (ref {ref})" if ref else ""))
-        return
-
-    # stdin closed on purpose: a CLI that decides to ask something has nobody
-    # to answer here, and a 900 s hang is a worse failure than a clean error.
-    r = subprocess.run(AGENT_CLIS[target]["mkt_add"](url, ref),
-                       capture_output=True, text=True, timeout=900,
-                       stdin=subprocess.DEVNULL)
-    if r.returncode != 0:
-        last = ((r.stderr or r.stdout).strip().splitlines() or ["add failed"])[-1]
-        say("WARN", f"{target} marketplace", last[:160])
-        return
-
-    # The marketplace NAME belongs to the TARGET's manifest, not to ours. Both
-    # of ours declare `research-tools` today, which is exactly why this must NOT be
-    # spelled: when the two disagreed (`claude-setup` and `personal`) a
-    # hardcoded name failed loudly on one side; now it would fail only on a
-    # machine that added the marketplace from a fork or a local path under
-    # another name — silently, since a selector matching nothing is not an
-    # error. So the name is read back from the target, matched on the source URL.
-    got = next((m for m in _marketplaces(target) if m.get("url") == url), None)
-    if not got or not got.get("name"):
-        say("WARN", f"{target} marketplace", f"added {url} but it reports no name")
-        return
-    sel = f"{plugin_name}@{got['name']}"
-    r = subprocess.run(AGENT_CLIS[target]["install"](sel),
-                       capture_output=True, text=True, timeout=900,
-                       stdin=subprocess.DEVNULL)
-    if r.returncode != 0:
-        last = ((r.stderr or r.stdout).strip().splitlines() or ["install failed"])[-1]
-        say("WARN", f"{target}: {sel}", last[:160])
-        return
-    say("new", f"{target}: {sel}", f"from {url}" + (f" (ref {ref})" if ref else ""))
 
 
 def say(state: str, what: str, detail: str = "") -> None:

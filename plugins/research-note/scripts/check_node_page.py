@@ -6,7 +6,7 @@ Codes (record v3 — DESIGN.md §10):
   N2 an implementation exists under <experiments root>/<node>/ (--cross)
   N3 the regenerated roster matches the tree              (--cross)
   FW record version matches the linter (exit 3 on mismatch)
-  E1 id unique, stable          E2 status in the four states
+  E1 id unique across nodes/, stable    E2 status in the four states
   E3 date                              E4 Code names its commits
   E5 motivation in its form            E6 recipe is a knob map
   E7 Facts: sentence, table, evidence  E8 a displayed number has a Refs row
@@ -978,7 +978,7 @@ def entry_errors(name: str, body: str) -> list[str]:
     return errs
 
 
-def id_order_errors(entries: dict[str, str]) -> list[str]:
+def page_id_errors(entries: dict[str, str]) -> list[str]:
     """E1 — ids unique on the page; creation dates may be backfilled."""
     errs: list[str] = []
     seen: dict[str, str] = {}
@@ -989,6 +989,42 @@ def id_order_errors(entries: dict[str, str]) -> list[str]:
                         f"ids are assigned once and never reused")
         seen[eid or name] = name
     return errs
+
+
+def duplicate_entry_id_errors() -> list[tuple[Path, str]]:
+    """E1 — every valid entry id is unique across the whole record tree.
+
+    A node can have `node.md`, several task pages and optional grouping
+    directories. Checking one page at a time allowed two of those pages to use
+    the same `<node>.<sequence>` id while both passed. Scan the full nodes tree
+    on every CLI run, including an invocation that names one page, because Git
+    trailers, objective links and the roster all use the id as a global key.
+    Page-local duplicates remain with :func:`page_id_errors` so one malformed
+    page receives one focused finding rather than a second cross-page finding.
+    """
+    out: list[tuple[Path, str]] = []
+    ids: dict[str, tuple[Path, str]] = {}
+    for page in sorted(NODES_DIR.rglob("*.md")):
+        entries = sections(page.read_text(encoding="utf-8"))
+        seen_here: set[str] = set()
+        for name, body in entries.items():
+            eid = field(body, "Id")
+            if not ID_RE.fullmatch(eid) or eid in seen_here:
+                continue
+            seen_here.add(eid)
+            if eid in ids:
+                first_page, first_name = ids[eid]
+                try:
+                    first_rel = first_page.relative_to(NODES_DIR)
+                except ValueError:
+                    first_rel = first_page
+                out.append((page, f"E1 id `{eid}` on entry '{name}' is already "
+                                  f"used by '{first_name}' in `{first_rel}` — ids "
+                                  f"are unique across project_memory/nodes/, assigned "
+                                  f"once and never reused"))
+            else:
+                ids[eid] = (page, name)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -1320,7 +1356,7 @@ def shared_page_errors(path: Path, text: str, entries: dict[str, str]) -> list[s
         seen.add(n)
     for name, body in entries.items():
         errs += entry_errors(name, body)
-    errs += id_order_errors(entries)
+    errs += page_id_errors(entries)
     errs += entry_script_errors(entries, path)
     errs += code_sha_errors(entries)
     errs += jobs_errors(text, entries, path)
@@ -1612,6 +1648,11 @@ def main() -> int:
                 print(f"  {e}")
         elif not a.quiet:
             print(f"{_rel(path)}: OK")
+
+    for path, e in duplicate_entry_id_errors():
+        failed += 1
+        print(f"{_rel(path)}:")
+        print(f"  {e}")
 
     if a.cross:
         for e in (impl_errors() + index_consistency() + unrecorded_jobs()):

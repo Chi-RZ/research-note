@@ -226,6 +226,34 @@ def test_e1_duplicate_id_fires(tmp_path, monkeypatch):
     assert any(e.startswith("E1") and "never reused" in e for e in C.lint_page(p))
 
 
+def test_e1_duplicate_id_across_pages_fires(tmp_path, monkeypatch, capsys):
+    first = write_page(tmp_path, "tanner_gnn_ln", "grid", PAGE)
+    second = write_page(
+        tmp_path, "tanner_gnn_ln", "backfill",
+        PAGE.replace("task: LayerNorm across the surface_code_capacity grid",
+                     "task: backfilled comparison")
+            .replace("### Entry: ln at d5 p0.06", "### Entry: historical comparison")
+            .replace("2026-07-21 10:00", "2026-07-19 10:00"),
+    )
+    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
+
+    collisions = C.duplicate_entry_id_errors()
+
+    assert len(collisions) == 1
+    path, finding = collisions[0]
+    assert path in {first, second}
+    other = second if path == first else first
+    assert "E1" in finding and "07.001" in finding
+    assert other.name in finding and "never reused" in finding
+
+    # A hook usually lints only the changed page. Project-wide uniqueness must
+    # still run, even when the colliding page is not one of the CLI targets.
+    monkeypatch.setattr(sys, "argv", ["check_node_page.py", str(first), "--quiet"])
+    assert C.main() == 1
+    output = capsys.readouterr().out
+    assert "E1 id `07.001`" in output and "unique across project_memory/nodes/" in output
+
+
 def test_e1_ids_allow_backfilled_dates(tmp_path, monkeypatch):
     p = write_page(tmp_path, "tanner_gnn_ln", "grid",
                    PAGE + _second_entry("07.002", "2026-07-20 10:00"))
@@ -897,7 +925,8 @@ def test_main_returns_3_on_a_record_version_mismatch(tmp_path, monkeypatch, caps
 
 
 def test_main_recent_flag_filters_out_stale_pages(tmp_path, monkeypatch, capsys):
-    old = write_page(tmp_path, "tanner_gnn_ln", "old", PAGE)
+    old = write_page(tmp_path, "tanner_gnn_ln", "old",
+                     PAGE.replace("07.001", "07.002"))
     write_page(tmp_path, "tanner_gnn_ln", "new", PAGE)
     old_time = time.time() - 10 * 3600
     os.utime(old, (old_time, old_time))
