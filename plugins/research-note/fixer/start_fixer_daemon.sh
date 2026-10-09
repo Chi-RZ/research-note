@@ -32,9 +32,9 @@ hostname -f > "$STATE/host"
 # 2. Write the project-side entry stub. The loop calls THIS, never a versioned
 #    plugin path: a long-lived daemon that exec'd its own start-time path would
 #    keep running the version it was launched from long after an upgrade (this
-#    happened — cron on 0.2.1 while the daemon ran 0.5.0). The stub re-resolves
-#    the HIGHEST installed version at every tick, so an upgrade is picked up on
-#    the next cycle with nothing to restart. `sort -V`, never mtime order.
+#    happened — cron on 0.2.1 while the daemon ran 0.5.0). The stub resolves
+#    this project's pinned runtime at every tick; an installed-cache lookup is
+#    only a fallback for legacy projects without a valid pin.
 #    (Written before the lock check: rewriting it for a running daemon is what
 #    lets a plugin upgrade land without a restart.)
 # 2b. The agent that runs the repair tiers. A SESSION knows which agent it is
@@ -50,11 +50,9 @@ fi
 
 cat > "$STATE/run.sh" <<STUB
 #!/usr/bin/env bash
-# Resolve the HIGHEST installed plugin version at every tick — never a pinned
-# path: a pin survives upgrades (the pinned version stays in the cache), so
-# cron and the daemon kept executing months-old framework code while sessions
-# used the new one. Falls back to the dir this stub was written from only when
-# no plugin cache exists (project-side/legacy layout).
+# Resolve this project's pinned plugin at every tick. Legacy projects without
+# a valid project pin fall back to the highest installed cache, then to the
+# directory this stub was written from.
 ${AGENT:+export RESEARCH_NOTE_FIXER_AGENT=$AGENT}
 D="\$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)/fixer"
 if [ ! -x "\$D/run_fixer.sh" ]; then
@@ -77,7 +75,7 @@ if ! flock -n 9; then
     exit 0
 fi
 
-# 4. Launch the detached 5-min loop. It inherits fd 9 and thus holds the lock.
+# 4. Launch the detached 10-min loop. It inherits fd 9 and thus holds the lock.
 #    - `: $MARKER;` plants the marker in the loop's argv (human debugging only).
 #    - `run.sh; sleep 600` (a `;`, never `&&`): even if a cycle crashes the loop
 #      always sleeps before retrying — never a tight loop.

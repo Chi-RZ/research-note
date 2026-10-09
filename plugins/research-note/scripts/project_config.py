@@ -52,6 +52,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "fixer": False,
         "hpc": False,
         "editor": False,
+        # Compatibility field from the former user-registry installer. Both
+        # project bindings are core now; current code does not gate them on it.
         "cross_agent": False,
     },
     # Which tool LOCKS the Python environment. `uv` is the supported path: its
@@ -73,7 +75,7 @@ LEGACY_FEATURES = {
     "fixer": True,
     "hpc": True,
     "editor": True,
-    "cross_agent": True,
+    "cross_agent": True,  # retained when migrating an old declaration
 }
 
 

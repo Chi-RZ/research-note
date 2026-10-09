@@ -117,8 +117,10 @@ inspection before applying them. The normal path runs bootstrap once.
 
 Add only the integrations the user asked for — each has a section in
 [integrations.md](integrations.md), read it for the ones chosen:
-`--remote HOST:DIR` (a cluster; repeatable), `--with-dashboard`, `--with-fixer`, `--with-editor`,
-`--with-cross-agent`. The choices land in `.research-note/project.json`.
+`--remote HOST:DIR` (a cluster; repeatable), `--with-dashboard`,
+`--with-fixer`, and `--with-editor`. The choices land in
+`.research-note/project.json`. Both project agent bindings are core setup;
+`--with-cross-agent` is accepted only as an old compatibility spelling.
 
 Bootstrap creates the role directories and `project_memory/`, runs `git init`
 if needed, writes the `.claude/` bindings and the instruction-file views,

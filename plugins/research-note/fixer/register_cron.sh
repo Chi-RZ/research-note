@@ -17,10 +17,10 @@ mkdir -p "$STATE"
 hostname -f > "$STATE/host"
 HOST="$(cat "$STATE/host")"
 
-# 2. The crontab line calls the project-side stub — it re-resolves the highest
-# installed plugin version at every tick, so plugin upgrades need no
-# re-registration. `sort -V`, never mtime order: cache dirs get touched by
-# unrelated installs and mtime order would pin cron to an old build.
+# 2. The crontab line calls the project-side stub — it re-resolves this
+# project's pinned runtime at every tick, so project updates need no
+# re-registration. A highest-installed-cache lookup remains only for legacy
+# projects without a valid pin.
 # The stub is DERIVED, so it is rewritten unconditionally on every
 # registration, exactly like start_fixer_daemon.sh does on every start: an
 # exists-guard here once stranded stubs across the 0.9.0 plugin rename — they
@@ -38,11 +38,9 @@ fi
 
 cat > "$STATE/run.sh" <<STUB
 #!/usr/bin/env bash
-# Resolve the HIGHEST installed plugin version at every tick — never a pinned
-# path: a pin survives upgrades (the pinned version stays in the cache), so
-# cron and the daemon kept executing months-old framework code while sessions
-# used the new one. Falls back to the dir this stub was written from only when
-# no plugin cache exists (project-side/legacy layout).
+# Resolve this project's pinned plugin at every tick. Legacy projects without
+# a valid project pin fall back to the highest installed cache, then to the
+# directory this stub was written from.
 ${AGENT:+export RESEARCH_NOTE_FIXER_AGENT=$AGENT}
 D="\$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)/fixer"
 if [ ! -x "\$D/run_fixer.sh" ]; then

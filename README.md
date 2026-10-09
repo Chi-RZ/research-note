@@ -29,7 +29,7 @@ the analysis on a page, for you to review and correct.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/typical-run-dark.svg">
-  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them in the background." src="docs/typical-run-light.svg" width="100%">
+  <img alt="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the optional dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them in the background." src="docs/typical-run-light.svg" width="100%">
 </picture>
 
 ## Requirements

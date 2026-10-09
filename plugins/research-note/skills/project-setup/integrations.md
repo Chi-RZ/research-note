@@ -1,8 +1,9 @@
 # Optional integrations
 
-Read the section for each integration the user asked for. None is on by
-default; each is a bootstrap flag and a `features` switch in
-`.research-note/project.json`.
+Read the section for each integration the user asked for. Dashboard, cluster,
+fixer and editor support are off by default; each is a bootstrap flag and a
+`features` switch in `.research-note/project.json`. The final section explains
+the core two-agent binding and its retired compatibility flag.
 
 ## Dashboard (`--with-dashboard`)
 
@@ -38,18 +39,18 @@ the declared facts and environment parity.
 ## Fixer (`--with-fixer`)
 
 A detached background loop that re-runs the linters and flags forgotten work
-every ten minutes (never cron — two schedulers race on one lock, and
+every ten minutes (setup never also installs cron — two schedulers race on one lock, and
 `crontab(1)` on macOS is TCC-gated). Verify: `pgrep -af lint_fixer_daemon`
-shows one loop for this project. Two prerequisites it is silently useless
-without:
+shows one loop for this project. The scanner itself needs no agent CLI. Only
+if a project explicitly enables one of the disabled repair tiers does it also
+need:
 
-- **`claude` on PATH.** On a bare VS Code-server box `claude` is only the
-  extension's native binary; `run_fixer.sh` resolves it. Nothing to do unless
-  that resolution comes back empty.
-- **Workspace trust.** Headless `claude -p` ignores every `permissions.allow`
-  entry until the workspace is trusted. Set
-  `projects["<abs project path>"].hasTrustDialogAccepted: true` in
-  `~/.claude.json`.
+- **A selected CLI.** `RESEARCH_NOTE_FIXER_AGENT=claude|codex` chooses one;
+  automatic selection uses the agent that registered the daemon and then an
+  available CLI. On a bare VS Code-server box, `run_fixer.sh` can locate the
+  Claude extension's native binary.
+- **Workspace trust in that agent.** Its headless command must be allowed to
+  work in the project.
 
 Tune it with a `.fixer/config.json` override; its runtime state is in
 `.fixer/` (gitignored).
@@ -61,10 +62,10 @@ VS Code extensions directory present. Tell the user the one thing a script
 cannot do: **Reload Window**, after which `Open Q Dashboard` is in the Command
 Palette. The viewer follows every rewrite of `dashboard.html` by itself.
 
-## Both agents (`--with-cross-agent`)
+## Both agents (core setup)
 
 Both project bindings are now prepared by core setup and select the same locked
-runtime. This older flag is accepted for compatibility; it no longer installs
+runtime. `--with-cross-agent` is accepted for compatibility; it no longer installs
 or upgrades either agent's user-level plugin. Install each host application
 separately, open this project, accept its normal trust prompts, and start a
 fresh session. The project's lock names the selector each host should load.

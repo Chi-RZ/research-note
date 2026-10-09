@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -100,6 +101,16 @@ def test_bootstrap_feature_flags_are_persistent_choices():
         bootstrap.feature_choices(["--with-fixer", "--no-fixer"])
     with pytest.raises(bootstrap.ConfigError, match="--remote"):
         bootstrap.feature_choices(["--no-hpc"], has_remote=True)
+
+
+def test_doctor_help_works_outside_a_project(tmp_path):
+    result = subprocess.run(
+        ["bash", str(PLUGIN / "scripts/doctor.sh"), "--help"],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "Usage: doctor.sh" in result.stdout
+    assert "--cross-agent is a compatibility spelling" in result.stdout
 
 
 def test_core_settings_do_not_request_remote_or_scheduler_permissions():

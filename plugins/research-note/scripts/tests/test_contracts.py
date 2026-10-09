@@ -5,6 +5,7 @@ compatibility, but new projects write directly below the project-rules heading.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -157,12 +158,35 @@ def test_history_knows_every_current_template():
     """Release discipline: a template edit must be followed by
     `contracts.py record-history`, or a project on THIS version could not be
     recognised by the next one."""
-    import json, hashlib
     history = json.loads((PLUGIN / "templates/history.json").read_text())
     for contract, (template, _) in ct.CONTRACTS.items():
         digest = hashlib.sha256((PLUGIN / "templates" / template).read_bytes()).hexdigest()
         assert any(row["sha256"] == digest for row in history.get(contract, [])), \
             f"{template} changed — run: python3 scripts/contracts.py record-history"
+
+
+def test_history_has_no_worktree_marker_for_a_committed_template():
+    """A provisional marker must acquire its real commit on the next pass."""
+    history = json.loads((PLUGIN / "templates/history.json").read_text())
+    prefix = subprocess.run(
+        ["git", "-C", str(PLUGIN / "templates"), "rev-parse", "--show-prefix"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    for contract, (template, _) in ct.CONTRACTS.items():
+        committed = set()
+        shas = subprocess.run(
+            ["git", "-C", str(PLUGIN / "templates"), "log", "--format=%H", "--", template],
+            capture_output=True, text=True, check=True,
+        ).stdout.split()
+        for sha in shas:
+            blob = subprocess.run(
+                ["git", "-C", str(PLUGIN / "templates"), "show", f"{sha}:{prefix}{template}"],
+                capture_output=True, check=True,
+            ).stdout
+            committed.add(hashlib.sha256(blob).hexdigest())
+        stale = [row["sha256"] for row in history.get(contract, [])
+                 if row.get("commit") == "worktree" and row["sha256"] in committed]
+        assert not stale, f"{contract} has committed templates still labelled worktree"
 
 
 # --- a file edited in place --------------------------------------------------

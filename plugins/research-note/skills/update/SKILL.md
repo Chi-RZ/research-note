@@ -49,10 +49,12 @@ text below `## Project-specific rules`; if a framework rule was intentionally
 edited, reconcile it with the new rule rather than overwriting it blindly.
 Then run the update again.
 
-`framework.json` is a migration marker and is not copied. A record-version
-mismatch still requires a separate record migration. HPC settings and edited
-submit templates also stay project-owned; port a changed log header manually
-when the report requests it. Neither operation is silently resolved by pinning.
+`framework.json` is project-owned state and policy, so it is not copied. Its
+`record` value is the migration marker; `record_language` remains the project's
+language choice. A record-version mismatch still requires a separate record
+migration. HPC settings and edited submit templates also stay project-owned;
+port a changed log header manually when the report requests it. Neither
+operation is silently resolved by pinning.
 
 Doctor and both record linters report the project's state. Verify the complete
 runtime binding separately from environment or record findings:

@@ -14,10 +14,11 @@ loop, flock-idempotent). A **SessionStart hook** re-runs the daemon starter,
 so a container rebuild self-heals on the next session. Both paths are
 serialized by the same lock, so running both never overlaps cycles.
 
-**Two tiers.** The **format** tier repairs mechanical lint every cycle,
-unchanged. The **analyze** tier is a delayed **orphan safety net**, not the
-default analyzer — the session that submits jobs watches and analyzes them
-itself, with full context; the fixer must never race a living owner. An
+**Two dormant repair tiers.** Both ship disabled. If a project explicitly
+enables them, the **format** tier repairs mechanical lint and the **analyze**
+tier acts as a delayed **orphan safety net**, not the default analyzer. The
+session that submits jobs watches and analyzes them itself, with full context;
+the fixer must never race a living owner. An
 unanalyzed terminal entry qualifies only after `attention_after_min` (default
 30 min) of silence on BOTH heartbeats: the page mtime and its newest
 file://-linked log. Stage 1 stamps the owning objective's frontmatter
@@ -26,10 +27,10 @@ write, the dashboard renders stale states on its own). Stage 2 — only with
 `fallback_analyze.enabled` (default off) — sends items whose evidence age
 exceeds `after_hours` (default 24 h) to the real analyze agent.
 
-**All runtime state lives in `<project>/.fixer/`** (gitignored): `host`,
-`ledger.jsonl`, `last_run`, `last_error`, `lock`, `daemon.lock`,
-`record.lock` (shared flock — the cycle's own record commits and the
-record-bus script serialize on it), `cron.log`, `logs/`. The code directory holds only code + `config.json` defaults —
+**All fixer-owned runtime state lives in `<project>/.fixer/`** (gitignored):
+`host`, `ledger.jsonl`, `last_run`, `last_error`, `lock`, `daemon.lock`,
+`cron.log`, `logs/`. Record writes serialize on the core lock at
+`.research-note/state/record.lock`. The code directory holds only code + `config.json` defaults —
 a `<project>/.fixer/config.json` shallow-overrides them per project. State
 sits outside the code dir because a plugin install path carries a version
 number and is replaced on upgrade; project state must survive that.
@@ -39,8 +40,9 @@ Set `RESEARCH_NOTE_FIXER_AGENT=claude` or `codex` to force a backend; the
 default chooses the agent that launched the session and otherwise prefers an
 available Codex CLI. Both repair tiers remain disabled by default.
 
-**Symptom if broken:** pages silently stop being linted — check the mtime of
-`.fixer/last_run` and the contents of `.fixer/last_error`.
+**Symptom if broken:** background scans and attention stamps stop, while edit
+and commit lint still works — check the mtime of `.fixer/last_run` and the
+contents of `.fixer/last_error`.
 
 **Provenance rule:** the fixer never invents record content. E5 (anchored
 Motivation) and E9 (Date) on an existing entry are repairable ONLY from

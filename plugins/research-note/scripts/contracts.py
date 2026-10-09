@@ -121,16 +121,27 @@ def record_history(plugin: Path) -> dict[str, list[dict]]:
         shas = subprocess.run(["git", "-C", str(templates), "log", "--format=%H", "--", template_name],
                               capture_output=True, text=True, check=True).stdout.split()
         rows = history.get(contract, [])
-        seen = {row["sha256"] for row in rows}
+        by_digest = {row["sha256"]: row for row in rows}
+        seen = set(by_digest)
         for sha in reversed(shas):
             blob = subprocess.run(["git", "-C", str(templates), "show", f"{sha}:{rel}"],
                                   capture_output=True, text=True)
             if blob.returncode != 0:
                 continue
             digest = hashlib.sha256(blob.stdout.encode("utf-8")).hexdigest()
-            if digest not in seen:
+            if digest in seen:
+                # A template is recorded before the commit that ships it, so
+                # its provisional provenance is `worktree`. On the next
+                # release pass the blob exists in Git; replace that placeholder
+                # instead of leaving permanent fake provenance in history.json.
+                if by_digest[digest].get("commit") == "worktree":
+                    by_digest[digest]["commit"] = sha[:7]
+            else:
                 seen.add(digest)
-                rows.append({"bytes": len(blob.stdout.encode("utf-8")), "sha256": digest, "commit": sha[:7]})
+                row = {"bytes": len(blob.stdout.encode("utf-8")),
+                       "sha256": digest, "commit": sha[:7]}
+                rows.append(row)
+                by_digest[digest] = row
         current = (templates / template_name).read_text(encoding="utf-8")
         digest = hashlib.sha256(current.encode("utf-8")).hexdigest()
         if digest not in seen:

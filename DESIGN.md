@@ -487,10 +487,11 @@ it asks:
 - does the entry's status still describe what is actually happening?
 
 The session that launched it owns this, since nothing on the far side can write
-the record. At most one watcher per objective — armed idempotently at the
-objective loop's entry, scopes disjoint — never one per job; behind every
-watcher, the harvest hook reports any J3 unharvested for 15+ minutes into
-every session's next turn, unarmed.
+the record. It keeps at most one watcher for all objectives whose background
+jobs it currently owns, repeating the objective scope in that watcher; a
+foreground-only run needs none. The watcher changes only when that session's
+objective set changes, never once per job. Behind it, the harvest hook reports
+any J3 left unharvested for 15+ minutes into every session's next turn, unarmed.
 
 ### 4 — Results come back on their own, and are analysed here
 
@@ -759,15 +760,14 @@ needs no reload to be current:
   harvest hook stays silent inside a worktree.
 - **One entry, one writer.** Whoever launches a probe writes that entry — one
   writer per entry; one agent writes as many entries as it launched.
-- **A code-editing agent gets its own worktree** — landing is `merge --ff-only`,
-  so main only advances; a diverged branch rebases onto main first (never a
-  back-merge — the commit-msg hook waves `Merge` subjects through unchecked,
-  so a merge commit riding into main escapes the layer partition). Non-record
-  main-side changes are handed to a main-checkout session, never carried on
-  the branch. This stays a HARD gate (the background harness refuses shared-
-  checkout edits), not doctrine: the failure it prevents — a formal run
-  launched over another agent's half-edits — is recorded as legitimate and
-  never fails loudly, which is exactly the gate criterion.
+- **Isolation follows concurrency.** A code-editing agent gets its own worktree
+  when another agent may write the checkout, main is dirty with work it does
+  not own, or the change needs an isolated branch. A sole agent may make a
+  short change directly in a clean main checkout. Worktree landing is
+  `merge --ff-only`, so main only advances; a diverged branch rebases onto main
+  first. Non-record main-side changes are handed to a main-checkout session.
+  Formal launchers still refuse a worktree, because a run over another agent's
+  half-edits can look legitimate in the record and never fail loudly.
 - **Formal runs launch from main.** A branch smoke certifies only the impl plus
   the `src/` it branched from, so "ready to run" means merged and re-smoked on
   the merged state.
@@ -783,10 +783,12 @@ the skill.**
 layout, the four editable contracts (§10.1) and `framework.json`, core
 `settings.json`, the eight contract symlinks (§12), the githooks (§10.5), the
 auto-memory wiring, `.gitignore`, `_index.md`, then the acceptance
-gate. The dashboard, fixer, HPC, editor and cross-agent support are integrations, each
+gate. The dashboard, fixer, HPC and editor support are integrations, each
 enabled by a flag that is persisted in `.research-note/project.json` rather
 than affecting one run — later runs, the hooks and doctor all read the same
-choice. The fixer is a detached daemon and never also a cron line: two
+choice. Claude and Codex project bindings are core; the old `cross_agent`
+feature and flags remain readable only for compatibility. The fixer is a
+detached daemon and never also a cron line: two
 schedulers for one job serialize on the same lock, so the second only ever
 loses the race, while writing the user's global crontab to do it.
 
@@ -818,10 +820,11 @@ through `githooks_install.py` (§10.5), which leaves a pre-declaration
 `doctor.sh` verifies every wire either script laid and prints the fix for
 whatever is not yet true. It is split the way the project is: the CORE —
 plugin root, project configuration, record layer, git hooks, the project's own
-environment — is checked for every project; an integration (fixer, HPC, editor,
-the other agent) only when `.research-note/project.json` enables it or the
-caller names it (`--fixer`, `--hpc`, `--editor`, `--cross-agent`; `--core` for
-the core alone). A disabled integration is neither started, required nor
+environment and the shared Claude/Codex runtime — is checked for every project;
+an integration (fixer, HPC, editor) only when `.research-note/project.json`
+enables it or the caller names it (`--fixer`, `--hpc`, `--editor`; `--core`
+for the core alone). `--cross-agent` remains a compatibility spelling for the
+core runtime check. A disabled integration is neither started, required nor
 reported broken — it is listed as not checked.
 
 **The compatibility matrix.** `scripts/tests/test_compat_matrix.py` runs the

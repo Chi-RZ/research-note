@@ -5,12 +5,11 @@
     "name": "Chi-RZ",
     "email": "mr.rzchi@gmail.com"
   },
-  "license": "MIT",
   "plugins": [
     {
       "name": "research-note",
       "description": "Records numerical results faithfully, and distils source code and knowledge as the work proceeds — for agent-assisted computational research.",
-      "version": "0.2.19",
+      "version": "0.2.20",
       "source": "./plugins/research-note"
     }
   ]

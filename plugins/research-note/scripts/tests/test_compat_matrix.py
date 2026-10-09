@@ -132,7 +132,8 @@ def test_an_empty_directory_becomes_a_local_only_project(empty, home):
     assert not (empty / ".claude/hpc-submit").exists()
     allowed = json.loads((empty / ".claude/settings.json").read_text())["permissions"]["allow"]
     assert not any("sbatch" in a or "ssh" in a for a in allowed)
-    assert "· the other agent" in r.stdout and "disabled" in r.stdout
+    assert "· project agent bindings" in r.stdout
+    assert "Claude + Codex" in r.stdout and "pinned project runtime" in r.stdout
 
 
 def test_doctor_core_is_green_on_a_local_only_project(empty, home):
@@ -145,8 +146,9 @@ def test_doctor_core_is_green_on_a_local_only_project(empty, home):
     r = sh(empty, home, "bash", str(DOCTOR), env={"RESEARCH_NOTE_PROJECT_DIR": str(empty)})
     assert r.returncode == 0, r.stdout
     assert "all green" in r.stdout
-    for feature in ("fixer", "hpc", "editor", "cross_agent"):
+    for feature in ("fixer", "hpc", "editor"):
         assert f"{feature}: disabled" in r.stdout
+    assert "Claude and Codex project runtime pinned" in r.stdout
 
 
 def test_rerunning_setup_and_update_changes_nothing(empty, home):

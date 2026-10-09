@@ -10,8 +10,16 @@
 #
 # Usage: doctor.sh [--core] [--fixer] [--hpc [--host <h>]] [--editor] [--cross-agent]
 #        (no flag: the core plus every integration the project enables)
+#        (--cross-agent is a compatibility spelling for the core runtime check)
 # Exit:  0 all green · 1 at least one FAIL · 2 could not run
 set -uo pipefail
+
+# Help is about the tool, so it must work before a project exists.
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    esac
+done
 
 PROJ="${RESEARCH_NOTE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 while [ "$PROJ" != "/" ] && [ ! -f "$PROJ/.research-note/project.json" ] \
@@ -36,29 +44,31 @@ echo "doctor: $PROJ"
 
 # --- what to check. The CORE — plugin root, project configuration, record
 # layer, git hooks, the project's own environment — is what every project has
-# and is checked unless an integration is named alone. An INTEGRATION is
+# and is checked unless an integration is named alone. The shared Claude/Codex
+# runtime binding is core. An INTEGRATION is
 # checked when .research-note/project.json enables it (a project from before
-# the declaration enables all four), or when it is named: a disabled one is
+# the declaration enables it), or when it is named: a disabled one is
 # neither started, required nor reported broken.
 #   doctor.sh              core + every enabled integration
 #   doctor.sh --core       core only
-#   doctor.sh --fixer | --hpc [--host h] | --editor | --cross-agent
+#   doctor.sh --fixer | --hpc [--host h] | --editor
 #                          that integration only, enabled or not (add --core to
 #                          have the core as well)
+#   doctor.sh --cross-agent  compatibility alias for the core runtime check
 RUN_CORE=1; CORE_FLAG=0; HOST_FILTER=""; declare -a ONLY=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --core) CORE_FLAG=1 ;;
         --all) ;;
-        --fixer|--hpc|--editor|--cross-agent) ONLY+=("${1#--}") ;;
+        --fixer|--hpc|--editor) ONLY+=("${1#--}") ;;
+        --cross-agent) CORE_FLAG=1 ;;
         --host) shift; HOST_FILTER=${1:-} ;;
-        -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
         *) echo "doctor: unknown argument $1 (--core, --fixer, --hpc, --editor, --cross-agent, --host h)" >&2; exit 2 ;;
     esac
     shift
 done
 [ ${#ONLY[@]} -gt 0 ] && [ "$CORE_FLAG" = 0 ] && RUN_CORE=0
-feature_on() {  # feature_on <fixer|hpc|editor|cross_agent>
+feature_on() {  # feature_on <fixer|hpc|editor>
     if [ -f "$PROJ/.research-note/project.json" ]; then
         [ "$(python3 "$HERE/project_config.py" --project "$PROJ" feature "$1" 2>/dev/null)" = true ]
     else
@@ -478,10 +488,9 @@ if [ -f "$PROJ/.research-note/plugin-lock.json" ]; then
     else
         bad "project runtime binding differs from lock" "run project_runtime.py check; restore the pinned snapshot and start fresh sessions"
     fi
-    want cross_agent || not_checked cross_agent
-elif want cross_agent; then
+elif [ "$RUN_CORE" = 1 ]; then
     warn "legacy project has no shared runtime pin" "update this project to pin both agents"
-else not_checked cross_agent; fi
+fi
 
 echo
 [ "$FAILED" = 0 ] && echo "doctor: all green" || echo "doctor: fix the ✗ items above"

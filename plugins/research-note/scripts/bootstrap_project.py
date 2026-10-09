@@ -19,10 +19,11 @@ Usage:
                        [--check] [--with-dashboard] [--with-fixer] [--with-editor] [--with-cross-agent]
                        [--with-hpc | --remote HOST:DIR ...]
 
-New projects start with the record workflow only. Dashboard, fixer, HPC, editor support
+New projects start with the record workflow only. Dashboard, fixer, HPC and editor support
 are opt-in and the choice is saved in
 `.research-note/project.json`. The old `--no-fixer`, `--no-qdash` and
-`--no-cross-agent` flags remain accepted and now persist their choice. Projects
+`--no-cross-agent` flags remain accepted. The cross-agent choice is retained
+only as compatibility data; both project bindings are always prepared. Projects
 created before this configuration existed keep their integrations enabled.
 
 Both agents receive project-local bindings to one immutable runtime snapshot.
@@ -751,11 +752,9 @@ def main() -> int:
                 dsts.append(str(dst))
             say("ok", label, f"{', '.join(dsts)} — RELOAD WINDOW once to load it")
 
-    print("\n· the other agent's plugin registry")
-    if not feature_enabled(project_config, "cross_agent"):
-        say("skip", "other agent", "disabled in .research-note/project.json")
-    else:
-        say("ok", "other agent", "both project bindings use the pinned runtime; no user-scope install")
+    print("\n· project agent bindings")
+    say("ok", "Claude + Codex",
+        "both use the pinned project runtime; no user-scope install")
 
     print("\n· acceptance gate")
     # The gate checks the project, not the plugin: both linters over whatever

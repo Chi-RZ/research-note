@@ -1,4 +1,4 @@
-# Role: automated node/task-page lint fixer (headless, cron-driven — no user is watching)
+# Role: automated node/task-page lint fixer (headless background run — no user is watching)
 
 The project agent contract (AGENTS.md or CLAUDE.md, auto-loaded) defines the record format (v3);
 `check_node_page.py` in the installed plugin is the canonical linter and its
@@ -65,8 +65,8 @@ Per page: fix the flagged lines, then verify green with
 
 If an item cannot be fixed mechanically (needs analysis, a decision, or
 missing information), leave it untouched and put a line
-`PARKED: <page> <code> <one-line reason>` in your final message — the cron
-wrapper collects these.
+`PARKED: <page> <code> <one-line reason>` in your final message — the
+background wrapper collects these.
 
 When all pages are done: commit records ONLY through the record bus. Write
 the commit message to a FILE first (inline -m loses backticked identifiers to
