@@ -7,7 +7,7 @@
 # nothing holding the sides to it) is the one that produced runs on a commit
 # no remote holds.
 #
-# The declaration, in the committed .claude/hpc.env — one line per side:
+# The declaration, in the local .research-note/editables.env — one line per side:
 #
 #   LIB_<name>_LOCAL=<path on the record-keeping machine>
 #   LIB_<name>_<HOSTKEY>=<path on that remote host>
@@ -15,8 +15,9 @@
 # <name> is variable-name-safe (letters, digits, _). <HOSTKEY> is REMOTE_HOST
 # with every non-alphanumeric dropped (see lib_hostkey) and never contains an
 # underscore — that is what makes the name/suffix split unambiguous, so a
-# <name> may itself contain underscores. One committed file serves every
-# machine: each consumer picks the column that resolves where it runs.
+# <name> may itself contain underscores. sync_editables creates a stable slot
+# inside each project clone; launchers can discover that slot without carrying
+# the private path map to the remote machine.
 #
 # Sourced by remote.sh, doctor.sh and bump_lib.sh. The launchers cannot source
 # it (they travel to the cluster alone), so each carries a verbatim copy of the
@@ -24,8 +25,21 @@
 # byte-identical to this one.
 
 # >>> lib_paths (keep every copy of this block identical) >>>
+lib_slot_root() {
+    local root=${REPO_ROOT:-}
+    [ -n "$root" ] || root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    printf '%s\n' "$root/.research-note/editables"
+}
 lib_names() {  # every declared <name>, once, one per line
-    local v n seen=" "
+    local v n p root seen=" "
+    root=$(lib_slot_root 2>/dev/null) || root=""
+    if [ -n "$root" ]; then
+        for p in "$root"/*; do
+            [ -d "$p" ] || continue
+            n=$(basename "$p")
+            case "$seen" in *" $n "*) ;; *) printf '%s\n' "$n"; seen="$seen$n " ;; esac
+        done
+    fi
     for v in "${!LIB_@}"; do
         n=${v#LIB_}; n=${n%_*}
         case "$n" in CHECKOUTS) continue ;; esac   # legacy bump_lib map, not a lib
@@ -33,7 +47,9 @@ lib_names() {  # every declared <name>, once, one per line
     done
 }
 lib_path_here() {  # <name> -> the first declared path that exists on THIS machine
-    local v suffix
+    local v suffix root
+    root=$(lib_slot_root 2>/dev/null) || root=""
+    [ -n "$root" ] && [ -d "$root/$1" ] && { printf '%s\n' "$root/$1"; return 0; }
     for v in "${!LIB_@}"; do
         case "$v" in "LIB_$1_"*) ;; *) continue ;; esac
         suffix=${v#LIB_$1_}

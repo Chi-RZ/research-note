@@ -23,6 +23,7 @@ fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$PROJ/.claude/hpc.env" ] && . "$PROJ/.claude/hpc.env"
 [ -f "$PROJ/.claude/hpc.local.env" ] && . "$PROJ/.claude/hpc.local.env"
+[ -f "$PROJ/.research-note/editables.env" ] && . "$PROJ/.research-note/editables.env"
 . "$HERE/lib_paths.sh"
 
 FAILED=0
@@ -243,26 +244,58 @@ if [ "$ENV_MANAGER" = uv ] && grep -q 'git = ' "$PROJ/pyproject.toml" 2>/dev/nul
         # Distinct fault, distinct fix: bump_lib exits non-zero both for real
         # drift and for a checkout it cannot locate, and telling the user to run
         # --all in the second case just fails again.
-        bad "a pinned fork's checkout is not declared" "add it to LIB_CHECKOUTS in .claude/hpc.env — $(printf '%s' "$bl_out" | head -1)"
+        bad "a pinned fork's checkout is not declared" "add LIB_<name>_LOCAL to .research-note/editables.env — $(printf '%s' "$bl_out" | head -1)"
     else bad "a fork checkout has moved past its pin" "bump_lib.sh --all, then commit pyproject.toml + uv.lock"; fi
-elif [ -n "$(lib_names)" ]; then
+fi
+if [ -n "$(lib_names)" ]; then
+    if [ -f "$PROJ/.research-note/editables.env" ]; then
+        git -C "$PROJ" check-ignore -q .research-note/editables.env 2>/dev/null \
+            && ok "editable path map is gitignored" \
+            || bad "editable path map is tracked or unignored" \
+                   "add editables.env to .research-note/.gitignore"
+    fi
     for name in $(lib_names); do
-        lp=$(lib_path_for "$name" LOCAL)
+        grep -Eq "^[[:space:]]*$name[[:space:]]*=[[:space:]]*\{[^}]*git[[:space:]]*=" \
+            "$PROJ/pyproject.toml" 2>/dev/null && continue
+        declared_lp=$(lib_path_for "$name" LOCAL)
+        lp=$declared_lp
+        [ -n "$lp" ] || lp=$(lib_path_here "$name")
         if [ -z "$lp" ]; then
-            bad "lib $name declares no LIB_${name}_LOCAL" "add the local checkout path to .claude/hpc.env"
+            bad "lib $name declares no LIB_${name}_LOCAL" "add the local checkout path to .research-note/editables.env"
         elif git -C "$lp" rev-parse --git-dir >/dev/null 2>&1; then ok "lib $name at $lp"
         else bad "LIB_${name}_LOCAL=$lp is not inside a git checkout" "clone it there, or fix the path"; fi
-        if [ -n "${REMOTE_HOST:-}" ]; then
+        if [ -f "$PROJ/.research-note/editables.env" ]; then
+            slot="$PROJ/.research-note/editables/$name"
+            git -C "$PROJ" check-ignore -q ".research-note/editables/$name" 2>/dev/null \
+                && ok "editable slots are gitignored" \
+                || bad "editable slots are not gitignored" \
+                       "add editables/ to .research-note/.gitignore"
+            if [ -L "$slot" ] && [ "$slot" -ef "$lp" ]; then
+                ok "lib $name stable slot"
+            else
+                bad "lib $name stable slot is missing or stale" \
+                    "bash $HERE/sync_editables.sh --local"
+            fi
+            grep -Fq ".research-note/editables/$name" "$PROJ/pyproject.toml" 2>/dev/null \
+                && ok "uv source for $name uses the stable slot" \
+                || bad "uv source for $name still uses a machine path" \
+                       "set tool.uv.sources.$name.path to .research-note/editables/$name, then uv lock"
+        elif [ -n "$declared_lp" ]; then
+            warn "lib $name path still lives in the legacy HPC profile" \
+                 "move its LIB_* lines to .research-note/editables.env; the variable names stay the same"
+        fi
+        if [ -n "${REMOTE_HOST:-}" ] && { [ -f "$PROJ/.research-note/editables.env" ] || [ -n "$declared_lp" ]; }; then
             hk=$(lib_hostkey "$REMOTE_HOST")
             [ -n "$(lib_path_for "$name" "$hk")" ] || \
                 bad "lib $name has no LIB_${name}_${hk} path for $REMOTE_HOST" \
-                    "declare the remote checkout path — remote.sh push refuses without it"
+                    "declare it in .research-note/editables.env — remote.sh push refuses without it"
         fi
     done
 elif [ -n "${SYNC_LIBS:-}" ]; then
     for lib in $SYNC_LIBS; do
-        [ -d "$lib/.git" ] && ok "editable lib $(basename "$lib") at $lib (legacy SYNC_LIBS — migrate to LIB_<name>_<side> lines)" \
-          || bad "SYNC_LIBS names $lib, which is not a git checkout" "clone it there, or pin the fork by commit instead"
+        [ -d "$lib/.git" ] && warn "editable lib $(basename "$lib") uses legacy SYNC_LIBS" \
+          "move it to LIB_<name>_<side> lines in .research-note/editables.env" \
+          || bad "SYNC_LIBS names $lib, which is not a git checkout" "declare it in .research-note/editables.env"
     done
 fi
 
@@ -394,7 +427,7 @@ for RH in ${HOST_FILTER:-${REMOTE_HOSTS:-${REMOTE_HOST:-}}}; do
     # Legacy shapes: recorded but unheld — the exact hole the LIB_* scheme closes.
     if [ -z "$(lib_names)" ] && [ -n "${DOMAIN_LIBS:-${DOMAIN_LIB_DIR:-}}" ]; then
         warn "an editable lib's commit is recorded but nothing holds the two sides to it" \
-             "declare LIB_<name>_LOCAL and LIB_<name>_${hk} in .claude/hpc.env (record + push gate together), or pin the fork by rev — { git = ..., rev = <sha> }, bump_lib.sh to move it"
+             "declare LIB_<name>_LOCAL and LIB_<name>_${hk} in .research-note/editables.env, or pin the fork by rev"
     fi
 done
 else not_checked hpc; fi

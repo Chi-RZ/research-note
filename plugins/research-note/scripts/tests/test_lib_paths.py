@@ -76,6 +76,14 @@ def test_path_for_reads_the_named_side_only():
                'LIB_mylib_LOCAL=/a').strip() == ""
 
 
+def test_project_local_slots_are_discovered_without_the_path_config(tmp_path):
+    lib = tmp_path / "actual"; lib.mkdir()
+    slots = tmp_path / ".research-note/editables"; slots.mkdir(parents=True)
+    (slots / "mylib").symlink_to(lib, target_is_directory=True)
+    out = run('lib_names; lib_path_here mylib', f'REPO_ROOT={tmp_path}')
+    assert out.splitlines() == ["mylib", str(slots / "mylib")]
+
+
 @pytest.mark.parametrize("host,key", [
     ("H200", "H200"),
     ("my-cluster", "mycluster"),

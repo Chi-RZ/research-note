@@ -11,7 +11,7 @@ it; Slurm routes stdout to the log):
 # Timestamp: <ISO 8601>
 # Environment: locked by uv.lock
 # <project>: <git SHA> (clean|dirty)
-# <lib name>: <git SHA> (clean|dirty)     ← one per LIB_<name>_* in .claude/hpc.env
+# <lib name>: <git SHA> (clean|dirty)     ← one per .research-note/editables/<name> slot
 # Config: <path to frozen yaml, or none>  ← channel 1: the run's parameters
 # job_id: <SLURM_JOB_ID + node>          ← Slurm
 # PID wrapper: <pid>                     ← bare host: the job id

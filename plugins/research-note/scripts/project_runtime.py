@@ -226,8 +226,11 @@ def activate(project: Path, pin: dict) -> None:
     write(codex, text)
     ignore = project / ".research-note/.gitignore"
     ignore_text = ignore.read_text() if ignore.exists() else "state/\n"
-    if "runtime/" not in ignore_text.splitlines():
-        write(ignore, ignore_text.rstrip() + "\nruntime/\n")
+    lines = ignore_text.splitlines()
+    for local_path in ("runtime/", "editables/", "editables.env"):
+        if local_path not in lines:
+            lines.append(local_path)
+    write(ignore, "\n".join(lines) + "\n")
     git(project, "config", "research-note.pluginRoot", str(root))
     write_json(project / LOCK, pin)
 

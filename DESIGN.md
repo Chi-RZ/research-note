@@ -741,8 +741,8 @@ needs no reload to be current:
 | `hook_dispatch.py` | the engine behind every hook of layer 3 — one process, one switch |
 | `wiki_sources.py` | walks the record once for `wiki-compile`: the `closed` gate, the citation tag and the staleness hash in one pass (§7) |
 | `land_and_launch.sh`, `worktree_retire.sh`, `worktree_sparse.sh` | the worktree transaction, the occupancy check, and the sparse checkout that keeps a worktree recordless |
-| `lib_paths.sh` | one declaration of the developed libraries, serving both halves of §8.2 — the log header records them, the check compares them |
-| `bump_lib.sh`, `julia_variants.py` | move an editable fork's pin; hold a Julia variant to containment (§8) |
+| `lib_paths.sh`, `sync_editables.sh` | resolve developed-library paths, create stable editable slots and align commits with Git fetch or an SSH-carried bundle (§8) |
+| `bump_lib.sh`, `julia_variants.py` | move a Git dependency pin; hold a Julia variant to containment (§8) |
 
 ### Cutting across all six — how several agents share one repo
 

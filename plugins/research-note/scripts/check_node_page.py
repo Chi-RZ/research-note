@@ -1247,12 +1247,14 @@ def _default_branch(repo: Path) -> str | None:
 
 
 def _lib_checkouts(root: Path) -> dict[str, Path]:
-    """<name> -> checkout, from the absolute paths `.claude/hpc.env` declares
+    """<name> -> checkout, from the absolute paths `editables.env` declares
     (`DOMAIN_LIBS`, `LIB_<name>_<host>`). That declaration is the project's
     only statement of where a pinned lib lives ON THIS MACHINE; a lib it does
     not name is one E16 cannot check, and says nothing about."""
     out: dict[str, Path] = {}
-    env = root / ".claude" / "hpc.env"
+    env = root / ".research-note" / "editables.env"
+    if not env.exists():
+        env = root / ".claude" / "hpc.env"  # compatibility with old projects
     try:
         text = env.read_text(encoding="utf-8", errors="replace")
     except OSError:

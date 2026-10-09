@@ -25,20 +25,34 @@
 
 set -uo pipefail
 
-# Developed libraries come from <project>/.claude/hpc.env (sourced after
-# REPO_ROOT is known, below) as LIB_<name>_LOCAL / LIB_<name>_<HOSTKEY> lines —
-# one committed file serves every machine, and this launcher reads whichever
-# column resolves where it runs (contract: templates/hpc.env; canonical
-# functions: scripts/lib_paths.sh — this file carries a verbatim copy because
-# it travels to the cluster alone). A declared lib whose path resolves nowhere
+# Developed libraries come from <project>/.research-note/editables.env (sourced
+# after REPO_ROOT is known) as LIB_<name>_LOCAL / LIB_<name>_<HOSTKEY> lines.
+# sync_editables creates a project-local slot on each machine; this launcher
+# discovers that slot without needing the private path map on the cluster
+# (contract: templates/editables.env; canonical functions: scripts/lib_paths.sh,
+# copied here because this file travels alone). A declared lib that resolves
+# nowhere
 # writes a WARNING line into the header rather than vanishing: the silent skip
 # is how eight runs got recorded against a commit no remote holds. Legacy
 # spellings DOMAIN_LIBS / DOMAIN_LIB_DIR are honoured when no LIB_* is
 # declared.
 
 # >>> lib_paths (keep every copy of this block identical) >>>
+lib_slot_root() {
+    local root=${REPO_ROOT:-}
+    [ -n "$root" ] || root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    printf '%s\n' "$root/.research-note/editables"
+}
 lib_names() {  # every declared <name>, once, one per line
-    local v n seen=" "
+    local v n p root seen=" "
+    root=$(lib_slot_root 2>/dev/null) || root=""
+    if [ -n "$root" ]; then
+        for p in "$root"/*; do
+            [ -d "$p" ] || continue
+            n=$(basename "$p")
+            case "$seen" in *" $n "*) ;; *) printf '%s\n' "$n"; seen="$seen$n " ;; esac
+        done
+    fi
     for v in "${!LIB_@}"; do
         n=${v#LIB_}; n=${n%_*}
         case "$n" in CHECKOUTS) continue ;; esac   # legacy bump_lib map, not a lib
@@ -46,7 +60,9 @@ lib_names() {  # every declared <name>, once, one per line
     done
 }
 lib_path_here() {  # <name> -> the first declared path that exists on THIS machine
-    local v suffix
+    local v suffix root
+    root=$(lib_slot_root 2>/dev/null) || root=""
+    [ -n "$root" ] && [ -d "$root/$1" ] && { printf '%s\n' "$root/$1"; return 0; }
     for v in "${!LIB_@}"; do
         case "$v" in "LIB_$1_"*) ;; *) continue ;; esac
         suffix=${v#LIB_$1_}
@@ -110,6 +126,7 @@ if [ "$ENTRY" != none ] && [ "$(git -C "$REPO_ROOT" rev-parse --path-format=abso
 fi
 [ -f "$REPO_ROOT/.claude/hpc.env" ] && . "$REPO_ROOT/.claude/hpc.env"
 [ -f "$REPO_ROOT/.claude/hpc.local.env" ] && . "$REPO_ROOT/.claude/hpc.local.env"
+[ -f "$REPO_ROOT/.research-note/editables.env" ] && . "$REPO_ROOT/.research-note/editables.env"
 # experiment dir = parent of scripts/, else the script's own dir
 d=$(dirname "$PY_ABS")
 if [ "$(basename "$d")" = scripts ]; then EXP_DIR=$(dirname "$d"); else EXP_DIR=$d; fi
@@ -194,7 +211,7 @@ dirty() { [ -z "$(git -C "$1" status --porcelain)" ] && echo clean || echo dirty
                 echo "# $name: WARNING not a git checkout ($p)"
             fi
         else
-            echo "# $name: WARNING declared in hpc.env but no LIB_${name}_* path exists on this machine"
+            echo "# $name: WARNING declared in editables.env but no LIB_${name}_* path exists on this machine"
         fi
     done
     # Legacy spellings, honoured only when nothing is declared the new way —

@@ -112,6 +112,12 @@ its own `.venv` from them, jobs run through `uv run`, and every job's log header
 names the lock it ran under. That lock is what lets a recorded result be rerun
 in the same environment. Setup installs uv if it is missing, after asking you.
 
+An external library under active development can stay editable without using
+the same filesystem layout on every machine. Its real paths live in the
+gitignored `.research-note/editables.env`; uv uses a stable project-local slot,
+and `remote.sh push` synchronizes the commit through its Git remote or, when it
+has none, a Git bundle over SSH.
+
 ## 3. Update
 
 In a project, tell the agent:

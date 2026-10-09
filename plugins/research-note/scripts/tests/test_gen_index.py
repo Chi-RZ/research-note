@@ -108,6 +108,15 @@ def test_lib_local_declaration_is_the_pointer(gen, tmp_path):
     assert "/home/me/src/qecbench" not in out, "the remote column is not this machine's"
 
 
+def test_canonical_uv_slot_is_the_pointer(gen, tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.uv.sources]\nqecbench = '
+        '{ path = ".research-note/editables/qecbench", editable = true }\n')
+    out = gen._domain_libs()
+    assert "`.research-note/editables/qecbench`" in out
+    assert "/local/qecbench" not in out and "/remote/qecbench" not in out
+
+
 def test_every_declared_lib_is_listed_once_in_order(gen, tmp_path):
     write_env(tmp_path, "LIB_alib_LOCAL=/src/a\n"
                         "LIB_blib_LOCAL=/src/b\n"

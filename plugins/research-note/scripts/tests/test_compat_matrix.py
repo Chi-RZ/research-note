@@ -122,7 +122,8 @@ def test_an_empty_directory_becomes_a_local_only_project(empty, home):
     assert not any(config["features"].values()), "a new project starts with every integration off"
     assert (empty / ".claude/CLAUDE.md").read_text().startswith("<!-- framework section generated")
     assert (empty / "CLAUDE.md").is_symlink() and (empty / "AGENTS.md").is_symlink()
-    assert (empty / ".research-note/.gitignore").read_text() == "state/\nruntime/\n"
+    assert (empty / ".research-note/.gitignore").read_text() == (
+        "state/\nruntime/\neditables/\neditables.env\n")
     assert sh(empty, home, "git", "config", "core.hooksPath").stdout.strip() == ".claude/githooks"
     # what a disabled integration leaves behind: nothing
     assert not (empty / "project_memory/dashboard.html").exists()

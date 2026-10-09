@@ -35,14 +35,15 @@ done
 [ "$ALL" = 1 ] || [ ${#NAMES[@]} -gt 0 ] || { echo "usage: bump_lib.sh <lib> [...] | --all | --check" >&2; exit 2; }
 
 # Where does each fork live on THIS machine? The pin names a git URL, not a path,
-# so the working checkout is declared separately — LIB_CHECKOUTS in hpc.env
-# ("name=/path" pairs), else <name> under the parent of the libs already listed.
+# so the working checkout is declared separately in
+# .research-note/editables.env. Older declarations remain readable.
 [ -f "$PROJ/.claude/hpc.env" ] && . "$PROJ/.claude/hpc.env"
 [ -f "$PROJ/.claude/hpc.local.env" ] && . "$PROJ/.claude/hpc.local.env"
+[ -f "$PROJ/.research-note/editables.env" ] && . "$PROJ/.research-note/editables.env"
 
 checkout_for() {  # name -> path, or empty
     local n=$1 pair v
-    # The LIB_<name>_LOCAL declaration is the current spelling (templates/hpc.env);
+    # The LIB_<name>_LOCAL declaration is the current spelling (templates/editables.env);
     # a uv source name may carry characters a variable cannot, so they map to _.
     v="LIB_${n//[^A-Za-z0-9]/_}_LOCAL"
     [ -n "${!v:-}" ] && { echo "${!v}"; return 0; }
@@ -67,7 +68,7 @@ pinned_names() {  # every source with a `git =` in pyproject
 changed=0
 for name in "${NAMES[@]}"; do
     path=$(checkout_for "$name") || {
-        echo "bump_lib: no checkout known for '$name' — declare LIB_${name}_LOCAL=/path/to/$name (or legacy LIB_CHECKOUTS=\"$name=/path\") in .claude/hpc.env" >&2
+        echo "bump_lib: no checkout known for '$name' — declare LIB_${name}_LOCAL=/path/to/$name in .research-note/editables.env" >&2
         exit 1; }
     # `git -C`, not `-d .git`: a checkout that is a SUBDIRECTORY of its repo
     # (qecbench = qec_bench/projects/qecbench) has no .git of its own — the

@@ -88,15 +88,12 @@ reads this before any new code is written.
 
 
 def _domain_libs() -> str:
-    """The `## Domain libraries` line, from hpc.env's `LIB_<name>_LOCAL`
-    declarations — so the discovery rule's step 0 (check the domain library
-    first) has its pointer.
+    """The `## Domain libraries` pointer.
 
-    LOCAL, and not `lib_path_here`'s "the first declared path that exists on
-    this machine": INDEX.md is a COMMITTED generated file, so a line resolved
-    per machine flips every time the other side regenerates, and the diff
-    reads as a capability change. LOCAL is the record-keeping machine's column
-    — the one whoever reads this file is standing on.
+    Canonical editables come from pyproject's stable
+    `.research-note/editables/<name>` paths, so this committed index never
+    captures a machine's private path map. An older hpc.env keeps its former
+    LOCAL-column behaviour until migrated.
 
     The legacy DOMAIN_LIBS / DOMAIN_LIB_DIR spellings are the fallback, as
     everywhere else, and only when no LIB_* line is declared. Reading solely
@@ -105,12 +102,17 @@ def _domain_libs() -> str:
     the pointer the root contract tells every agent to read before writing
     anything new.
     """
+    pyproject = ROOT / "pyproject.toml"
+    project_text = pyproject.read_text(encoding="utf-8") if pyproject.exists() else ""
+    paths = [f".research-note/editables/{m.group(1)}" for m in
+             re.finditer(r"\.research-note/editables/([A-Za-z0-9_.-]+)", project_text)]
     conf = ""
     for f in (ROOT / ".claude" / "hpc.env", ROOT / ".claude" / "hpc.local.env"):
         if f.exists():
             conf += f.read_text(encoding="utf-8")
-    paths = [m.group(1).strip() for m
-             in re.finditer(r"^\s*LIB_\w+_LOCAL=\"?([^\"\n]+)", conf, re.M)]
+    if not paths:
+        paths = [m.group(1).strip() for m
+                 in re.finditer(r"^\s*LIB_\w+_LOCAL=\"?([^\"\n]+)", conf, re.M)]
     if not paths:
         m = (re.search(r"^\s*DOMAIN_LIBS=\"?([^\"\n]+)", conf, re.M)
              or re.search(r"^\s*DOMAIN_LIB_DIR=\"?([^\"\n]+)", conf, re.M))

@@ -34,11 +34,11 @@ cluster). REPEATABLE: the first occurrence is the default host (written as
 REMOTE_HOST/REMOTE_DIR — the single-host back-compat form); with several, all
 of them land in .claude/hpc.env's multi-remote keys (REMOTE_HOSTS +
 REMOTE_DIR_<host>) and every host is monitored equally. Keys already present
-are kept. Each host then gets `remote.sh setup --host <h>` — clone-from-GitHub
-/ ff-pull + SHA check; a FRESH clone is sparse (cone: src/ tests/ experiments/,
-excluding project_memory/ and wiki/; .claude/ IS included, the submit templates read hpc.env from it), with
-an old-git pattern fallback. The local repo must have a GitHub origin: that is
-the code channel to the cluster.
+are kept. Each host then gets `remote.sh setup --host <h>` — clone/ff-pull
+from the project's Git origin plus a SHA check. A FRESH clone is sparse: it
+excludes project_memory/ and wiki/, includes .claude/ for the submit profile,
+and has an old-git pattern fallback. The local repo must have a Git origin: that
+is the project-code channel to the cluster.
 """
 from __future__ import annotations
 
@@ -383,7 +383,9 @@ def main() -> int:
     # core runtime state (the record lock, the harvest stamps) lives under
     # .research-note/state/ and never in a commit; the nested ignore is what
     # keeps it out, so it is laid with the layout
-    w(proj / ".research-note" / ".gitignore", "state/\n", ".research-note/.gitignore")
+    w(proj / ".research-note" / ".gitignore",
+      "state/\nruntime/\neditables/\neditables.env\n",
+      ".research-note/.gitignore")
     for d in layout_dirs(project_config):
         p = proj / d
         if p.is_dir():
@@ -790,9 +792,8 @@ def main() -> int:
     # Only what THIS project has: an item about hpc.env or VS Code on a project
     # that enabled neither is an integration reported as a to-do.
     todo = ["pyproject.toml, then `uv sync` (see the project-setup skill)"]
-    if feature_enabled(project_config, "hpc"):
-        todo.append(".claude/hpc.env — DOMAIN_LIBS if a domain library's SHA belongs\n"
-                    "     in log headers")
+    if (proj / ".research-note/editables.env").exists():
+        todo.append("sync_editables.sh --local, then uv sync")
     if feature_enabled(project_config, "editor"):
         editor_next = "Reload Window in VS Code"
         if feature_enabled(project_config, "dashboard"):

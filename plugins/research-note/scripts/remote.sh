@@ -12,14 +12,15 @@
 #     REMOTE_DIR_hpc=/path/on/hpc      # per-host clone paths (non-alphanumerics in
 #     REMOTE_DIR_other=/path/on/other  # the alias map to `_`; plain REMOTE_DIR is
 #                                      # the fallback for the default host only)
-#   <project>/.claude/hpc.local.env    (gitignored — per-machine overrides, e.g. a
-#                                       different DOMAIN_LIB_DIR on the cluster copy)
+#   <project>/.research-note/editables.env
+#                                      (optional — real path per machine for
+#                                       libraries developed editable)
 #
 # Subcommands (all idempotent, all run FROM the local machine). `queue`, `pull`
 # and `push` loop over ALL declared hosts; `--host <h>` right after the
 # subcommand pins any subcommand to one host (setup/submit take the default
 # host otherwise):
-#   setup   clone the host's dir from this repo's GitHub origin if missing, else
+#   setup   clone the host's dir from this repo's Git origin if missing, else
 #           ff-pull; print both SHAs. A FRESH clone is sparse (cone: src/ tests/
 #           experiments/ + root files — the cluster runs jobs, it never needs
 #           project_memory/ or a knowledge root; .claude/ travels, the submit templates read hpc.env from it), with an old-git pattern fallback.
@@ -58,6 +59,7 @@ fi
 
 [ -f "$PROJ/.claude/hpc.env" ] && . "$PROJ/.claude/hpc.env"
 [ -f "$PROJ/.claude/hpc.local.env" ] && . "$PROJ/.claude/hpc.local.env"
+[ -f "$PROJ/.research-note/editables.env" ] && . "$PROJ/.research-note/editables.env"
 . "$(dirname "${BASH_SOURCE[0]}")/lib_paths.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KNOWLEDGE_ROOTS=wiki
@@ -129,7 +131,7 @@ rssh() {   # rssh <cmd...>  -> runs on the cluster, stdout to our stdout
 
 case "$CMD" in
 setup)
-    URL=$(git -C "$PROJ" remote get-url origin) || { echo "remote.sh: local repo has no origin — the cluster syncs FROM GitHub" >&2; exit 1; }
+    URL=$(git -C "$PROJ" remote get-url origin) || { echo "remote.sh: local repo has no origin — the cluster syncs from that Git remote" >&2; exit 1; }
     if ! rssh "test -d '$REMOTE_DIR/.git'"; then
         echo "remote.sh: sparse-cloning $URL -> $REMOTE_HOST:$REMOTE_DIR (without project_memory/ and $KNOWLEDGE_ROOTS)"
         # SPARSE by default, expressed as an EXCLUDE list rather than a cone.
@@ -160,14 +162,13 @@ setup)
           git read-tree -mu HEAD" || true
     rssh "cd '$REMOTE_DIR' && git fetch -q origin && git checkout -q '$BR' && git merge -q --ff-only 'origin/$BR'" || {
         echo "remote.sh: remote checkout/ff failed — remote working copy diverged? Fix by hand (it must stay a pure mirror)" >&2; exit 1; }
+    # Give uv stable project-local paths before it resolves the environment.
+    bash "$HERE/sync_editables.sh" --host "$REMOTE_HOST" --remote-dir "$REMOTE_DIR" || exit 1
     # Align the remote environment HERE, on the login node, where installing is
     # allowed and visible — never inside a job (batch runs use `--no-sync`).
-    # `uv sync` can leave uv.lock rewritten without changing a single package —
-    # a sibling path dep (`{ path = "../mylib" }`) stores that path relative to
-    # the repo root and re-texts it per machine, and a uv version bump can
-    # re-text the file on its own. Either way the resolution is identical, so
-    # the rewrite is discarded: a dirty mirror stamps every log header `(dirty)`
-    # and blocks the next ff. A no-op when nothing was rewritten.
+    # `uv sync` or a uv version change can re-text uv.lock without changing the
+    # resolution. Discard that rewrite: a dirty mirror stamps every log header
+    # `(dirty)` and blocks the next ff. A no-op when nothing changed.
     # uv only: under another manager the project installs its own environment
     # and nothing here can bring the far side up to a lock it does not have
     [ "$ENV_MANAGER" = uv ] && { rssh "cd '$REMOTE_DIR' && uv sync -q >/dev/null 2>&1; git checkout -- uv.lock 2>/dev/null" || true; }
@@ -181,38 +182,6 @@ push)
     fi
     git -C "$PROJ" push -q origin "$BR" || exit 1
     L=$(git -C "$PROJ" rev-parse HEAD)
-    # Local-side lib gate ONCE (clean + pushed) — the remote half runs per host.
-    # A lib is declared as LIB_<name>_LOCAL / LIB_<name>_<HOSTKEY> in hpc.env;
-    # declaring it buys the header line AND this gate together — the half-open
-    # state (recorded, unaligned) is not expressible. SYNC_LIBS is the legacy
-    # spelling, honoured only when nothing is declared the new way.
-    LIB_DECLARED=$(lib_names)
-    PINNED=0; grep -q 'git = ' "$PROJ/pyproject.toml" 2>/dev/null && PINNED=1
-    for name in $LIB_DECLARED; do
-        [ "$PINNED" = 1 ] && break   # pinned: uv.lock's rev is the truth (see below)
-        lp=$(lib_path_for "$name" LOCAL)
-        if [ -z "$lp" ]; then
-            echo "remote.sh push: lib $name is declared but LIB_${name}_LOCAL is not — every declared lib names its local checkout" >&2; exit 1
-        fi
-        if ! git -C "$lp" rev-parse --git-dir >/dev/null 2>&1; then
-            echo "remote.sh push: LIB_${name}_LOCAL=$lp is not inside a git repo" >&2; exit 1
-        fi
-        if [ -n "$(git -C "$lp" status --porcelain)" ]; then
-            echo "remote.sh push: $name ($lp) has uncommitted changes — the cluster cannot run them (commit or stash)" >&2; exit 1
-        fi
-        git -C "$lp" push -q origin "$(git -C "$lp" branch --show-current)" || exit 1
-    done
-    [ -z "$LIB_DECLARED" ] && for lib in ${SYNC_LIBS:-}; do
-        [ "$PINNED" = 1 ] && break
-        echo "remote.sh push: note — SYNC_LIBS is legacy; declare LIB_<name>_LOCAL / LIB_<name>_<HOSTKEY> in hpc.env instead" >&2
-        if [ ! -d "$lib/.git" ]; then
-            echo "remote.sh push: SYNC_LIBS entry $lib is not a git repo" >&2; exit 1
-        fi
-        if [ -n "$(git -C "$lib" status --porcelain)" ]; then
-            echo "remote.sh push: $lib has uncommitted changes — the cluster cannot run them (commit or stash)" >&2; exit 1
-        fi
-        git -C "$lib" push -q origin "$(git -C "$lib" branch --show-current)" || exit 1
-    done
     # EVERY declared host (or the one pinned by --host) is held to the same
     # mirror discipline; any host failing fails the push.
     for RH in $LOOP_HOSTS; do
@@ -231,14 +200,10 @@ push)
               [ \"\$(git hash-object \"\$f\")\" = \"\$(git rev-parse \"origin/$BR:\$f\" 2>/dev/null)\" ] && rm -f \"\$f\"
           done; true" || exit 1
     rssh "cd '$REMOTE_DIR' && git merge -q --ff-only 'origin/$BR'" || exit 1
-    # Align the remote environment on the login node, where installing is allowed
-    # and visible — never inside a job (batch runs use `--no-sync`). Runs BEFORE
-    # the parity gate below, so a push that carries a dependency change fixes the
-    # remote instead of being rejected by it. `uv sync` can also leave uv.lock
-    # rewritten without changing a single package — a sibling path dep re-texts
-    # per machine, and a uv version bump re-texts on its own — so the rewrite is
-    # discarded: a dirty mirror stamps every log header `(dirty)` and blocks the
-    # next ff-merge. A no-op when nothing was rewritten.
+    # One path contract and one action own editable libraries. Real paths may
+    # differ; both project-local slots resolve before uv inspects them.
+    bash "$HERE/sync_editables.sh" --host "$RH" --remote-dir "$REMOTE_DIR" || exit 1
+    # Align the remote environment on the login node after those slots exist.
     rssh "cd '$REMOTE_DIR' && VIRTUAL_ENV= uv sync -q >/dev/null 2>&1; git checkout -- uv.lock 2>/dev/null" || true
     # Julia gets the same treatment, in the same place, for the same reason: the
     # spec file is what crossed, so bring the far side up to it BEFORE checking
@@ -252,53 +217,6 @@ push)
     if [ "$L" != "$R" ]; then
         echo "remote.sh push: SHA mismatch — local $L vs $REMOTE_HOST $R" >&2; exit 1
     fi
-    # Editable libs (LIB_<name>_LOCAL / LIB_<name>_<HOSTKEY> in hpc.env; legacy
-    # SYNC_LIBS honoured when nothing is declared the new way) get the SAME discipline as the
-    # project: the cluster cannot run your uncommitted or unpushed lib edits,
-    # and a silent version skew between the two sides is exactly the class of
-    # divergence this bridge exists to kill (it happened: quimb differed by a
-    # push made from another machine). Local clean+push already ran above.
-    # Skipped for a git-pinned project: what runs is uv.lock's rev, fetched from
-    # the fork's remote by uv itself, and the pin gate above already guards it.
-    # Holding a pinned project to this gate would demand fork checkouts on a
-    # cluster that has no use for them — the one thing pinning was meant to end.
-    PINNED=0; grep -q 'git = ' "$PROJ/pyproject.toml" 2>/dev/null && PINNED=1
-    HK=$(lib_hostkey "$RH")
-    for name in ${LIB_DECLARED:-}; do
-        [ "$PINNED" = 1 ] && { echo "lib $name: pinned in uv.lock — checkout gate skipped"; continue; }
-        lp=$(lib_path_for "$name" LOCAL)
-        rp=$(lib_path_for "$name" "$HK")
-        if [ -z "$rp" ]; then
-            # The anti-half-open rule: a declared lib must name a path on EVERY
-            # declared host — a missing line refuses the launch rather than
-            # silently checking nothing, which is the shape that recorded runs
-            # against a commit no remote holds.
-            echo "remote.sh push: lib $name has no LIB_${name}_${HK} path for host $RH — declare it in hpc.env" >&2; exit 1
-        fi
-        LB=$(git -C "$lp" branch --show-current)
-        rssh "cd '$rp' && git fetch -q origin && git checkout -q '$LB' && git merge -q --ff-only 'origin/$LB'" || exit 1
-        LL=$(git -C "$lp" rev-parse HEAD)
-        T=$(mktemp); rssh "cd '$rp' && git rev-parse HEAD" >"$T"; RR=$(cat "$T"); rm -f "$T"
-        if [ "$LL" != "$RR" ]; then
-            echo "remote.sh push: $name SHA mismatch — local ${LL:0:8} vs $REMOTE_HOST ${RR:0:8}." >&2
-            echo "  Local behind its origin? Someone pushed from another machine: review and \\`git -C $lp pull --ff-only\\`, then retry." >&2
-            exit 1
-        fi
-        echo "lib $name @ ${LL:0:7} ($REMOTE_HOST)"
-    done
-    [ -z "${LIB_DECLARED:-}" ] && for lib in ${SYNC_LIBS:-}; do
-        [ "$PINNED" = 1 ] && { echo "lib $(basename "$lib"): pinned in uv.lock — checkout gate skipped"; continue; }
-        LB=$(git -C "$lib" branch --show-current)
-        rssh "cd '$lib' && git fetch -q origin && git checkout -q '$LB' && git merge -q --ff-only 'origin/$LB'" || exit 1
-        LL=$(git -C "$lib" rev-parse HEAD)
-        T=$(mktemp); rssh "cd '$lib' && git rev-parse HEAD" >"$T"; RR=$(cat "$T"); rm -f "$T"
-        if [ "$LL" != "$RR" ]; then
-            echo "remote.sh push: $lib SHA mismatch — local ${LL:0:8} vs $REMOTE_HOST ${RR:0:8}." >&2
-            echo "  Local behind its origin? Someone pushed from another machine: review and \\`git -C $lib pull --ff-only\\`, then retry." >&2
-            exit 1
-        fi
-        echo "lib $(basename "$lib") @ ${LL:0:7} ($REMOTE_HOST)"
-    done
     # Pin drift. The fingerprint below cannot see it: a git-pinned fork with a
     # static version (`quantax==0.3.0`) fingerprints identically across revs, so
     # a project could push code that runs a months-old fork with nothing saying
@@ -714,9 +632,17 @@ status)
         DEF=""; [ "$RH" = "$DEFAULT_HOST" ] && DEF=" [default]"
         echo "remote  : $RH:$D (data cap ${REMOTE_DATA_MAX_MB:-50}MB)$DEF"
     done
-    for lib in ${SYNC_LIBS:-}; do
-        T=$(mktemp); rssh "cd '$lib' && git rev-parse --short HEAD 2>/dev/null" >"$T" 2>/dev/null
-        echo "lib     : $(basename "$lib") local $(git -C "$lib" rev-parse --short HEAD 2>/dev/null) | remote $(cat "$T")"; rm -f "$T"
+    for name in $(lib_names); do
+        lp=$(lib_path_for "$name" LOCAL)
+        [ -n "$lp" ] || lp=$(lib_path_here "$name")
+        line="lib     : $name local $(git -C "$lp" rev-parse --short HEAD 2>/dev/null)"
+        for RH in $LOOP_HOSTS; do
+            HK=$(lib_hostkey "$RH"); rp=$(lib_path_for "$name" "$HK")
+            [ -n "$rp" ] || continue
+            T=$(mktemp); ssh "${SSH_OPTS[@]}" "$RH" "git -C '$rp' rev-parse --short HEAD 2>/dev/null" </dev/null >"$T" 2>/dev/null
+            line="$line | $RH $(cat "$T")"; rm -f "$T"
+        done
+        echo "$line"
     done
     for f in remote_queue remote_last_pull; do
         if [ -f "$STATE/$f" ]; then

@@ -26,12 +26,12 @@ is a page someone eventually believes. Then, on the login node (preparing the
 environment is not compute): `cd <dir> && uv sync`.
 
 A library pinned by `git` + `rev` needs no second checkout — uv fetches that
-commit. A path-editable library needs a Git checkout on each side, declared
-together in `hpc.env`: `LIB_<name>_LOCAL=<path here>` and
-`LIB_<name>_<HOSTKEY>=<path there>`. `remote.sh push` then holds both to one
-clean, pushed commit before any submit. Without a remote both machines can
-fetch, put the library in the project workspace instead of relying on unrelated
-filesystem paths. See the project-setup skill's `environment.md`.
+commit. For a path-editable library, `.research-note/editables.env` names the
+real checkout on each machine while uv uses the stable
+`.research-note/editables/<name>` slot. `remote.sh setup/push` holds both sides
+to one clean commit before submit. It uses the library's Git remote when one
+exists and sends a Git bundle over SSH when it does not. See the project-setup
+skill's `environment.md`.
 
 ## C2. Submit
 
