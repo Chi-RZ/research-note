@@ -25,12 +25,13 @@ without `project_memory/` and the knowledge roots — a stale record copy there
 is a page someone eventually believes. Then, on the login node (preparing the
 environment is not compute): `cd <dir> && uv sync`.
 
-A library the project develops path-editable needs a checkout on each side,
-declared together in `hpc.env`: `LIB_<name>_LOCAL=<path here>`,
+A library pinned by `git` + `rev` needs no second checkout — uv fetches that
+commit. A path-editable library needs a Git checkout on each side, declared
+together in `hpc.env`: `LIB_<name>_LOCAL=<path here>` and
 `LIB_<name>_<HOSTKEY>=<path there>`. `remote.sh push` then holds both to one
-clean, pushed commit before any submit. A library pinned by `git` + `rev`
-needs nothing — uv fetches that commit. See the project-setup skill's
-`environment.md`.
+clean, pushed commit before any submit. Without a remote both machines can
+fetch, put the library in the project workspace instead of relying on unrelated
+filesystem paths. See the project-setup skill's `environment.md`.
 
 ## C2. Submit
 

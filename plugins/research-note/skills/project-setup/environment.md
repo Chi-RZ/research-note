@@ -25,19 +25,38 @@ log header's SHA anchor.
 - **Each machine matches its own spec**, checked where the job runs. This is
   what makes a recorded result re-derivable, and it needs no second machine.
 - **A library the project is developing** is identified by a commit, not a
-  version string — a version stays put across a fortnight of edits. Either pin
-  it in the spec (`{ git = "…", rev = "<sha>" }`, moved by
-  `scripts/bump_lib.sh`), which any machine can rebuild from; or keep it
-  path-editable so edits take effect at once, and declare
-  `LIB_<name>_LOCAL` / `LIB_<name>_<HOSTKEY>` in `.claude/hpc.env` so
-  `remote.sh push` holds both sides to one commit per launch. A path dep ties
-  the manifest to one machine's layout, so a pin is what a second machine or a
-  CI box needs.
+  version string — a version stays put across a fortnight of edits. Choose one
+  source mode deliberately:
+
+  1. **Git pin — preferred for recorded runs on more than one machine.** Pin a
+     fetchable Git remote plus `rev`, moved explicitly by `scripts/bump_lib.sh`.
+     The remote can be GitHub, GitLab, a private SSH server or a bare Git repo;
+     the SHA belongs to Git, not to GitHub.
+  2. **Project workspace — preferred when no external remote exists.** Put the
+     library in this repository as a uv workspace member. It stays editable,
+     travels with the project, and the project commit identifies both.
+  3. **Path editable — development or an intentionally mirrored checkout.**
+     Edits take effect at once, but the path is not provenance. The checkout
+     must itself be clean Git; for remote runs declare `LIB_<name>_LOCAL` and
+     `LIB_<name>_<HOSTKEY>` in `.claude/hpc.env`, and `remote.sh push` holds
+     both sides to the same pushed commit. If no shared remote can transport
+     that commit, move the library into the project workspace before a formal
+     remote run.
+
+  A source tree with neither a Git commit nor a committed project copy is fine
+  for a quick smoke, but not for a recorded result: another machine cannot
+  identify the bytes that ran.
 
 ```toml
 [tool.uv.sources]
 mylib = { git = "ssh://git@github.com/user/mylib.git", rev = "<sha>" }
 ```
+
+For local co-development, `uv add --editable ../mylib` records a path source.
+Before switching it to a Git pin, commit and push the library, replace the path
+source with `git` + `rev`, and run `uv lock`. Changing the pin does not reopen
+old entries or schedule a benchmark grid: inspect the diff and run only the
+affected sentinel unless the objective explicitly asks for broader coverage.
 
 ## A second environment must contain the first
 

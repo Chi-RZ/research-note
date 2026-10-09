@@ -102,12 +102,17 @@ re-read the page, and go on from where it says the work stands.
 - **`wake-me-if` fires → the loop stops**, sets `attention:` and waits.
 - **A correction is applied at once**; a question is answered from the record
   and does not interrupt the open phase.
+- **A dependency change is prospective.** Existing entries remain valid for
+  the commits they cite. Before a new recorded run, diff the old and new
+  dependency, map the changed code to actual imports and calls, then run the
+  smallest affected test or sentinel. Expand only when that check moves, the
+  objective asks for a new-version claim, or a confirmed old-version bug
+  invokes `research-note:correct`; a SHA change alone schedules no reruns.
 
 ## Stop and ask
 
 | before | because |
 |---|---|
-| changing a shared library root | it can move the numbers of every node that imports it |
 | opening a new node, when the reproduce test does not settle it | once entries close on it the split is permanent |
 | closing an entry | writing a conclusion is "I measured, I judge"; closing is "I accept" |
 | lifting a note into the wiki, or a memory into a skill | an agent that generalises its own habits compounds its own mistakes |

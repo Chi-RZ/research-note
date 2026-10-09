@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# bump_lib.sh — point the project at the CURRENT commit of an editable fork.
+# bump_lib.sh — point the project at the CURRENT commit of a fork checkout.
 #
 # With git-pinned sources (`{ git = ..., rev = <sha> }`) the lockfile carries the
 # fork's identity, so a run is reproducible from one checkout — but the pin does
 # not follow the fork on its own. This is the one ritual that keeps them in step:
 # after committing and pushing work in the fork, run this before the next
-# RECORDED run.
+# RECORDED run that is meant to use the new revision. Moving the pin alone does
+# not invalidate old entries or schedule their benchmarks.
 #
 # Usage: bump_lib.sh <lib-name> [<lib-name> ...]     (names as in tool.uv.sources)
 #        bump_lib.sh --all                            (every git-pinned source)

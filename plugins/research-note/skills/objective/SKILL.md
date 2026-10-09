@@ -109,9 +109,11 @@ Each iteration:
    is the decision — and you make it without narrating it: the entry's
    Motivation IS where the reasoning lands. `research-note:plan` only to
    CREATE a node (gate included) or a page; a new entry on an open page needs
-   no skill; every launch via hpc-submit. Changes to a declared library root,
-   node-or-not the
-   criterion does not settle, and budget overruns STOP the loop and ask.
+   no skill; every launch via hpc-submit. A dependency update first maps its
+   diff to this objective's imports and claims, then runs only the smallest
+   affected test or sentinel; the root contract owns when that expands. A
+   node-or-not decision the criterion does not settle, and a budget overrun,
+   STOP the loop and ask.
 3. **The entry line is written by the launcher.** Given `PHASE=P<n>` and
    `ROLE="<the role it plays>"`, `record_submit` writes
    `- [entry name](page.md#entry-slug) \`<id>\` — <role>` into the phase block
