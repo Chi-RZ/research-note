@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lint the node record: node.md pages and task pages, both lists of entries.
 
-Codes (record v3 — DESIGN.md §10):
+Codes (record v3):
   N1 node.md exists, entries only, first is the gate
   N2 an implementation exists under <experiments root>/<node>/ (--cross)
   N3 the regenerated roster matches the tree              (--cross)

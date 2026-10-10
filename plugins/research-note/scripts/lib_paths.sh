@@ -1,11 +1,11 @@
 # lib_paths.sh — resolve a project's developed-library declarations.
 #
-# ONE declaration serves both halves of DESIGN.md §8.2: the log header RECORDS
-# the commit that ran, and `remote.sh push` ALIGNS the two sides to one commit
-# before anything launches. Declaring a lib buys both; there is no way to get
-# the record without the gate — the half-open state (a SHA in every header,
-# nothing holding the sides to it) is the one that produced runs on a commit
-# no remote holds.
+# ONE declaration serves both parts of the editable-library contract: the log
+# header RECORDS the commit that ran, and `remote.sh push` ALIGNS the two sides
+# to one commit before anything launches. Declaring a lib buys both; there is no
+# way to get the record without the gate — the half-open state (a SHA in every
+# header, nothing holding the sides to it) is the one that produced runs on a
+# commit no remote holds.
 #
 # The declaration, in the local .research-note/editables.env — one line per side:
 #

@@ -1,6 +1,6 @@
 """lib_paths: the LIB_<name>_<side> declaration scheme.
 
-One declaration buys both halves of DESIGN.md §8.2 — the header line and the
+One declaration buys both halves of the editable-library contract — the header line and the
 push gate — so the resolution functions are load-bearing in four places: the
 canonical scripts/lib_paths.sh (sourced by remote.sh, doctor.sh) and verbatim
 copies inside the launchers, which travel to the cluster alone and cannot

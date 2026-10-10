@@ -33,8 +33,8 @@ Describe the problem, the resulting behavior and how you checked it. Update the
 relevant documentation when behavior changes. Keep unrelated changes in
 separate pull requests.
 
-`DESIGN.md` explains the decisions behind the plugin. Read the relevant section
-when changing a contract or workflow.
+When changing a contract or workflow, explain the invariant in the code and
+update the user-facing documentation that relies on it.
 
 ## Maintainer release steps
 

@@ -7,7 +7,7 @@ page's own text is only the claim, never the evidence. The page is what the
 user reads INSTEAD of watching the session — a page that silently drifts is
 worse than no page.
 
-Codes (DESIGN.md §10):
+Codes (record v3):
   O1  frontmatter: id, status, created, budget, wake-me-if
   O2  Goal, Plan, Verdict, in order, nothing else
   O3  links resolve and land on real entries; a backticked id beside an entry
