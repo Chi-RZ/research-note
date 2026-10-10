@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="research-note — a record framework for research a person and an agent run together: every calculation placed the moment it exists, every close a human judgement.">
+<meta name="description" content="research-note keeps research goals, calculations, evidence, and reviewed conclusions together while agents work across projects and sessions.">
 <title>research-note</title>
 <style>
   /* ---- tokens: light is the base set, both dark states redefine only these ---- */
@@ -255,6 +255,8 @@
   }
   .chap p { max-width: var(--measure); color: var(--muted); }
   .chap p b { color: var(--ink); font-weight: 600; }
+  .chap a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 0.18em; }
+  .chap a:hover, .chap a:focus-visible { text-decoration-color: var(--ink); }
   @media (max-width: 40rem) {
     .chap { grid-template-columns: 1fr; }
     .rail { flex-direction: row; align-items: center; gap: 1rem; }
@@ -373,7 +375,7 @@
   <header class="col">
     <p class="eyebrow">research-note &middot; a record framework</p>
     <h1>research&#8209;note</h1>
-    <p class="deck">The agent computes and writes the record. You read it and decide.</p>
+    <p class="deck">Keep the question, the calculation, and the conclusion together. Agents can do the work and write it down; you decide what the evidence supports.</p>
   </header>
 
   <section class="chap">
@@ -389,8 +391,8 @@
       </svg>
     </div>
     <div>
-      <h2 class="slogan">Every calculation counts.</h2>
-      <p>A paper reports the one tunnel that reached gold. A record keeps them all.</p>
+      <h2 class="slogan">Keep the path, not just the result.</h2>
+      <p>A paper shows the route that worked. The record also keeps the runs that changed the plan.</p>
 
       <figure style="margin-top:2rem">
         <div class="plate bleed">
@@ -820,9 +822,9 @@
         </g>
       </svg>
         </div>
-        <figcaption><b>Tunnels are objectives, gold is a fact.</b> The gold was
-          always in the rock — the tunnel only reached it. A dead end is a result,
-          and it stays on the map.</figcaption>
+        <figcaption><b>Each objective leaves a trail.</b> Successful runs, failed
+          assumptions, and useful dead ends stay connected to the question that
+          produced them.</figcaption>
       </figure>
     </div>
   </section>
@@ -839,46 +841,51 @@
       </svg>
     </div>
     <div>
-      <h2 class="slogan">You judge. It does the rest.</h2>
-      <p>It runs, watches, collects, concludes — then stops one step short.</p>
+      <h2 class="slogan">The agent records. You decide.</h2>
+      <p>It can run the calculation, watch it, and summarize the evidence. An entry closes only after you accept its conclusion.</p>
 
       <div class="loop" style="margin-top:1.9rem">
-        <span>has this been run?</span><i>&#8594;</i>
-        <span>run it</span><i>&#8594;</i>
-        <span>write it back</span><i>&#8594;</i>
-        <span>re-read the page</span>
+        <span>read what is known</span><i>&#8594;</i>
+        <span>run what is missing</span><i>&#8594;</i>
+        <span>record the evidence</span><i>&#8594;</i>
+        <span>choose the next step</span>
       </div>
 
       <div class="frags">
         <div class="frag">
           <h4>an entry</h4>
-<pre>### Entry: chi sweep at p = 0.05
-- Id:          <i>02.014</i>
-- Status:      <u>analyzed</u>
-- Jobs:        41827@t6
-- Code:        a9f3c1e
-- Motivation:  which costs more accuracy,
-               truncation or a mis-set p?
-- Recipe:      d=7, chi in {4,8,...,64}
-- Facts:       chi=4 -&gt; <b>1.83e-3</b> ...
-- Conclusion:  <b>truncation is free
-               below p_c</b></pre>
+<pre>### Entry: 3&times;3 TFIM ground-state scan
+- Id:          <i>01.002</i>
+- Status:      <u>closed</u>
+- Motivation:  how does energy error change with D?
+- Recipe:      open TFIM; dt=0.05; second order
+               D in {2, 4, 8}; QuSpin ED reference
+- Facts:       D=2  <b>6.77e-4</b>
+               D=4  <b>1.34e-4</b>
+               D=8  <b>1.51e-4</b>
+- Conclusion:  <b>fivefold gain at D=4,
+               then a shallow plateau</b></pre>
         </div>
         <div class="frag">
           <h4>the objective that asked for it</h4>
-<pre>## Plan
-- [x] <b>P1 - does exact MLD reproduce?</b>
-      <i>01.001</i> gate - agrees to 1e-12
-      <u>&#9654;</u> the node may be believed
-- [ ] <b>P2 - where is the truncation wall?</b>
-      <i>02.014</i> chi sweep - analyzed
-      <i>02.015</i> bias scan  - running
+<pre>## Goal
+Compare Quimb simple update with QuSpin ED.
+
+## Plan
+- [x] <b>P1 - do both codes use the same model?</b>
+      <i>01.001</i> convention gate - passed
+- [x] <b>P2 - does the error shrink with D?</b>
+      <i>01.002</i> ground-state scan - closed
 
 ## Verdict
-Truncation is not the binding
-constraint. <u>2 entries await review.</u></pre>
+The scan improves from D=2 to D=4, then
+becomes non-monotonic at D=8. This recipe
+supports an error floor near <b>1.5e-4</b>.</pre>
         </div>
       </div>
+      <p style="margin-top:1.25rem;font-size:1rem">These numbers come from the
+        included <a href="https://github.com/Chi-RZ/research-note/tree/main/examples/tfim-simple-update">3&times;3 TFIM example</a>,
+        which records both the ground-state comparison and real-time dynamics.</p>
     </div>
   </section>
 
@@ -895,9 +902,8 @@ constraint. <u>2 entries await review.</u></pre>
       </svg>
     </div>
     <div>
-      <h2 class="slogan">Distilled for reuse. Lossless for history.</h2>
-      <p>It settles inside your own project first. Then it crosses into
-        the commons.</p>
+      <h2 class="slogan">Reuse what survives review.</h2>
+      <p>Validated code can move into the project library, and reviewed conclusions into the wiki. The original record stays intact.</p>
 
       <figure style="margin-top:2rem">
         <div class="plate">
@@ -1035,8 +1041,8 @@ constraint. <u>2 entries await review.</u></pre>
       </svg>
     </div>
     <div>
-      <h2 class="slogan">Every close is a label.</h2>
-      <p>Question, procedure, evidence, verdict — and a person's acceptance of it.</p>
+      <h2 class="slogan">The agent analyzes. You close.</h2>
+      <p>Closing an entry means that its question, procedure, evidence, and conclusion are accepted for this project.</p>
 
       <div class="life">
         <span>open</span><i>&#8594;</i>
@@ -1045,18 +1051,16 @@ constraint. <u>2 entries await review.</u></pre>
         <span class="human">closed</span><em>you</em>
       </div>
 
-      <p style="margin-top:1.9rem">A paper produces one reviewed judgement a year.
-        A record produces one per calculation.</p>
+      <p style="margin-top:1.9rem">Each calculation can end in a small, reviewable conclusion instead of disappearing into a terminal log.</p>
 
-      <p class="closing">A reviewed entry is finished work — hand it over, cite it,
-        or train on it.</p>
+      <p class="closing">A reviewed entry is finished work: another person or agent can trace it, reuse it, and challenge it.</p>
 
     </div>
   </section>
 
   <section class="finale">
     <p class="eyebrow">a typical run</p>
-    <h2>One run, end to end.</h2>
+    <h2>From a question to a reviewed result.</h2>
     <figure>
       <div class="plate">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 344" role="img" aria-label="Two lanes and two bands. Top, what only you do: hand over a goal, correct it at any step, close it, ask for a lift. Below it, what the agent does: plan, run, analyze, distil, each naming the skills it drives, with an arc returning from analyze to plan where the page decides what runs next. Beneath both, the optional dashboard showing what is running, unclosed and needing attention; and the linters, which check every page on each edit and commit, with the optional fixer that re-runs them in the background.">
@@ -1127,20 +1131,15 @@ constraint. <u>2 entries await review.</u></pre>
         <text class="d-band" x="862" y="320" text-anchor="end" style="font-size:11px">LINTERS &#183; FIXER (OPTIONAL)</text>
         </svg>
       </div>
-      <figcaption><b>Two lanes and two bands.</b> What only you do, and what the agent
-        does, with every skill it drives named under the step where it fires. Beneath
-        them, the optional dashboard, refreshed when enabled on every record write, and the linters, which
-        check every page on each edit and commit; the optional fixer re-runs the checks
-        in the background.
-        You hand over the goal, correct the plan or a result, close an entry, ask for a
-        lift, and the agent does the rest.</figcaption>
+      <figcaption><b>You set the goal and accept the result.</b> The agent plans,
+        runs, analyzes, and records the work. Linters keep the record consistent;
+        the dashboard and background fixer are optional. At any point, you can
+        correct the plan, close an entry, or ask to promote a useful result.</figcaption>
     </figure>
   </section>
 
   <footer>
-    <span>research-note 0.2.12</span>
     <span>record format v3</span>
-    <a href="https://github.com/Chi-RZ/research-note/blob/main/DESIGN.md">DESIGN.md &mdash; the full argument</a>
     <a href="https://github.com/Chi-RZ/research-note#readme">README</a>
   </footer>
 
