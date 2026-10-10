@@ -1,4 +1,4 @@
-"""The public compatibility matrix — docs/public-architecture-plan.md, P8.
+"""The public compatibility matrix for setup and update.
 
 Each test is one row of the release gate, run against a real repository with
 the real bootstrap and the real updater: an empty directory; an existing
