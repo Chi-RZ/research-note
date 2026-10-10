@@ -1,21 +1,24 @@
 ---
 name: Bug report
-about: Something behaves differently from what the docs say
+about: Report behavior that differs from the documentation or expectation
 ---
 
-**What happened, and what you expected instead**
+## What happened?
 
-**The three things that answer most follow-up questions**
+<!-- Include what you expected instead. -->
 
-```
-# plugin version
-claude plugin list        # or: codex plugin list
+## How can we reproduce it?
 
-# the wiring check — run inside the affected project
+<!-- A small sequence of steps, project, or example is ideal. -->
+
+## Environment
+
+- research-note version:
+- Agent: Claude / Codex / both
+- OS:
+
+If setup or project wiring is involved, include the output of:
+
+```bash
 bash "$(git config --get research-note.pluginRoot)/scripts/doctor.sh"
 ```
-
-- Agent: Claude / Codex / both
-- OS: Linux / macOS
-
-**How to reproduce**, as far as you can narrow it.

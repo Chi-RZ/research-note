@@ -1,114 +1,56 @@
 # Contributing
 
-## Run the tests first — there is nothing to set up
+Issues and pull requests are welcome. For a substantial behavior change,
+please open an issue first so the intended scope is clear.
+
+## Tests
+
+Install the test dependencies:
 
 ```bash
-pip install pytest pyyaml
+python -m pip install pytest pyyaml
+```
+
+For parser, policy and configuration changes, run the fast core suite:
+
+```bash
 python -m pytest plugins/research-note/scripts/tests -q -m "not integration"
 ```
 
-This is the fast core suite for normal edits. It covers parsers, lint policy,
-configuration and isolated runtime behavior. Two test-only dependencies and nothing else:
-`pytest`, and `pyyaml` for the single test that parses the skills' ```yaml
-examples with a real parser. The shipped code itself is standard-library
-Python, POSIX shell and git — nothing to install to RUN it. The suite builds its
-own repositories and its own fake `HOME`, and it never calls the `claude` or
-`codex` CLIs — every test that needs one stubs it. So it passes on a machine
-with neither agent installed, which is also how CI runs it.
-
-For parser, policy, configuration and isolated runtime changes, that is the
-complete local check.
-
-Changes to shell entrypoints, Git transactions, setup, update, rollback or
-worktree behavior also run the integration layer:
+If the change touches shell entrypoints, Git transactions, setup, update,
+rollback or worktrees, also run the integration suite:
 
 ```bash
 python -m pytest plugins/research-note/scripts/tests -q -m integration
 ```
 
-CI runs the core suite at the Python/OS compatibility endpoints and runs the
-integration layer once on Linux/Python 3.10. Plain `pytest` still runs both.
+The tests do not require Claude Code or Codex to be installed.
+Documentation-only changes do not need the Python suite.
 
-## The one habit that matters
+## Pull requests
 
-**Write the test first, and watch it fail against the unfixed code.** Not as
-ceremony — as the only way to know the test tests the thing. Two of this
-repo's own tests were written, passed immediately, and turned out to assert
-nothing:
+Describe the problem, the resulting behavior and how you checked it. Update the
+relevant documentation when behavior changes. Keep unrelated changes in
+separate pull requests.
 
-- one keyed on a phrase that the worst copy of the rule never used;
-- one stubbed both sides of a two-sided lookup with the same value, so the run
-  bailed before reaching the assertion and a conditional check never executed.
+`DESIGN.md` explains the decisions behind the plugin. Read the relevant section
+when changing a contract or workflow.
 
-Both were caught by running the fixture by hand and reading what actually
-happened. Neither would have been caught by a green suite.
+## Maintainer release steps
 
-So: make the change red, then make it green. Say in the commit message that you
-did.
+Keep the version equal in:
 
-## Where the reasoning lives
-
-`DESIGN.md` explains why the plugin has the shape it has — what a node, a page
-and an entry are, why gates sit where they sit, why there are two agents. It is
-the map. Read the section that governs whatever you are about to change.
-
-No test pins it to the code: its tables are rationale, and a test that held
-them to the code made every change an edit to DESIGN.md as well. When you
-change what a table describes, update the table in the same commit.
-
-## Commit messages
-
-`<type>(<scope>): <what changed and why it mattered> (<version>)`
-
-```
-feat(githooks): a dispatcher keeps every hook the project already had (0.2.2)
-feat(contracts): the four contracts are generated; a project's rules live in their own file (0.2.4)
-test(compat): the public compatibility matrix, run against real repositories (0.2.6)
-```
-
-The body is where this repo keeps its memory. Say what broke, how it was found,
-and what it cost — those sentences end up quoted in code comments years later,
-and they are the reason a stranger can tell a deliberate constraint from an
-accident. `git log` is the best documentation here; keep it that way.
-
-## Releasing
-
-The version lives in **three** files and tests hold them to one value:
-
-```
+```text
 .claude-plugin/marketplace.json
 plugins/research-note/.claude-plugin/plugin.json
 plugins/research-note/.codex-plugin/plugin.json
 ```
 
-**A change to any of the four contract templates needs one more step:**
+After changing a contract template, refresh its migration history:
 
-```
+```bash
 python3 plugins/research-note/scripts/contracts.py record-history
 ```
 
-It appends the new template's length and hash to `templates/history.json`,
-which is how a later version recognises the framework section of an older
-contract and carries the project's appendix over instead of dropping it. A
-test fails until the current template is in the list.
-
-**Push is the channel, not the last tidying step.** Every agent's marketplace is
-a clone of this repository's remote, so an unpushed commit is invisible to every
-installation — including the author's own machine. Commit, push, then update.
-
-`scripts/update_projects.sh --latest PROJECT` fetches the published source and
-updates only that project. For local validation, run the script from your
-checkout with an explicit temporary project path. It snapshots that source and
-binds both agents locally; neither flow upgrades user-scope plugins. Commit the
-project lock and configuration changes after review. Running sessions keep their
-loaded version; use Claude's `/reload-plugins` or a new Codex session to switch.
-
-## Scope
-
-Bug reports are most useful with three things: the output of
-`scripts/doctor.sh`, the plugin version, and which agent (Claude, Codex, or
-both). Those three answer most of the first round of questions.
-
-Changes that add a *mechanism* are worth discussing in an issue first — this
-framework's own rule is that a gate belongs only where the failure it prevents
-would otherwise be silent, and most good ideas are guidance, not gates.
+Commit and push the release before testing an update from the public
+marketplace.

@@ -1,7 +1,12 @@
-**What changes, and what it cost when it was wrong**
+## What changed
 
-**Did the test fail before the fix?** Say so — a test written after the fix and
-never seen red is the failure mode this repo has hit twice.
+<!-- Describe the problem and the resulting behavior. -->
 
-- [ ] `python -m pytest plugins/research-note/scripts/tests -q` is green
-- [ ] Version bumped in all three manifests, if this is a release
+## Validation
+
+<!-- List the checks you ran. -->
+
+- [ ] Core tests pass, if code changed
+- [ ] Integration tests pass, if the change touches setup, update, Git or shell
+      workflows
+- [ ] Documentation is updated, if behavior changed
