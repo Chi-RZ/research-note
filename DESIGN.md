@@ -897,14 +897,15 @@ a check of project files is not proof of a running session's loaded context.
 temporary checkout, then runs that release's updater. Without `--latest`, the
 copy executing the updater is the requested source. Contract conflicts are
 checked first; a project installation lock and the record lock serialize the
-managed writes. Failure restores the previous managed files and Git settings;
-a staged, unused snapshot may remain. Old snapshots are not garbage-collected
-under another running session. Setup reuses the lock; update alone switches it.
-Worktrees resolve to the main checkout's installation, as the record bus does.
+managed writes. Failure restores the previous managed files and Git settings
+and removes the unused staged snapshot. Success removes superseded project
+snapshots, leaving the lock's snapshot as the project's one authoritative copy;
+Claude and Codex own any cache copies they materialize. Setup reuses the lock;
+update alone switches it. Worktrees resolve to the main checkout's installation,
+as the record bus does.
 
-Running sessions remain usable on the version they loaded because old snapshots
-are retained. Claude can `/reload-plugins` to switch the current session; Codex
-loads the new pin in a new session because an existing session does not reload
-plugin tools. Separate projects keep their previous versions. A new clone or a
-moved checkout must restore its snapshot and refresh local paths. Source updates
-must be committed and pushed before another user can fetch them.
+Claude can `/reload-plugins` to switch the current session; Codex loads the new
+pin in a new session because an existing session does not reload plugin tools.
+Separate projects keep their previous versions. A new clone or a moved checkout
+must restore its snapshot and refresh local paths. Source updates must be
+committed and pushed before another user can fetch them.

@@ -145,6 +145,43 @@ def locked_root(project: Path) -> Path | None:
     return root
 
 
+def runtime_snapshots(project: Path) -> set[str]:
+    """Return complete snapshot directory names owned by this project."""
+    root = project / RUNTIME
+    if not root.is_dir():
+        return set()
+    return {path.name for path in root.iterdir()
+            if re.fullmatch(r"[0-9a-f]{64}", path.name) and
+            (path.is_dir() or path.is_symlink())}
+
+
+def prune_runtime(project: Path, keep: set[str]) -> list[str]:
+    """Remove project snapshots outside ``keep``; host caches are host-owned."""
+    root = project / RUNTIME
+    removed = []
+    for name in sorted(runtime_snapshots(project) - keep):
+        path = root / name
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        else:
+            shutil.rmtree(path)
+        removed.append(name)
+    return removed
+
+
+def prune_locked_runtime(project: Path) -> list[str]:
+    """Under the install lock, retain only the snapshot selected right now."""
+    from project_config import state_dir
+    state = state_dir(project)
+    with (state / "install.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        pin = json_file(project / LOCK)
+        sha = pin.get("sha256", "")
+        if not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise ValueError("cannot prune project runtime without a valid plugin lock")
+        return prune_runtime(project, {sha})
+
+
 def codex_text(original: str, selector: str, marketplace: str, release: Path,
                disabled: set[str]) -> str:
     """Preserve user TOML text; own one block and only existing enable values.
@@ -286,17 +323,19 @@ def restore(project: Path, source: Path) -> None:
         restored = snapshot(project, candidate)
         restored.update({k: pin.get(k) for k in ("source_commit", "source_dirty")})
         activate(project, restored)
+    prune_locked_runtime(project)
     print("restored both project bindings without changing the pinned content")
 
 
 @contextmanager
 def transaction(project: Path):
-    """Restore managed files on failure. Immutable staged releases may remain."""
+    """Restore managed files and discard snapshots staged by a failed write."""
     from project_config import state_dir
     state = state_dir(project)
     with (state / "install.lock").open("a") as lock, (state / "record.lock").open("a") as record_lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         fcntl.flock(record_lock, fcntl.LOCK_EX)
+        snapshots_before = runtime_snapshots(project)
         paths = [project / ".claude", project / ".codex/config.toml", project / LOCK,
                  project / ".research-note/project.json", project / ".research-note/.gitignore"]
         from project_config import load_project_config, contract_views
@@ -322,6 +361,7 @@ def transaction(project: Path):
                         shutil.rmtree(path)
                     if present[i]:
                         copy_path(backup / str(i), path)
+                prune_runtime(project, snapshots_before)
                 raise
 
 
@@ -363,9 +403,11 @@ def update(project: Path, source: Path, dry: bool = False) -> None:
         errors = check(project)
         if errors:
             raise ValueError("; ".join(errors))
+    removed = prune_locked_runtime(project)
     print(f"pinned both agents: {pin['version']} {pin['sha256'][:12]} — {project}")
-    print("Running sessions remain usable on the version they already loaded.")
-    print("Claude can /reload-plugins to switch now; a new Codex session loads the new pin.")
+    if removed:
+        print(f"removed {len(removed)} superseded project runtime snapshot(s)")
+    print("Claude can /reload-plugins to switch now; start a new Codex session for the new pin.")
 
 
 def main() -> int:

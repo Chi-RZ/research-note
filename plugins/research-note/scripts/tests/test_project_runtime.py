@@ -117,17 +117,18 @@ def test_failed_activation_restores_previous_settings(tmp_path, monkeypatch):
     m.activate(p, m.snapshot(p, src))
     before = files(p)
     (src / "skills/analyze/SKILL.md").write_text("new")
-    pin = m.snapshot(p, src)
     with pytest.raises(RuntimeError):
         with m.transaction(p):
+            pin = m.snapshot(p, src)
             m.activate(p, pin)
             raise RuntimeError("installation failed")
     assert {k: v for k, v in files(p).items() if "/runtime/" not in k and "/state/" not in k} == {
         k: v for k, v in before.items() if "/runtime/" not in k and "/state/" not in k}
+    assert m.runtime_snapshots(p) == {json.loads((p / m.LOCK).read_text())["sha256"]}
 
 
 @pytest.mark.integration
-def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
+def test_real_update_only_moves_a_prunes_its_old_runtime_and_leaves_b(tmp_path):
     from test_compat_matrix import bootstrap, sh
     m = runtime()
     home = tmp_path / "home"
@@ -136,7 +137,6 @@ def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     bootstrap(a, home)
     bootstrap(b, home)
     a_old_root = m.locked_root(a)
-    a_old_digest = m.digest(a_old_root)
     before = files(b)
     b_root = sh(b, home, "git", "config", "--get", "research-note.pluginRoot").stdout
     src = source(tmp_path)
@@ -147,10 +147,8 @@ def test_real_update_only_moves_a_and_setup_does_not_upgrade_b(tmp_path):
     result = sh(a, home, "bash", str(src / "scripts/update_projects.sh"), str(a))
     assert result.returncode == 0, result.stdout + result.stderr
     assert (m.locked_root(a) / "skills/analyze/SKILL.md").read_text().endswith("Release two.\n")
-    # An already-running host may still reference this release. Updates retain
-    # it so that session can finish normally while new sessions use the new pin.
-    assert a_old_root.is_dir()
-    assert m.digest(a_old_root) == a_old_digest
+    assert not a_old_root.exists()
+    assert m.runtime_snapshots(a) == {json.loads((a / m.LOCK).read_text())["sha256"]}
     assert m.check(a) == []
     assert files(b) == before
     assert sh(b, home, "git", "config", "--get", "research-note.pluginRoot").stdout == b_root
@@ -168,6 +166,8 @@ def test_real_failed_update_restores_contracts_pin_and_git_config(tmp_path):
     home.mkdir()
     p = project(tmp_path, "p")
     bootstrap(p, home)
+    m = runtime()
+    old_sha = json.loads((p / m.LOCK).read_text())["sha256"]
     before = files(p)
     git_config = (p / ".git/config").read_bytes()
     src = source(tmp_path)
@@ -178,6 +178,7 @@ def test_real_failed_update_restores_contracts_pin_and_git_config(tmp_path):
     assert (p / ".git/config").read_bytes() == git_config
     assert {k: v for k, v in files(p).items() if "/runtime/" not in k} == {
         k: v for k, v in before.items() if "/runtime/" not in k}
+    assert m.runtime_snapshots(p) == {old_sha}
 
 
 @pytest.mark.integration

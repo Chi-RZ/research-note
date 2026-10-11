@@ -325,7 +325,8 @@ def main() -> int:
 
     # Setup preserves a project's version. Only update_projects.sh switches it.
     # Worktrees share the main checkout's installation, just like the record bus.
-    from project_runtime import main_project, locked_root, snapshot, activate, transaction
+    from project_runtime import (main_project, locked_root, snapshot, activate,
+                                 prune_locked_runtime, transaction)
     proj = main_project(proj)
     try:
         pinned = locked_root(proj)
@@ -777,8 +778,9 @@ def main() -> int:
             with transaction(proj):
                 pin = snapshot(proj, PLUGIN)
                 activate(proj, pin)
+            prune_locked_runtime(proj)
             say("ok", "project runtime (Claude + Codex)",
-                f"{pin['version']} / {pin['sha256'][:12]} — running sessions keep their loaded version")
+                f"{pin['version']} / {pin['sha256'][:12]}")
         except (OSError, ValueError, subprocess.CalledProcessError) as exc:
             say("FAIL", "project runtime", str(exc))
 

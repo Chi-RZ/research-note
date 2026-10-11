@@ -272,8 +272,7 @@ if [ ${#CHANGED[@]} -gt 0 ]; then
         echo "review and commit the agent-layer changes in $p (.claude, .codex, .research-note)"
     done
     echo
-    echo "Running sessions remain usable on the version they already loaded."
-    echo "Claude can /reload-plugins to switch now; a new Codex session loads the new pin."
+    echo "Claude can /reload-plugins to switch now; start a new Codex session for the new pin."
     echo "Contract files cannot be reloaded — Read the ones listed as synced above."
 else
     echo "nothing to sync — every project already on $VER"

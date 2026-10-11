@@ -38,9 +38,10 @@ The updater checks contract conflicts before writing, stages a snapshot of
 the complete plugin, and carries over the project's existing rules and
 permissions. It updates Git hooks and templates, then binds both agents and
 `research-note.pluginRoot` to the same snapshot. Different project/release
-marketplace IDs prevent host-cache collisions. Old releases remain available.
-A failed write restores managed project files and Git configuration; the
-unused staged snapshot can remain. No user plugin registry is rewritten.
+marketplace IDs prevent host-cache collisions. After a successful switch, the
+updater removes superseded project snapshots; Claude and Codex manage their own
+caches. A failed write restores managed project files and Git configuration and
+removes its unused staged snapshot. No user plugin registry is rewritten.
 
 ## 2. Read the result
 
@@ -74,10 +75,9 @@ and the project agent settings. Keep `.research-note/runtime/` and machine-local
 settings out of Git. Commit as `agent: update research-note to <version>`.
 
 Report the old and new version/hash, affected project, retained project rules,
-any outstanding doctor or record findings, and the commit. A running session
-stays usable on the version it loaded because its snapshot remains present.
-Claude may run `/reload-plugins` to switch in place. Codex switches in a new
-session; its current session continues with its loaded skills. After switching,
+any outstanding doctor or record findings, and the commit. The project keeps
+only the snapshot selected by its lock. Claude may run `/reload-plugins` to
+switch in place; start a new Codex session for the new pin. After switching,
 check the host's plugin listing for the lock's selector.
 
 Do not update a second project or user-level plugin as a side effect. Updating

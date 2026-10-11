@@ -127,14 +127,15 @@ In a project, tell the agent:
 It fetches the published release and updates **this project only**. Claude and
 Codex both use the project's locked version: skills, lifecycle hooks, scripts
 and Git hooks move together. Other projects and user-level plugin installations
-are unchanged. Sessions already open remain usable with the version they loaded.
-Claude can run `/reload-plugins` to switch in place; Codex picks up the update in
-a new session.
+are unchanged. Claude can run `/reload-plugins` to switch in place; start a new
+Codex session to use the update.
 
 The lock is `.research-note/plugin-lock.json`; local plugin snapshots live in
 `.research-note/runtime/` and stay out of Git. Setup reuses an existing pin;
 only an explicit update changes it. Project rules are preserved, contract
 conflicts stop activation, and failed updates restore the previous bindings.
+Successful updates retain only the snapshot selected by the lock; Claude and
+Codex manage their own cache copies.
 A new clone needs the pinned snapshot restored before the agents can load it:
 run `project_runtime.py restore --source /path/to/matching/plugin` from the
 project using a copy of the plugin with the locked content digest. For a moved
