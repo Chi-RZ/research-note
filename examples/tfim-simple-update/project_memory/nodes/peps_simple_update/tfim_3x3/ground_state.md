@@ -7,7 +7,7 @@ task: Measure bond-dimension convergence of the 3x3 TFIM ground-state energy
 - **Id:** 01.002
 - **Status:** closed
 - **Date:** 2026-10-08 13:10
-- **Code:** `research-note@4dbcfb0`
+- **Code:** `research-note@749fb35`
 - **Motivation:** The user directive found "the requested comparison fixes `Lx=3`, `dt=0.05`, second order and `D=[2,4,8]`"; how far does the absolute energy error from QuSpin ED fall at `beta=20`?
 - **Recipe:** {Lx: 3, Ly: 3, boundary: open, J: 1.0, h: 3.0, dt: 0.05, steps: 400, beta: 20, D: [2, 4, 8], ordering: sort, second_order_reflect: true, initial_state: +x product, cutoff: 1e-12}
 - **Facts:** We evolved each bond dimension continuously and measured with exact 3×3 PEPS contractions using [run_convergence.py](../../../../experiments/peps_simple_update/impl/run_convergence.py); evidence [log](../../../../experiments/peps_simple_update/tfim_3x3/results/run.log) and [JSON](../../../../experiments/peps_simple_update/tfim_3x3/results/convergence.json).
