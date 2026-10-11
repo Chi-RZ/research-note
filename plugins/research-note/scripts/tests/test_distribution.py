@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,27 @@ def test_the_claude_marketplace_entry_carries_the_plugin_version():
     market = read(REPO / ".claude-plugin" / "marketplace.json")
     entries = [e for e in market["plugins"] if e["name"] == "research-note"]
     assert entries and entries[0]["version"] == claude["version"]
+
+
+def test_version_command_rejects_bad_input_before_any_edit(tmp_path):
+    tool = REPO / "tools/set_version.py"
+    if not tool.is_file():
+        pytest.skip("maintainer tool is only distributed in the source repository")
+    paths = [tmp_path / rel for rel in (".claude-plugin/marketplace.json",
+             "plugins/research-note/.claude-plugin/plugin.json", "plugins/research-note/.codex-plugin/plugin.json")]
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((REPO / path.relative_to(tmp_path)).read_bytes())
+    before = [path.read_bytes() for path in paths]
+    result = subprocess.run([sys.executable, str(tool), "0.1.1-dev.01", "--repo", str(tmp_path)],
+                            capture_output=True, text=True)
+    assert result.returncode != 0 and "SemVer" in result.stderr
+    assert [path.read_bytes() for path in paths] == before
+    paths[0].write_text('{"plugins": []}')
+    result = subprocess.run([sys.executable, str(tool), "0.1.1-dev.1", "--repo", str(tmp_path)],
+                            capture_output=True, text=True)
+    assert result.returncode != 0 and "research-note entry" in result.stderr
+    assert [path.read_bytes() for path in paths[1:]] == before[1:]
 
 
 def test_both_marketplaces_point_at_the_one_real_core():

@@ -69,6 +69,23 @@ def run_matrix(workspace: Path) -> Path:
         assert all(f"/{lock['marketplace']}/research-note/{lock['version']}/" in path
                    for path in host["codex"]["skills"])
         assert Path(host["claude"]["source"]).resolve() == selected(p)
+        # Inspect native state again, not only the saved installation report.
+        entries = json.loads(run(p, "claude", "plugin", "list", "--json").stdout)
+        enabled = [entry for entry in entries if entry.get("enabled") is True
+                   and entry.get("scope") == "project" and entry.get("projectPath") == str(p)
+                   and entry.get("id", "").startswith("research-note@")]
+        assert len(enabled) == 1 and enabled[0]["id"] == lock["selector"], enabled
+        assert enabled[0]["version"] == lock["version"]
+        for cache in (host["claude"]["source"], host["claude"]["cache"], host["codex"]["cache"]):
+            assert runtime.digest(Path(cache)) == lock["sha256"], cache
+        probe = run(p, sys.executable, "-c",
+                    "import json,sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
+                    "from host_install import codex_skills; "
+                    "print(json.dumps(codex_skills(Path.cwd())))", PLUGIN / "scripts")
+        skills = [skill for row in json.loads(probe.stdout).get("data", []) for skill in row.get("skills", [])
+                  if (skill.get("pluginId") or "").startswith("research-note@")]
+        assert {skill["pluginId"] for skill in skills} == {lock["selector"]}, skills
+        assert {skill["path"] for skill in skills} == set(host["codex"]["skills"])
         assert not (p / runtime.RUNTIME).exists()
         return host
 
@@ -79,6 +96,10 @@ def run_matrix(workspace: Path) -> Path:
     repo = base / "source-repo"
     src = repo / "plugins/research-note"
     shutil.copytree(PLUGIN, src, ignore=shutil.ignore_patterns("tests", "__pycache__", ".in_use"))
+    (repo / ".claude-plugin").mkdir()
+    shutil.copy2(PLUGIN.parents[1] / ".claude-plugin/marketplace.json", repo / ".claude-plugin/marketplace.json")
+    version_tool = PLUGIN.parents[1] / "tools/set_version.py"
+    run(repo, sys.executable, version_tool, "0.1.0", "--repo", repo)
     # Different runs have independent immutable identities and native caches.
     for rel in (".codex-plugin/plugin.json", ".claude-plugin/plugin.json"):
         p = src / rel
@@ -91,20 +112,20 @@ def run_matrix(workspace: Path) -> Path:
         "commit", "-q", "-m", "Release fixture 0.1.0")
     run(repo, "git", "tag", "v0.1.0")
     updater = PLUGIN / "scripts/update_projects.sh"
-    a, b, c, conflict, untrusted = [base / name for name in ("a", "b", "c", "conflict", "untrusted")]
-    for p in (a, b, c, conflict, untrusted):
+    a, b, c, dev_user, conflict, untrusted = [base / name for name in ("a", "b", "c", "dev-user", "conflict", "untrusted")]
+    for p in (a, b, c, dev_user, conflict, untrusted):
         p.mkdir()
         run(p, "git", "init", "-q", "-b", "main")
     codex_config = Path(os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")) / "config.toml"
     before = codex_config.read_bytes() if codex_config.exists() else b""
     trust = "\n" + "\n".join(f"[projects.{json.dumps(str(p))}]\ntrust_level = \"trusted\"\n"
-                                for p in (a, b, c, conflict))
+                                for p in (a, b, c, dev_user, conflict))
     trusted = before + trust.encode()
     codex_config.parent.mkdir(parents=True, exist_ok=True)
     codex_config.write_bytes(trusted)
     start = time.monotonic()
     try:
-        for p in (a, b, c, conflict):
+        for p in (a, b, c, dev_user, conflict):
             run(p, sys.executable, src / "scripts/bootstrap_project.py", p, "--no-self-tests")
             verify(p)
         assert selected(a) == selected(b) == selected(c)
@@ -116,19 +137,40 @@ def run_matrix(workspace: Path) -> Path:
         verify(a)
         passed("setup-preserves-selected-release")
 
-        for rel in (".codex-plugin/plugin.json", ".claude-plugin/plugin.json"):
-            p = src / rel
-            data = json.loads(p.read_text()); data["version"] = "0.1.1"
-            p.write_text(json.dumps(data, indent=2) + "\n")
+        run(repo, "git", "switch", "-c", "dev")
+        run(repo, sys.executable, version_tool, "0.1.1-dev.1", "--repo", repo)
+        run(repo, "git", "add", ".")
+        run(repo, "git", "-c", "user.name=release-test", "-c", "user.email=release-test@example.invalid",
+            "commit", "-q", "-m", "Start development cycle")
         skill = src / "skills/analyze/SKILL.md"
         skill.write_text(skill.read_text() + "\n<!-- native fixture revision two -->\n")
-        run(a, "bash", updater, "--source", src, a)
+        output = run(a, "bash", updater, "--source", src, a).stdout
         verify(a)
-        assert pin(a)["version"] == "0.1.1" and pin(a)["sha256"] != old_a["sha256"]
+        assert pin(a)["version"] == "0.1.1-dev.1" and pin(a)["sha256"] != old_a["sha256"]
+        assert pin(a)["source_branch"] == "dev" and pin(a)["source_dirty"] is True
+        assert f"source: local {src}" in output and "development build" in output
         assert fingerprint(b) == old_b and fingerprint(c) == old_c
         assert selected(b).is_dir()
         verify(b); verify(c)
         passed("local-uncommitted-update-isolates-projects", a=pin(a), b=pin(b))
+
+        run(dev_user, "bash", updater, "--source", src, dev_user)
+        first_dev_host = verify(dev_user)
+        first_dev = pin(dev_user)
+        assert pin(a) == first_dev
+        dev_before = fingerprint(dev_user)
+        skill.write_text(skill.read_text() + "\n<!-- same development version, different content -->\n")
+        run(a, "bash", updater, "--source", src, a)
+        second_dev_host = verify(a)
+        assert pin(a)["version"] == first_dev["version"] == "0.1.1-dev.1"
+        assert pin(a)["sha256"] != first_dev["sha256"]
+        for host in ("claude", "codex"):
+            assert first_dev_host[host]["cache"] != second_dev_host[host]["cache"]
+            assert Path(second_dev_host[host]["cache"]).name == "0.1.1-dev.1"
+        assert fingerprint(dev_user) == dev_before
+        verify(dev_user)
+        passed("same-dev-version-loads-new-content-in-both-hosts", first=first_dev, second=pin(a),
+               first_hosts=first_dev_host, second_hosts=second_dev_host)
 
         current = fingerprint(a)
         skill.write_text(skill.read_text() + "\n<!-- later source edit, not installed -->\n")
@@ -138,8 +180,16 @@ def run_matrix(workspace: Path) -> Path:
         skill.write_text(skill.read_text().replace("\n<!-- later source edit, not installed -->\n", ""))
         run(repo, "git", "add", ".")
         run(repo, "git", "-c", "user.name=release-test", "-c", "user.email=release-test@example.invalid",
+            "commit", "-q", "-m", "Finish local development")
+        run(repo, "git", "switch", "main")
+        run(repo, "git", "merge", "--ff-only", "dev")
+        run(repo, sys.executable, version_tool, "0.1.1", "--repo", repo)
+        run(repo, "git", "add", ".")
+        run(repo, "git", "-c", "user.name=release-test", "-c", "user.email=release-test@example.invalid",
             "commit", "-q", "-m", "Release fixture 0.1.1")
         run(repo, "git", "tag", "v0.1.1")
+        assert fingerprint(a) == current and fingerprint(dev_user) == dev_before
+        passed("merge-and-version-change-do-not-switch-installed-projects")
 
         run(a, "bash", updater, "--version", "0.1.0", "--repository", repo, a)
         verify(a)
@@ -147,11 +197,23 @@ def run_matrix(workspace: Path) -> Path:
         assert selected(a) == selected(b) == selected(c)
         passed("explicit-release-downgrade-reuses-installation")
 
-        run(a, "bash", updater, "--latest", "--repository", repo, a)
+        output = run(a, "bash", updater, "--latest", "--repository", repo, a).stdout
         verify(a)
         assert pin(a)["version"] == "0.1.1"
+        assert pin(a)["source_dirty"] is False and f"source: remote {repo} @ main" in output
         assert fingerprint(b) == old_b and fingerprint(c) == old_c
         passed("latest-fetch-updates-only-requested-project")
+
+        formal = pin(a)
+        run(a, "bash", updater, "--version", "0.1.1", "--repository", repo, a)
+        assert pin(a) == formal
+        verify(a)
+        assert fingerprint(dev_user) == dev_before
+        verify(dev_user)
+        for host in ("claude", "codex"):
+            for report in (first_dev_host, second_dev_host):
+                assert Path(report[host]["cache"]).is_dir()
+        passed("formal-release-reuses-main-build-and-retains-dev-caches", formal=formal, retained_dev=pin(dev_user))
 
         installed_pin = pin(a)
         run(a, sys.executable, PLUGIN / "scripts/bootstrap_project.py", a, "--no-self-tests")

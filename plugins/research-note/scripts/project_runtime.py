@@ -156,6 +156,7 @@ def snapshot(project: Path, source: Path) -> dict:
     provenance = json_file(source.parents[1] / "provenance.json")
     if not provenance:
         provenance = {"source_commit": git(source, "rev-parse", "HEAD", check=False) or None,
+                      "source_branch": git(source, "symbolic-ref", "--short", "-q", "HEAD", check=False) or None,
                       "source_dirty": bool(git(source, "status", "--porcelain", "--", ".", check=False))}
     if not (release / "provenance.json").exists():
         write_json(release / "provenance.json", provenance)
@@ -372,7 +373,7 @@ def restore(project: Path, source: Path) -> None:
         return
     with transaction(project):
         restored = snapshot(project, candidate)
-        restored.update({k: pin.get(k) for k in ("source_commit", "source_dirty")})
+        restored.update({k: pin.get(k) for k in ("source_commit", "source_branch", "source_dirty")})
         activate(project, restored)
         from host_install import sync_hosts
         sync_hosts(project, restored, pin_root(project, restored))
@@ -429,7 +430,7 @@ def copy_path(source: Path, dest: Path) -> None:
         shutil.copy2(source, dest)
 
 
-def update(project: Path, source: Path, dry: bool = False) -> None:
+def update(project: Path, source: Path, dry: bool = False, *, source_label: str | None = None) -> None:
     project = main_project(project)
     if not (project / "project_memory").is_dir() or not any((project / p).exists() for p in
             (".research-note/project.json", ".claude/framework.json", ".claude/roles.json")):
@@ -463,6 +464,13 @@ def update(project: Path, source: Path, dry: bool = False) -> None:
         sync_hosts(project, pin, root)
     removed = prune_locked_runtime(project)
     print(f"pinned both agents: {pin['version']} {pin['sha256'][:12]} — {project}")
+    print(f"source: {source_label or ('local ' + str(source.resolve()))}")
+    branch = pin.get("source_branch") or "detached/unknown"
+    commit = (pin.get("source_commit") or "unknown")[:12]
+    edits = "includes uncommitted plugin changes" if pin.get("source_dirty") else "no uncommitted plugin changes recorded"
+    print(f"provenance: branch {branch}; commit {commit}; {edits}")
+    if "-" in pin["version"].split("+", 1)[0] or pin.get("source_dirty"):
+        print("development build; manifest version and content digest identify this installation")
     if removed:
         print(f"removed {len(removed)} legacy project runtime snapshot(s); shared releases retained")
     print("Claude can /reload-plugins to switch now; start a new Codex session for the new pin.")
@@ -518,7 +526,7 @@ def main() -> int:
                         source = checkout / "plugins/research-note"
                         if args.version and json_file(source / ".codex-plugin/plugin.json").get("version") != args.version:
                             raise ValueError("requested version differs from fetched manifest")
-                        update(project, source)
+                        update(project, source, source_label=f"remote {args.repository} @ {ref}")
                 else:
                     if args.version and json_file(args.source / ".codex-plugin/plugin.json").get("version") != args.version:
                         raise ValueError("requested version differs from local manifest")

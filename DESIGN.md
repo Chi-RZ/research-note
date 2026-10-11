@@ -699,7 +699,7 @@ contract, and their memory views point to the same shared memory. This avoids tw
 copies of project policy or learned context drifting apart.
 
 `.research-note/plugin-lock.json` records the selected version, content digest
-and source commit when available. Immutable plugin content lives once per machine
+and source commit, branch and plugin dirty status when available. Immutable plugin content lives once per machine
 at `~/.local/share/research-note/releases/<digest>/`, respecting XDG data paths.
 Both project configurations select a content-specific marketplace; identical
 content shares the same source and host cache across projects. No full plugin
@@ -723,5 +723,9 @@ present only needs its local paths refreshed. `--latest` fetches main,
 `--version VERSION` fetches a release tag, and `--source` installs local working
 files without GitHub. Installed files do not follow subsequent checkout edits.
 Versions identify releases; content digests distinguish local builds with the
-same version. Shared releases and native caches are retained independently of
+same version. A development cycle declares a prerelease version once (for
+example `0.1.1-dev.1`); each local update includes current plugin edits without
+rewriting that declaration. The maintainer merges dev and sets the formal
+version before publishing main and its tag. Both sources use the same installer.
+Shared releases and native caches are retained independently of
 project updates because other projects may still select them.

@@ -128,7 +128,7 @@ In a project, tell the agent:
 
 > update research-note
 
-It fetches the published release and updates **this project only**. Claude and
+It fetches the remote main branch and updates **this project only**. Claude and
 Codex both use the project's locked version: skills, lifecycle hooks, scripts
 and Git hooks move together. Other projects and user-level plugin installations
 are unchanged. Claude can run `/reload-plugins` to switch in place; start a new
@@ -147,6 +147,13 @@ Ask for a specific version, or update from an unpublished local checkout:
 bash "$PLUGIN/scripts/update_projects.sh" --version 0.1.0 PROJECT_DIR
 bash "$PLUGIN/scripts/update_projects.sh" --source /path/to/repo/plugins/research-note PROJECT_DIR
 ```
+
+Local updates install the checkout's current files, including uncommitted plugin
+edits. A development version such as `0.1.1-dev.1` can stay unchanged throughout
+daily edits; each build gets its own content identity automatically. Update
+reports the source and build selected. After merging dev, setting the formal
+version and pushing main, use a normal remote update to switch to it. See
+[the maintainer workflow](CONTRIBUTING.md#local-development-and-releases).
 
 Setup reuses an existing selection. Updates preserve project rules, stop on
 contract conflicts and restore previous bindings on failure. Legacy project

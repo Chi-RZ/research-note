@@ -12,7 +12,7 @@ Read `.research-note/plugin-lock.json` and resolve the current plugin with
 selection. Choose the command matching the request:
 
 ```bash
-# Default user request: fetch the published main branch.
+# Default user request: fetch the remote main branch.
 bash "$PLUGIN/scripts/update_projects.sh" --latest PROJECT_DIR
 
 # A particular release: fetch its vVERSION tag and check the manifest version.
@@ -25,13 +25,20 @@ bash "$PLUGIN/scripts/update_projects.sh" --ref REF PROJECT_DIR
 bash "$PLUGIN/scripts/update_projects.sh" --source /path/to/repo/plugins/research-note PROJECT_DIR
 ```
 
-Use an explicit `--source` for local development; it installs a copy of the
-working files, including uncommitted edits. GitHub is not contacted and switching
-the clone's branch afterward does not change installed content. Once published,
-`--latest` or `--version` selects the remote content in the same way. The version
-and content digest identify what was actually installed, even when two local
-builds still carry the same manifest version. Prefer distinct prerelease versions
-for development releases.
+For "update from local dev", use the specified checkout and confirm its current
+branch with `git -C /path/to/repo branch --show-current`. If its path is unknown,
+ask for the path. Use that checkout's plugin directory with `--source`; keep its
+current branch and working files intact. If the named branch differs, resolve
+the source with the user before installing. No branch search or temporary
+worktree is needed for this workflow.
+
+Local installation includes uncommitted plugin edits and preserves the declared
+version, such as `0.1.1-dev.1`. Repeated edits under that development version are
+distinguished automatically by content digest. Updating does not bump manifests.
+Later edits in the source directory do not change installed content. After the
+maintainer merges to main, sets the formal version and pushes, `--latest` selects
+that remote content through the same installer; `--version` selects its tag.
+The manifest declares a version; project settings select a specific installation.
 
 Version selection requires a release whose installer understands shared
 installations. Earlier private snapshots remain usable and can migrate to a
@@ -80,7 +87,10 @@ the host's project trust/diagnostics and rerun setup to complete installation.
 Stage only this update's lock, contracts and project configuration. Machine-local
 settings, state and installed content stay out of Git. Commit the requested
 project update as `agent: update research-note to <version>`; report old/new
-version and hash, affected project, commit and outstanding findings.
+version and hash, local directory or remote repository/ref, source branch/commit
+and whether uncommitted plugin changes were included, affected project, project
+commit and outstanding findings. Label prerelease or dirty content as a
+development build rather than reporting only the version number.
 
 Claude can `/reload-plugins` in place; start a new Codex session. Verify the host's
 plugin listing matches the lock's selector after switching. Apply updates only
