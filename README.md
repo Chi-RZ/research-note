@@ -40,8 +40,7 @@ the analysis on a page, for you to review and correct.
 - Claude Code or Codex
 - git and Python 3.10 or newer
 - [uv](https://docs.astral.sh/uv/) — the plugin manages your project's Python
-  environment with it (see [Python environment](#python-environment)). If it is
-  not installed, setup offers to install it.
+  environment with it. If it is missing, setup asks before installing it.
 
 ## 1. Install
 
@@ -65,62 +64,26 @@ plugin or hook trust prompt; in Codex, `/hooks` shows hooks awaiting review.
 
 ## 2. Set up a project
 
-Open the directory you want to work in, new or with existing code, and tell the
-agent:
+Open your project directory and tell the agent:
 
 > set up this project with research-note
 
-The agent shows how it will map your directories and asks you to confirm before
-it writes anything. You get:
+Setup proposes a layout for you to confirm, preserving existing code and
+project rules. By default, you get:
 
-- the record, `project_memory/`, where every result gets a page;
-- one instruction file per directory, read by Claude as `CLAUDE.md` and by
-  Codex as `AGENTS.md`, with a section at the end for your project's own rules;
-- git hooks that keep each commit to one part of the project;
-- checks, run on every edit and every commit, that keep each record page
-  complete and in one format.
+- `project_memory/` for objectives, research records and shared memory;
+- shared instructions for Claude Code and Codex;
+- Git hooks and linters that keep the record consistent.
 
-If the project has a git remote, each record entry is pushed to it as soon as
-it is committed. Code commits are left for you to push.
+Dashboard, cluster access, the background fixer and editor support are optional.
+Ask for them in the same request. Existing projects keep their enabled features.
 
-Setup runs bootstrap once, then a read-only installation check. A dry run is
-available on request; doctor is used for diagnosis if a check fails.
-Dashboard generation is off for new projects. Existing projects keep their
-previous behavior until explicitly disabled with `--no-dashboard`.
+With a Git remote, record entries are pushed automatically after committing;
+code commits are left for you to push.
 
-An existing project keeps its own layout. You tell the agent which directories
-hold code, tests and experiments, and nothing is moved. A `CLAUDE.md` you
-already had becomes the rules section, and your existing git hooks keep running.
-Setup does not reorganize your code; if you later want the default layout, move
-things yourself in an ordinary commit.
-
-Everything else is optional. Mention it in the same request:
-
-| Say | You get |
-|---|---|
-| "with a dashboard" | an HTML status view, refreshed after record writes |
-| "with a cluster at `host:/path`" | cluster settings and job submission there |
-| "with the fixer" | a background scanner that flags forgotten work and keeps job status current |
-| "with editor support" | VS Code extensions; also request the dashboard to use its viewer |
-| "for both agents" | both project bindings are already included; each host loads the pinned plugin |
-
-**Clusters.** Setup asks which partition, reservation and account your jobs
-should use, and records them once. It then clones the project onto the cluster
-without the record, so the record lives in one place. The project needs a git
-remote for this, because code reaches the cluster through `git pull`.
-
-### Python environment
-
-uv manages it. `pyproject.toml` and `uv.lock` are committed; each machine builds
-its own `.venv` from them, jobs run through `uv run`, and every job's log header
-names the lock it ran under. That lock is what lets a recorded result be rerun
-in the same environment. Setup installs uv if it is missing, after asking you.
-
-An external library under active development can stay editable without using
-the same filesystem layout on every machine. Its real paths live in the
-gitignored `.research-note/editables.env`; uv uses a stable project-local slot,
-and `remote.sh push` synchronizes the commit through its Git remote or, when it
-has none, a Git bundle over SSH.
+See [setup options](plugins/research-note/skills/project-setup/SKILL.md) and
+[environment details](plugins/research-note/skills/project-setup/environment.md)
+for uv, external editable libraries and cross-machine setup.
 
 ## 3. Update
 
