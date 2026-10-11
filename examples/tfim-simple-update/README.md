@@ -21,12 +21,12 @@ boundary-contraction approximation.
 
 ```bash
 uv sync
-uv run pytest -q
-uv run python -u experiments/peps_simple_update/impl/validate_model.py \
+env -u VIRTUAL_ENV uv run pytest -q
+env -u VIRTUAL_ENV uv run python -u experiments/peps_simple_update/impl/validate_model.py \
   | tee experiments/peps_simple_update/tfim_3x3/gate/run.log
-uv run python -u experiments/peps_simple_update/impl/run_convergence.py \
+env -u VIRTUAL_ENV uv run python -u experiments/peps_simple_update/impl/run_convergence.py \
   | tee experiments/peps_simple_update/tfim_3x3/results/run.log
-uv run python -u experiments/peps_simple_update/impl/run_dynamics.py \
+env -u VIRTUAL_ENV uv run python -u experiments/peps_simple_update/impl/run_dynamics.py \
   | tee experiments/peps_simple_update/tfim_3x3/dynamics/run.log
 ```
 

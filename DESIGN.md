@@ -546,366 +546,171 @@ from where it says the work stands.
 
 ---
 
-## 10. How it is enforced — six layers, softest first
+## 10. How it is enforced
 
-**Principle: strict about what a finished record says, permissive about how the
-agent got there.** A page that misses a field, contradicts its own evidence or
-hides two probes in one entry is a defect a linter can name. Which order to
-explore in, when to run a control, how to decompose a question — constraining
-that buys nothing and costs the agent's judgment, which is the thing worth
-having. **Gates on the artifact, guidance in the skills.**
+**Be strict about the finished record and permissive about the route to it.**
+The framework checks claims that can be read from an artifact: required fields,
+resolvable links, ownership of running work and internal consistency. It leaves
+scientific judgment to the agent and reviewer. A gate exists where an otherwise
+silent failure would make the record unreliable.
 
-The mechanisms form a ladder from "text you read" to "machine that refuses".
-Where a mechanism sits on the ladder is decided by one test: a gate only where
-the failure it prevents would be silent.
+### 10.1 Contracts
 
-### 1 · Contract text — loaded by scope
+Four editable contracts cover the project root, experiments, project memory and
+wiki. Each contains a managed framework section followed by
+`## Project-specific rules`. Claude reads the contract through `CLAUDE.md` and
+Codex through `AGENTS.md`; both names point to the same file. Updates replace the
+framework section and preserve project rules. An inseparable local edit stops the
+update as a conflict instead of being overwritten.
 
-Four contract templates cover the root, experiments, project memory and wiki.
-The framework text is followed by a `## Project-specific rules` section in the
-same editable file. The files live in `.claude/` and are symlinked into the
-directories they govern, with both `CLAUDE.md` and `AGENTS.md` views so Claude
-and Codex read the same contract through their own recognised filename. An
-update replaces only the framework section and preserves the project section.
-Projects from older releases that kept additions in `.research-note/rules/`
-have those files imported once; new projects do not create that second source.
-If the framework section was edited in place and cannot be separated safely,
-the updater leaves the file alone and reports a conflict.
+The contracts state stable policy. Skills carry procedures for a particular
+moment: planning, objective work, background submission, analysis, correction,
+code lift, wiki compilation, memory lift, reorganization, setup and update.
 
-### 2 · Skills — loaded on invocation
+### 10.2 Action-time reminders
 
-Procedure, not doctrine — a skill can be departed from with a reason, which is
-what distinguishes it from every layer below. Eleven, by the moment they serve;
-the third column is where a person is in the loop, and the moments the loop
-stops are §9's:
+Lifecycle hooks route new computational work into the record, attach submitted
+jobs to their entry, lint a page after it is written and make newly created
+worktrees sparse. Session start checks the current worktree and starts the
+optional fixer only when the project enables it. The harvest reminder reports a
+running entry only after all of its jobs have been terminal long enough to have
+been missed.
 
-| | | opened by |
-|---|---|---|
-| **opening a record** | `plan` a node — gate included — or a page · `objective` a long goal and its loop | agent · **user**, at intake |
-| **running and concluding** | `hpc-submit` any background launch, local or remote, Slurm or bare · `analyze` collect, write the conclusion, stop at `analyzed` | agent · agent |
-| **when something is wrong** | `correct` — move the description now known to be wrong, and only that one (§5) | either |
-| **condensing** | `lift` code into `src/` · `wiki-compile` a note or a closed entry into the wiki · `memory-lift` a memory into a skill · `reorg` move a `src/` capability without breaking a caller | agent, on a mechanical trigger · **user** · **user** · agent, but asks |
-| **the machine itself** | `project-setup` a new project · `update` pull a plugin version into every project | **user** · **user** |
+Read-only commands take the cheap path. A reminder fires when its obligation is
+created; normal operation does not depend on a periodic prompt.
 
-### 3 · Reminders — fire on the action, not on a schedule
+### 10.3 Linters
 
-| hook | when | what it says |
-|---|---|---|
-| `UserPromptSubmit` | every turn | the routing check: is this new work that must land in the record before compute? |
-| `UserPromptSubmit` (harvest) | every turn, but speaks only when a `running` entry's jobs have ALL been terminal 15+ min with nobody harvesting | the forgotten/orphaned entries, tagged with the objective whose Plan links each; non-owners read-only |
-| `PostToolUse` (submission) | only when the command MATCHED a submission | record, unprompted: the job id and both links land on the owning entry THIS turn |
-| `PostToolUse` (record edit) | an Edit/Write landed on a record page | that page's linter runs, and the errors come back the same turn |
-| `PostToolUse` (worktree) | only when a worktree was just created | make it SPARSE — no `project_memory/`, no `wiki/`, so the stale record copy a worktree would otherwise carry never exists |
-| `SessionStart` | opening a framework project | start the fixer if it is not already up, and sparse the worktree this session sits in |
+The node/page linter protects the evidence record. Its core checks are:
 
-`PostToolUse` exits early on read-only commands, so the common case costs a
-regex. A reminder fires on the turn where the obligation was incurred, never on
-a schedule.
+- stable IDs and valid status transitions;
+- required code, motivation, recipe, facts and conclusion fields;
+- evidence links, figure links and referenced commits that remain reachable;
+- one computation script per entry and one owner for recorded jobs;
+- rosters, validation references and project language when enabled.
 
-### 4 · Linters — decide on the file
+A numerical table is required when measurements exist. A failed start or another
+run with no measurement may instead record the reason and its evidence. The
+conclusion must answer the question and identify its basis and boundary, without
+requiring a fixed English sentence. Dates do not determine entry numbering; IDs
+only need to remain unique and stable.
 
-**What a linter may decide is narrow, and the boundary is the point.** It reads
-files. It cannot run code, so it cannot answer the question §4 asks — whether
-some knob setting reproduces an old result. What it can do is refuse a record
-that fails to *say* something:
+The objective linter protects the control loop. It checks the Goal, Plan and
+Verdict shape; phase and entry links; the plan DAG; globally unique objective
+IDs; explicit authorization for a changed goal; and reviews of conclusions that
+changed beneath an existing judgment. The awaiting-review count is maintained
+by tooling and checked for consistency. Long verdicts receive a non-blocking
+reminder.
 
-| it can decide | it cannot decide |
-|---|---|
-| the fields are present and spelled one way | whether the conclusion is true |
-| the links resolve and the anchors exist | whether the number is right |
-| a live job is named by some entry | whether the entry should have been split |
-| the Plan is a DAG and its links land on real entries | whether the phase asked a good question |
+These checks do not decide whether a conclusion is true, whether a probe was the
+best probe, or whether two results agree scientifically. Those judgments belong
+in the record. Exact diagnostic codes and command options live beside the
+linters and their tests, which are the executable specification.
 
-Whether a quoted number matches its log is the writer's check, made before
-`analyzed` (the analyze skill's last step); the linter's part is that the log is
-linked (`E7`), so a reader can repeat it.
+### 10.4 Gates
 
-**A claim the record must make gets a code; a judgement gets prose and a place
-to write the answer.** The reproduce criterion is not checkable, but the
-validation entry that carries it is — `V1`. A `closed` entry is released from
-`E4`–`E9`, the checks that judge what a field SAYS: the user's ✓ accepted it as
-it stood, and those bind while the entry is still the agent's to write, which
-every entry is at `analyzed`. Everything else still binds — `E10` and
-`E12`–`E14`, which judge only WHERE a line sits, and `E11` and `E16`, which ask
-whether a claim can still be followed at all. A tick accepts a reading; it
-cannot make an unreachable SHA reachable again.
+The record bus lints a page under a shared lock before it lands. Git hooks keep a
+record commit on the default branch, enforce the project's declared commit
+layers and keep `src/INDEX.md` aligned with reusable code. Existing project hooks
+still run through a dispatcher; uninstall restores the prior hook path.
 
-**Every code, by what it protects:**
+Recorded launchers require an entry and either an objective phase or an explicit
+`NO_OBJECTIVE=1`. Formal runs launch from main, after code has landed. Setup does
+not report success until the core wiring and both record views pass. Every gate
+has a named emergency escape so a false positive can be handled explicitly
+rather than encouraging users to remove the framework.
 
-| | node pages | objective pages |
-|---|---|---|
-| **the tree joins up** | `N1` node.md's frontmatter, its `node:` matching the folder, and at least one `### Entry:` · `N2` an implementation exists under `experiments/<node>/` · `N3` the regenerated roster matches the tree · `FW` record version matches the linter | |
-| **the entry says what it must** | `E1` id unique across `project_memory/nodes/` and stable; dates may be backfilled · `E2` status ∈ the four states · `E3` date · `E4` `Code` names its commits · `E5` motivation in its form: source named, fact quoted, one question · `E6` recipe is a knob map · `E7` `Facts`: evidence and a numerical table, or an explicit no-measurements reason · `E8` a displayed number this entry did not run has a `Refs` row · `E9` a substantive conclusion once `analyzed`, wording flexible · `E10` one spelling, no retired field · `E11` one computation script per entry · `E12` every line sits inside a field · `E13` `Facts` holds no bare `Job — [log]` stanza · `E14` the Conclusion carries no link · `E15` retired · `E16` a cited `<repo>@<sha>` is retrievable — landed on the default branch for this repo, resolvable for a pinned lib | `O1` frontmatter: id, status, created, budget, wake-me-if · `O2` Goal, Plan, Verdict, in order, nothing else |
-| **a claim can be followed** | `P1` page frontmatter, its `node:` matching the folder, and at least one `### Entry:` · `P2` links and anchors resolve · `P3` figures render · `P4` a figure has a caption, embedded once · `P5` no page-level Jobs | `O3` links resolve and land on real entries |
-| **work in flight has an owner** | `J1` an entry with jobs links an artifact · `J2` a live BATCH job is named by some entry — an interactive allocation is exempt, and so is one younger than the reuse tolerance · `J3` `J4` entry status against the queue, both directions · `J5` an entry that ran jobs left `Jobs:` empty · `J6` an id the Facts name (or a `Job` line anywhere) is missing from the field | `O8` the tool-maintained awaiting-review count matches the Plan |
-| **the route stays honest** | `V1` a validation entry NAMES the entry it replays. That the recipe and the reproduced number are also there is the writer's, not the linter's: reading them is a judgement (§10.4's own boundary) | `O4` Goal changes require recorded user authorization bound to the exact revision · `O5` the Plan is a DAG · `O6` a spawned probe appears on some plan · `O12` the id is unique across objectives/ · `O7` a reading follows its conclusions, or has an explicit review bound to their current content · `O9` no figure and no table · `O10` no `attention:` on a CLOSED objective — that it is present while stopped is the loop's to honour, not a check · `O11` a long Verdict receives a non-blocking reminder · `O13` a phase's box matches the entries under it · `O14` an entry launched with jobs is named by some phase, the same turn |
-| **project policy, opt-in** | `M1` one record language, where `framework.json` declares it | `M1` |
+`worktree_retire.sh` is an explicit cleanup command. It refuses removal while a
+process still has its current directory inside the worktree. Plain
+`git worktree remove` is not wrapped, and worktrees are not deleted merely when
+an agent session ends.
 
-**When they run:**
+### 10.5 Optional services
 
-| moment | what runs | what it costs to fail |
-|---|---|---|
-| **a record write** through the bus | the linter for that file's kind | the page does not land |
-| **every scanner cycle** | both linters over the whole record | nothing is refused; findings become `attention:` |
-| **a new project** | both, as bootstrap's acceptance gate | setup does not report success |
-| **a version update** | both, after the contract files sync | the update reports it |
-| **a page edit** | that page's linter, via the edit hook | the errors land in-context the same turn |
+The fixer is a background scanner that can surface missed work and reconcile job
+state. It is disabled by default and runs only when the project enables it. The
+HTML dashboard and editor extension are also optional. Linters, contracts, Git
+hooks and the record itself remain the default core.
 
-Checks that need the whole tree cost a walk of it, so the NODE linter puts
-them behind `--cross` — the roster, a live job with no owner — and a single-page
-write skips them. The OBJECTIVE linter has no such flag: `O6` and `O12` both
-read every objective page, on every write. That is affordable because
-`objectives/` is a handful of files where `nodes/` is hundreds, but it is a
-different rule, not the same one.
+### 10.6 Several agents in one repository
 
-### 5 · Gates — refuse the write
+**The record is serial; code can be parallel.** `project_memory/` and `wiki/`
+live once in the main checkout. Record writes go through the shared bus and
+lock. A framework-created worktree omits those directories, so an agent cannot
+accidentally edit a stale copy.
 
-The reminders above inject text; these refuse. Each git hook carries a named
-environment escape (`SKIP_RECORD_LINT`, `SKIP_SRC_INDEX`, …), because a gate
-with no way past it gets disabled wholesale the first time it is wrong; the
-escape has to be typed, which is the difference.
+One agent may edit a clean main checkout directly. Separate worktrees are used
+when agents may edit code concurrently, main contains unrelated work, or a
+change needs an isolated branch. Three agents can therefore work in three
+worktrees while another session owns the record on main. Worktree branches land
+by fast-forward after rebasing when needed, and a formal run is repeated from
+the merged main state.
 
-| gate | fires on | refuses |
-|---|---|---|
-| `commit-msg` (git hook) | every commit | a prefix off its layer; an `exp(<node>)` naming a node with no `experiments/<node>/`; a `nodes/` commit with no `Entry: <id>`; an `objectives/` commit with no `Objective: O<nn>`; one commit staging both — a route change is its own commit (§6) |
-| `pre-commit` (git hook) | every commit | a `project_memory/` commit off the default branch; staging a record page that does not lint; a commit touching `src/` while `src/INDEX.md` is behind it (§3) |
-| `record_sync.sh` (the record bus) | every record write | a page that does not lint, under a lock shared with the scanner |
-| `bootstrap`'s acceptance gate | the end of setup | reporting success before both linters pass |
-| every launcher's pre-flight | every recorded launch, all four venues | a launch with no `ENTRY` named; one naming an entry but no phase (`PHASE`/`ROLE`, or `NO_OBJECTIVE=1`) — `record_submit --check`, before anything runs; and a recorded launch from a linked worktree, whose logs die with it |
-| `land_and_launch.sh` | landing and launching in one breath | a dirty branch, main onto itself, a branch that will not rebase cleanly — and it holds one lock across rebase → merge → launch, because main's WORKING TREE is what the launcher reads to build its header (§10, sharing the repo) |
-| `worktree_retire.sh` | retiring a worktree | removal while any process still has its cwd inside. The one gate that is not reached by default: nothing wraps plain `git worktree remove` |
-
-**How the two git hooks reach git without displacing the project's own.**
-Setting `core.hooksPath` is the only way to ship a hook with a project, and it
-has one well-known cost: git then ignores `.git/hooks/` entirely, so a
-pre-commit framework, git-lfs or a hand-written pre-push that was already
-installed stops running, silently. The hook directory therefore holds a
-dispatcher, and every standard hook name in it is a link to that one file. The
-dispatcher runs research-note's own check first — `research-note/pre-commit`,
-`research-note/commit-msg`, a refusal there ends the event — and then hands the
-event on to the hook directory that was active before install, with arguments,
-stdin and exit code intact: `research-note.previousHooksPath` when the project
-had a `core.hooksPath` of its own, else the repository's `.git/hooks/`. A hook
-added there later runs too, because the target is resolved at run time, not at
-install. The hook in flight is marked in the environment, so a forwarded hook
-that runs git cannot re-enter the same hook, and a forward that resolves back to
-the dispatcher's own directory stops. `githooks_install.py` lays all of it,
-migrates the pre-dispatcher layout, `uninstall` puts `core.hooksPath` back, and
-`status` is what doctor prints. The dispatcher is POSIX sh because macOS's
-`/bin/sh` is bash 3.2.
-
-### 6 · The scanner and the board — after the fact
-
-A fixer (an optional, session-started daemon with its own state in `.fixer/`;
-the core state it once held lives in `.research-note/state/`, `lib_state.sh`
-below) each cycle
-pulls finished logs and data back (`remote.sh pull`), refreshes the remote queue
-snapshot, runs both linters, regenerates the board when enabled, and where a page and the
-world disagree raises `attention:`. **It repairs nothing** — status moves are
-the watching session's (§8, §9); the record has one live instance with one
-door. That is a SETTING, not a structural guarantee, and the distinction
-matters: the cycle carries two agent tiers (`format`, `analyze`) and both ship
-disabled in `fixer/config.json`, because the bus lints every write and every
-venue records at launch, so an unattended agent has nothing left to repair.
-Turning one on puts a second writer on the record — which is why it is off, and
-why "it repairs nothing" is a line to re-read whenever that config changes.
-
-The board is an **optional view, never a source**. New projects leave
-`features.dashboard` off; older declarations without this key retain their
-previous behavior. While enabled, `dashboard.html` is rewritten from the
-pages after every record write — by the bus, and by the launcher's record step,
-detached so no write waits for it — and each fixer cycle when a fixer runs; it
-is gitignored and written atomically. It renders the node roster, the attention
-list, the live queue and the review backlog, and prints its own generation time
-so a reader can tell an empty view from a stale one.
-
-### The scripts these layers are made of
-
-Every one is a separate process, so it reads the newest version on disk and
-needs no reload to be current:
-
-| | |
-|---|---|
-| `check_node_page.py`, `check_objective_page.py` | the two linters (layer 4) |
-| `record_sync.sh` | the record bus — the one write path onto `project_memory/` |
-| `record_submit.py` | the post-submit record for one launched job, called by the launcher |
-| `remote.sh` | the whole cluster bridge (§8) |
-| `lib_state.sh` | the shell twin of `project_config.state_dir()`: the core runtime state directory `.research-note/state/` — the record lock, the land lock, the harvest stamps, the bus's put backups — created with its nested `.gitignore` on first use, so a project without a fixer still has somewhere to lock |
-| `contracts.py` | updates the framework section of the four contract files, preserves the project-specific appendix below its heading, imports old `.research-note/rules/<x>.md` files for compatibility, and reports a CONFLICT when the framework section was edited in place (layer 1) |
-| `githooks_install.py` | lays the git hook directory — the dispatcher, research-note's own gates under it, one link per hook name — remembers the hook directory that was active before and forwards every event to it; `uninstall` restores it, `status` is doctor's view (layer 5) |
-| `gen_index.py` | regenerates both rosters: `_index.md` and `src/INDEX.md` (`--record` / `--src` for one; the bus regenerates the record roster into the same commit) |
-| `harvest_check.py` | the harvest safety net — J3, age-gated, objective-tagged; the hook's engine and the Monitor's poll |
-| `gen_dashboard.py` | the board, a regenerated view |
-| `bootstrap_project.py`, `update_projects.sh`, `doctor.sh` | lay a project down, carry it to a new version, verify every wire either laid (§11) |
-| `project_config.py` | reads and validates the project-owned layout, commit layers and optional features |
-| `projroot.py` | resolves the project root one way for every script, loudly |
-| `hook_dispatch.py` | the engine behind every hook of layer 3 — one process, one switch |
-| `wiki_sources.py` | walks the record once for `wiki-compile`: the `closed` gate, the citation tag and the staleness hash in one pass (§7) |
-| `land_and_launch.sh`, `worktree_retire.sh`, `worktree_sparse.sh` | the worktree transaction, the occupancy check, and the sparse checkout that keeps a worktree recordless |
-| `lib_paths.sh`, `sync_editables.sh` | resolve developed-library paths, create stable editable slots and align commits with Git fetch or an SSH-carried bundle (§8) |
-| `bump_lib.sh`, `julia_variants.py` | move a Git dependency pin; hold a Julia variant to containment (§8) |
-
-### Cutting across all six — how several agents share one repo
-
-**The record is serial, the code is parallel.**
-
-- **One live record, one door.** `project_memory/` exists once, in the main
-  checkout on the default branch — which therefore never switches branch. Writes
-  go through the bus, which takes a baseline and refuses a concurrent edit rather
-  than overwriting it. A worktree the agent creates is made SPARSE — no
-  `project_memory/`, no `wiki/`, the cluster clone's exclusion applied at home
-  — so the stale copy of the record a full checkout would carry exists only in
-  a hand-made worktree, and every mechanism ignores it: the bus and
-  `record_submit` resolve the main checkout through the common git dir, and the
-  harvest hook stays silent inside a worktree.
-- **One entry, one writer.** Whoever launches a probe writes that entry — one
-  writer per entry; one agent writes as many entries as it launched.
-- **Isolation follows concurrency.** A code-editing agent gets its own worktree
-  when another agent may write the checkout, main is dirty with work it does
-  not own, or the change needs an isolated branch. A sole agent may make a
-  short change directly in a clean main checkout. Worktree landing is
-  `merge --ff-only`, so main only advances; a diverged branch rebases onto main
-  first. Non-record main-side changes are handed to a main-checkout session.
-  Formal launchers still refuse a worktree, because a run over another agent's
-  half-edits can look legitimate in the record and never fail loudly.
-- **Formal runs launch from main.** A branch smoke certifies only the impl plus
-  the `src/` it branched from, so "ready to run" means merged and re-smoked on
-  the merged state.
+A session can complete one objective and then open another, or own several
+active objectives when the work calls for it. Its monitor follows the session's
+set of objective IDs and their running entries; the framework does not create
+one daemon per objective.
 
 ---
 
-## 11. Setup — one command
+## 11. Setup, update and diagnosis
 
-**Principle: a mechanical step belongs in a script; a judgment call belongs in
-the skill.**
+`bootstrap_project.py` performs one idempotent installation. It creates the
+record layout, contracts and agent views, project configuration, Git-hook
+dispatcher, indexes and ignore rules, then runs a read-only acceptance check.
+Existing source layouts and hooks are preserved. Dashboard, fixer, HPC and
+editor support are persisted opt-ins; Claude and Codex project bindings are
+core.
 
-`bootstrap_project.py` lays down the core project in one idempotent run: the
-layout, the four editable contracts (§10.1) and `framework.json`, core
-`settings.json`, the eight contract symlinks (§12), the githooks (§10.5), the
-auto-memory wiring, `.gitignore`, `_index.md`, then the acceptance
-gate. The dashboard, fixer, HPC and editor support are integrations, each
-enabled by a flag that is persisted in `.research-note/project.json` rather
-than affecting one run — later runs, the hooks and doctor all read the same
-choice. Claude and Codex project bindings are core; the old `cross_agent`
-feature and flags remain readable only for compatibility. The fixer is a
-detached daemon and never also a cron line: two
-schedulers for one job serialize on the same lock, so the second only ever
-loses the race, while writing the user's global crontab to do it.
+The setup skill handles decisions that a script cannot infer: directory roles,
+the project's purpose, environment choices and optional integrations. Project
+purpose belongs in `project_memory/note/` or an objective Goal, while durable
+project-specific agent rules belong in the contracts' project section.
 
-The normal setup runs bootstrap once, then `bootstrap_project.py PROJECT --check`
-for read-only wiring verification after the skill's edits. A dry run is available
-for an explicit preview. Doctor is a deeper diagnostic when a check fails;
-setup no longer invokes doctor and then reruns the installer by default.
+`update_projects.sh` updates the current project. It stages the new runtime,
+checks contract conflicts, switches both host bindings and Git hooks as one
+transaction, verifies the result, then removes the superseded project runtime.
+A failure restores the previous managed files and pin. Framework-owned files may
+be refreshed, project-owned files are untouched, and mixed files preserve their
+project section. Setup reuses an existing pin; update is the operation that
+changes it.
 
-It deliberately leaves to the skill everything requiring judgment: the project's
-mission paragraph, which domain libraries belong in log headers, the environment
-pins.
+`doctor.sh` checks core wiring for every project and checks an optional
+integration only when enabled or explicitly requested. It diagnoses; normal
+setup does not run every diagnostic twice. Dry run remains available when a user
+asks to preview setup or update.
 
-`update_projects.sh` does the same for an upgrade — pins both project bindings and
-*verifies by reading the pin file* rather than trusting a success line, syncs the
-contract files, merges the permissions the template gained, then runs doctor and
-the linters. It works from an **ownership table** (`project_config.OWNERSHIP`,
-printed under `--dry-run`): every managed path has one owner — framework,
-project, mixed, or runtime state — and the owner fixes what an update may do:
-a framework file is regenerated or copied, a project file is never written, a
-mixed file has the framework's half merged in and the project's kept, state is
-left alone. A project from before the declaration is migrated ONCE, with every
-integration on, and a disabled integration is retained exactly as it is rather
-than repaired. What it cannot decide it counts and leaves: each `conflict` line
-is a mixed file whose halves a person must sort, and nothing there is
-overwritten. The contracts go through `contracts.py` (§10.1) and the hooks
-through `githooks_install.py` (§10.5), which leaves a pre-declaration
-`commit-msg` alone until its layer rows have moved into
-`.research-note/project.json`. Which agents it updates is §12's.
-`doctor.sh` verifies every wire either script laid and prints the fix for
-whatever is not yet true. It is split the way the project is: the CORE —
-plugin root, project configuration, record layer, git hooks, the project's own
-environment and the shared Claude/Codex runtime — is checked for every project;
-an integration (fixer, HPC, editor) only when `.research-note/project.json`
-enables it or the caller names it (`--fixer`, `--hpc`, `--editor`; `--core`
-for the core alone). `--cross-agent` remains a compatibility spelling for the
-core runtime check. A disabled integration is neither started, required nor
-reported broken — it is listed as not checked.
-
-**The compatibility matrix.** `scripts/tests/test_compat_matrix.py` runs the
-real bootstrap and the real updater against real repositories, one test per
-row of the plan's release gate: an empty directory as a local-only project; an
-existing repository with its own layout and its own hooks, before and after an
-update; a project from before the declaration migrated once; a machine with no
-agent CLI; the fixer and HPC present only when asked for; setup and update
-re-run to no diff. It is what "works in a project research-note did not
-create" means here, and a row that stops passing is a compatibility regression
-by definition.
-
-**Resource detection — what it does NOT do.** Setup detects the machine's SHAPE,
-not its CAPACITY: whether pytest is installed, which editor extension
-directories are present. It does not discover GPUs, partitions,
-queue limits, node memory or account codes — `hpc.env` is hand-filled and the
-`.slurm` templates ship with placeholders. The consequence is visible: doctor can
-only *warn* that no partition is declared, because nothing ever looked. Closing
-that would take a requirement-driven setup — asked-for resources deriving the
-declarations — which is deliberately not built.
+The compatibility suite exercises empty and existing repositories, custom
+layouts, inherited hooks, old-project migration, missing host CLIs, optional
+services, rollback, worktrees and repeat runs. CI runs fast parser and policy
+checks at the supported Python and shell endpoints, with real bootstrap, update
+and rollback paths in one integration job.
 
 ---
 
-## 12. Two agents, one plugin
+## 12. Claude and Codex use one project runtime
 
-**Responsibility: let Claude and Codex work the same project, off one core, and
-never let a machine end up half-updated.**
+The record, linters and Git gates are host-neutral. The plugin package has one
+core and two manifests because Claude and Codex keep separate registries and
+caches. A test holds their versions equal.
 
-The framework is agent-neutral by construction — the record is files, the gates
-are git hooks, the linters are processes — so the only thing that has to be
-dual is the packaging. Everything below exists because the two CLIs keep
-separate caches, separate registries and separate ideas of where a contract
-lives.
+Claude reads `CLAUDE.md`; Codex reads `AGENTS.md`. Each pair points to the same
+contract, and their memory views point to the same shared memory. This avoids two
+copies of project policy or learned context drifting apart.
 
-**One core, two manifests.** `plugins/research-note/` is the package;
-`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` are two views of
-it. Two marketplaces declare it — `.claude-plugin/marketplace.json` as
-`research-tools`, `.agents/plugins/marketplace.json` under the same name — and both
-resolve to the same repository. One name on both sides is a convenience, not a
-guarantee: the marketplace name is the INSTALLER's, whatever their
-`marketplace add` registered, so every selector the framework builds is read
-back from the agent's own registry rather than spelled. A test holds the two manifests to one version,
-because equal names on different versions is the failure that is hardest to see
-from inside either agent.
+`.research-note/plugin-lock.json` records the selected version, content digest
+and source commit when available. The project keeps one immutable snapshot at
+`.research-note/runtime/<digest>/`. Both project configurations select that
+snapshot through a checkout-specific local marketplace. Host applications may
+materialize their own cache copies, but setup and update do not rewrite user
+registries or depend on a mutable global cache.
 
-**One contract, two names.** Claude reads `CLAUDE.md`, Codex reads `AGENTS.md`.
-Each of §10.1's four files is therefore symlinked twice into the directory it
-governs — eight links, four targets, one home per rule. `memory/claude/` and
-`memory/codex/` are symlinks onto `memory/shared/` for the same reason: what
-one agent learns, the other has, and the alternative is two memories that
-diverge on the same project.
+An explicit update changes the current project's lock and switches Claude,
+Codex, hooks and scripts together. Other projects and user-level installations
+stay unchanged. Claude can reload plugins in place; Codex uses the new pin in a
+new session. Existing sessions may keep the code they loaded at start.
 
-**One project runtime for both agents.** `.research-note/plugin-lock.json`
-records the plugin version, payload SHA-256 and source commit when available.
-An immutable local snapshot under `.research-note/runtime/<sha256>/` contains
-skills, lifecycle hooks, scripts and templates together. Both hosts discover a
-local marketplace named for this checkout and content hash. Their cache keys
-cannot collide with a different project or release, even when the publisher
-reuses a version string. `research-note.pluginRoot` points at the same snapshot.
-The snapshot survives an upstream cache refresh or uninstall.
-
-Claude's project and local settings select the snapshot and locally disable
-previous research-note selectors. Its local settings declare the absolute
-marketplace path. Codex's trusted project config declares the same marketplace
-and selects the same plugin. User settings and registries are never rewritten
-by setup or update. Hosts still apply their normal trust and managed policies;
-a check of project files is not proof of a running session's loaded context.
-
-**Update one project.** `update_projects.sh --latest` fetches the source into a
-temporary checkout, then runs that release's updater. Without `--latest`, the
-copy executing the updater is the requested source. Contract conflicts are
-checked first; a project installation lock and the record lock serialize the
-managed writes. Failure restores the previous managed files and Git settings
-and removes the unused staged snapshot. Success removes superseded project
-snapshots, leaving the lock's snapshot as the project's one authoritative copy;
-Claude and Codex own any cache copies they materialize. Setup reuses the lock;
-update alone switches it. Worktrees resolve to the main checkout's installation,
-as the record bus does.
-
-Claude can `/reload-plugins` to switch the current session; Codex loads the new
-pin in a new session because an existing session does not reload plugin tools.
-Separate projects keep their previous versions. A new clone or a moved checkout
-must restore its snapshot and refresh local paths. Source updates must be
-committed and pushed before another user can fetch them.
+A new clone must restore the exact locked snapshot from matching plugin source;
+it does not silently select a newer release. A moved checkout with its snapshot
+present only needs its local paths refreshed. Source changes must be committed
+and pushed before another machine can fetch them.

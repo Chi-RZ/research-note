@@ -1,2 +1,1 @@
-warning: `VIRTUAL_ENV=/home/researcher/pyenv/quantum` does not match the project environment path `examples/tfim-simple-update/.venv` and will be ignored; use `--active` to target the active environment instead
 {"Lx": 3, "Ly": 3, "boundary": "open", "bonds": 12, "expected_plus_energy": -27.0, "quspin_plus_energy": -26.999999999999996, "quimb_plus_energy": -27.0, "solver_difference": 3.552713678800501e-15}

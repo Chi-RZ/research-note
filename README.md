@@ -3,11 +3,14 @@
 [![tests](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml/badge.svg)](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**[Project homepage](https://chi-rz.github.io/research-note/)** ·
+**[3×3 TFIM example](examples/tfim-simple-update/)**
+
 A record framework for agent-assisted computational research, for **Claude
 Code** and **Codex**. It records numerical results faithfully, and distils
 source code and knowledge as the work proceeds.
 
-See the [3×3 TFIM example](examples/tfim-simple-update/) for a complete small
+The [3×3 TFIM example](examples/tfim-simple-update/) is a complete small
 project with two objectives, a locked uv environment, Quimb simple update,
 QuSpin exact diagonalization, recorded evidence and compiled wiki knowledge.
 
@@ -57,7 +60,8 @@ codex plugin add research-note@research-tools
 ```
 
 Install in the agent you use for setup. Setup prepares project bindings for
-both Claude and Codex; start a fresh, trusted session in the other agent to use it.
+both Claude and Codex. Start a fresh session in the other agent and accept its
+plugin or hook trust prompt; in Codex, `/hooks` shows hooks awaiting review.
 
 ## 2. Set up a project
 

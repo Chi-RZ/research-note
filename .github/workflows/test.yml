@@ -47,3 +47,5 @@ jobs:
           git config --global user.email ci@example.com
           git config --global user.name ci
       - run: python -m pytest plugins/research-note/scripts/tests -q -m integration
+      - name: example model checks
+        run: python -m pytest examples/tfim-simple-update/tests -q
