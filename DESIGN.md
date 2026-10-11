@@ -690,6 +690,9 @@ and rollback paths in one integration job.
 
 ## 12. Projects select shared releases
 
+The record format is `v1`. Updating a pre-release project renames its old `v3`
+marker to `v1` without changing records. Older schemas still need migration.
+
 The record, linters and Git gates are host-neutral. The plugin package has one
 core and two manifests because Claude and Codex keep separate registries and
 caches. A test holds their versions equal.
@@ -718,8 +721,10 @@ stay unchanged. Claude can reload plugins in place; Codex uses the new pin in a
 new session. Existing sessions may keep the code they loaded at start.
 
 A new clone must restore the exact locked release from matching plugin source;
-it does not silently select a newer release. A moved checkout with its snapshot
-present only needs its local paths refreshed. `--latest` fetches main,
+run `python3 /path/to/plugin/scripts/project_runtime.py restore --source
+/path/to/matching/plugin PROJECT_DIR`. It does not silently select a newer
+release. A moved checkout with its snapshot present only needs `restore
+PROJECT_DIR` to refresh its local paths. `--latest` fetches main,
 `--version VERSION` fetches a release tag, and `--source` installs local working
 files without GitHub. Installed files do not follow subsequent checkout edits.
 Versions identify releases; content digests distinguish local builds with the

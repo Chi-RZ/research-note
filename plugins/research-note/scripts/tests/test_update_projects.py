@@ -64,7 +64,7 @@ def test_a_directory_that_is_not_a_project_is_skipped(tmp_path):
 def _fake_project(tmp_path):
     proj = tmp_path / "proj"
     (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
+    (proj / ".claude" / "framework.json").write_text('{"record": "v1"}')
     (proj / "project_memory").mkdir()
     return proj
 
@@ -128,7 +128,7 @@ else:
 def _git_project(tmp_path):
     proj = tmp_path / "proj"
     (proj / ".claude").mkdir(parents=True)
-    (proj / ".claude" / "framework.json").write_text('{"record": "v3"}')
+    (proj / ".claude" / "framework.json").write_text('{"record": "v1"}')
     (proj / "project_memory").mkdir()
     for cmd in (["git", "init", "-q", "-b", "main", "."],
                 ["git", "config", "user.email", "t@example.com"],
@@ -172,7 +172,7 @@ def _project(tmp_path, name="proj", declaration=None, framework=True):
     (proj / ".claude").mkdir(parents=True)
     (proj / "project_memory").mkdir()
     if framework:
-        (proj / ".claude" / "framework.json").write_text('{"framework": "research-note", "record": "v3"}')
+        (proj / ".claude" / "framework.json").write_text('{"framework": "research-note", "record": "v1"}')
     if declaration is not None:
         (proj / ".research-note").mkdir()
         (proj / ".research-note" / "project.json").write_text(json.dumps(declaration))
@@ -250,3 +250,31 @@ def test_conflicts_are_counted_and_nothing_there_is_overwritten(tmp_path):
     assert "2 item(s) above need a person — nothing was overwritten there" in r.stdout
     assert slurm.read_text().endswith("the project's own\n")
     assert json.loads((proj / ".claude/framework.json").read_text())["record"] == "v2"
+
+
+@pytest.mark.parametrize("dry", [True, False])
+def test_private_record_label_is_renamed_without_changing_records_or_policy(tmp_path, dry):
+    home = tmp_path / "home"
+    home.mkdir()
+    proj = _project(tmp_path, declaration=_declaration())
+    marker = proj / ".claude/framework.json"
+    policy = {"framework": "research-note", "record": "v3", "record_language": "zh", "custom": True}
+    marker.write_text(json.dumps(policy))
+    record = proj / "project_memory/notes.md"
+    record.write_text("An existing research record.\n")
+    # Recognized pre-release contract with a project-specific appendix.
+    contract = proj / ".claude/project_memory-CLAUDE.md"
+    old = (PLUGIN / "templates/project_memory-CLAUDE.md").read_text().replace("Record format: v1", "Record format: v3")
+    appendix = "\n## Project-specific rules\n\nKeep our custom policy.\n"
+    contract.write_text(old + appendix)
+    before = {p: p.read_bytes() for p in (marker, contract, record)}
+    result = (run if dry else run_real)(home, proj)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "conflict: framework.json" not in result.stdout
+    assert record.read_bytes() == before[record]
+    if dry:
+        assert all(p.read_bytes() == content for p, content in before.items())
+    else:
+        assert json.loads(marker.read_text()) == {**policy, "record": "v1"}
+        assert "Record format: v1" in contract.read_text()
+        assert contract.read_text().endswith(appendix)

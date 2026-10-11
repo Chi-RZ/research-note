@@ -58,7 +58,7 @@ def repo(tmp_path):
     git(tmp_path, "config", "user.email", "t@example.com")
     git(tmp_path, "config", "user.name", "t")
     (tmp_path / ".claude").mkdir()
-    (tmp_path / ".claude" / "framework.json").write_text('{"record": "v3"}\n')
+    (tmp_path / ".claude" / "framework.json").write_text('{"record": "v1"}\n')
     page = tmp_path / REL
     page.parent.mkdir(parents=True)
     page.write_text(GREEN, encoding="utf-8")

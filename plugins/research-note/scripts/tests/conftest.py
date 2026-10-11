@@ -11,7 +11,7 @@ _fake = Path(tempfile.mkdtemp(prefix="rn-fake-project-"))
 (_fake / "project_memory").mkdir()
 (_fake / ".claude").mkdir()
 (_fake / ".claude" / "framework.json").write_text(
-    '{"framework": "research-note", "record": "v3"}')
+    '{"framework": "research-note", "record": "v1"}')
 os.environ["RESEARCH_NOTE_PROJECT_DIR"] = str(_fake)
 os.environ["CLAUDE_PROJECT_DIR"] = str(_fake)
 

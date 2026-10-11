@@ -4,7 +4,7 @@ A failed record means a job running with no page row — the record's most
 fragile state, and the one an exit-3 launcher retry turns into a duplicate GPU
 job. These are the first tests this script has had; the case that motivated
 them is node.md, which a year-old design decision excluded from resolution
-long after v3 made it an entries-only page whose validation entries launch
+long after it became an entries-only page whose validation entries launch
 real background jobs.
 """
 
@@ -77,7 +77,7 @@ def test_a_task_page_resolves(rs):
 
 
 def test_node_md_resolves_like_any_other_page(rs):
-    """The v3 contract says node.md is entries only; its validations launch
+    """The v1 contract says node.md is entries only; its validations launch
     real jobs, so '<node>/node' must resolve — the old refusal left every such
     launch recorded by hand after an exit 3."""
     assert rs.task_page("tanner_gnn_ln/node").name == "node.md"

@@ -1,6 +1,6 @@
 # project_memory — the record
 
-Record format: v3
+Record format: v1
 
 The root contract says what a node, a page and an entry ARE, and when to open
 each. This file is the format: the exact fields, the exact shapes. The linters

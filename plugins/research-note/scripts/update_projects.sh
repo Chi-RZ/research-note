@@ -125,11 +125,23 @@ for P in "${WANT[@]}"; do
     # --- framework.json is STATE + policy, never synced wholesale: `record` is
     # the project's migration marker (the linters' FW gate reads it), so copying
     # the template's value would mark an unmigrated record as current and disarm
-    # the one check that protects it. Report drift; migration moves the marker.
+    # the one check that protects it. The private v3 label became public v1
+    # without a schema change; only that rename is automatic.
     if [ -f "$P/.claude/framework.json" ] && [ -f "$CACHE/templates/framework.json" ]; then
         pr=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('record',''))" "$P/.claude/framework.json" 2>/dev/null)
         tr_=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('record',''))" "$CACHE/templates/framework.json" 2>/dev/null)
-        if [ "$pr" != "$tr_" ]; then
+        if [ "$pr" = v3 ] && [ "$tr_" = v1 ]; then
+            run python3 - "$P/.claude/framework.json" <<'PY' || exit $?
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["record"] = "v1"
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+            echo "   framework.json: renamed pre-release record label v3 to v1"
+            CHANGED+=("$P")
+        elif [ "$pr" != "$tr_" ]; then
             echo "   conflict: framework.json record '$pr' (template '$tr_') — LEFT ALONE; migrate the record, then bump the marker"
             CONFLICTS=$(( CONFLICTS + 1 ))
         fi

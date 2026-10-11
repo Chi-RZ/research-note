@@ -260,7 +260,7 @@ def test_no_objectives_no_section(gen, tmp_path, monkeypatch):
 def _scratch_project(tmp_path: Path) -> Path:
     (tmp_path / "project_memory" / "nodes").mkdir(parents=True)
     (tmp_path / ".claude").mkdir()
-    (tmp_path / ".claude" / "framework.json").write_text('{"record": "v3"}\n')
+    (tmp_path / ".claude" / "framework.json").write_text('{"record": "v1"}\n')
     (tmp_path / "src").mkdir()
     return tmp_path
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lint an objective page — the Goal/Plan/Verdict route record (record v3).
+"""Lint an objective page — the Goal/Plan/Verdict route record (record v1).
 
 A task page is checked for FORMAT; an objective page makes ASSERTIONS ABOUT
 OTHER DOCUMENTS, so the rules here are cross-document consistency, and the
@@ -7,7 +7,7 @@ page's own text is only the claim, never the evidence. The page is what the
 user reads INSTEAD of watching the session — a page that silently drifts is
 worse than no page.
 
-Codes (record v3):
+Codes (record v1):
   O1  frontmatter: id, status, created, budget, wake-me-if
   O2  Goal, Plan, Verdict, in order, nothing else
   O3  links resolve and land on real entries; a backticked id beside an entry

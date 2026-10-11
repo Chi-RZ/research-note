@@ -170,7 +170,7 @@ def test_pre_commit_refuses_a_library_change_whose_index_is_behind(repo):
     agent writes it a second time; the commit adding it is where that is
     caught, and regenerating the index lets it through."""
     (repo / ".claude").mkdir()
-    (repo / ".claude/framework.json").write_text('{"record": "v3"}\n')
+    (repo / ".claude/framework.json").write_text('{"record": "v1"}\n')
     (repo / "project_memory").mkdir()
     subprocess.run(["git", "-C", repo, "config", "research-note.pluginRoot", str(PLUGIN)], check=True)
     (repo / "src/pkg").mkdir(parents=True)

@@ -72,7 +72,7 @@ def task_page(page: str) -> Path | None:
     project_memory/nodes/peps_sma/heis_tri/dispersion.md (node-level
     pages like 'peps_sma/gate' resolve the same way, one level up).
 
-    '<node>/node' resolves to node.md like any other page: since record v3 it
+    '<node>/node' resolves to node.md like any other page: in record v1 it
     is an entries-only page — the gate first, then one validation per in-place
     edit — and a validation is a real background launch whose job row must
     land automatically like everyone else's. (An earlier design kept lineage

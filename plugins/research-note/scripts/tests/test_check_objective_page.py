@@ -1,4 +1,4 @@
-"""Tests for check_objective_page — record v3: the Goal/Plan/Verdict route."""
+"""Tests for check_objective_page — record v1: the Goal/Plan/Verdict route."""
 
 from __future__ import annotations
 
@@ -328,7 +328,7 @@ def test_m1_fires_only_where_the_project_declared_a_language(obj, tmp_path, monk
     assert not any(e.startswith("M1") for e in errs)
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "framework.json").write_text(
-        '{"framework": "research-note", "record": "v3", "record_language": "en"}')
+        '{"framework": "research-note", "record": "v1", "record_language": "en"}')
     errs = O.lint(obj)
     assert any(e.startswith("M1") for e in errs)
 

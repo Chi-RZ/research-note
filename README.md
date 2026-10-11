@@ -128,45 +128,16 @@ In a project, tell the agent:
 
 > update research-note
 
-It fetches the remote main branch and updates **this project only**. Claude and
-Codex both use the project's locked version: skills, lifecycle hooks, scripts
-and Git hooks move together. Other projects and user-level plugin installations
-are unchanged. Claude can run `/reload-plugins` to switch in place; start a new
-Codex session to use the update.
+This fetches remote main and updates the current project's Claude, Codex and
+project tools together. Other projects keep their selected versions.
+Reload Claude with `/reload-plugins`; start a new Codex session.
 
-The lock is `.research-note/plugin-lock.json`. Installed releases live once per
-machine in `~/.local/share/research-note/releases/<digest>/`; projects selecting
-the same content share that installation. Claude uses a native project-scope
-installation; Codex selects it through project configuration and keeps its own
-cache. User-level enablement stays unchanged. Available hosts are verified;
-missing hosts or an untrusted Codex project are reported as pending.
+You can also ask for a version (such as `0.1.0`) or an update from a local
+checkout. Local updates include uncommitted plugin edits. The update reports
+which version and build were selected.
 
-Ask for a specific version, or update from an unpublished local checkout:
-
-```bash
-bash "$PLUGIN/scripts/update_projects.sh" --version 0.1.0 PROJECT_DIR
-bash "$PLUGIN/scripts/update_projects.sh" --source /path/to/repo/plugins/research-note PROJECT_DIR
-```
-
-Local updates install the checkout's current files, including uncommitted plugin
-edits. A development version such as `0.1.1-dev.1` can stay unchanged throughout
-daily edits; each build gets its own content identity automatically. Update
-reports the source and build selected. After merging dev, setting the formal
-version and pushing main, use a normal remote update to switch to it. See
-[the maintainer workflow](CONTRIBUTING.md#local-development-and-releases).
-
-Setup reuses an existing selection. Updates preserve project rules, stop on
-contract conflicts and restore previous bindings on failure. Legacy project
-runtime copies are removed after migration; shared releases remain available
-for other projects. Switching a source checkout's branch does not change an
-installed release. The version and content hash show exactly which build is used.
-Version tags must include this shared-install mechanism; older private installers
-are refused before switching. Existing legacy projects can migrate explicitly.
-A new clone needs its selected release restored before the agents can load it:
-run `project_runtime.py restore --source /path/to/matching/plugin` from the
-project using a copy of the plugin with the locked content digest. For a moved
-checkout whose shared release is present, `restore` refreshes local paths.
-It refuses a different version instead of silently upgrading.
-
+See [local development and releases](CONTRIBUTING.md#local-development-and-releases)
+for maintainer commands, or [installation details](DESIGN.md#12-projects-select-shared-releases)
+for shared caches and restoring a cloned project.
 
 MIT licensed.

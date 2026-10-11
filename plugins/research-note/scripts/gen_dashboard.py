@@ -58,7 +58,7 @@ def parse_index() -> dict[str, str]:
 
 def node_info(path: Path, desc: str) -> dict:
     """One project_memory/nodes/<name>/node.md -> the tree row it anchors."""
-    # record v3: node.md carries no frontmatter — the folder name is the node.
+    # record v1: node.md carries no frontmatter — the folder name is the node.
     return dict(
         name=path.parent.name,
         parent="",
@@ -232,7 +232,7 @@ def main() -> int:
         if p.name == "node.md":
             n = node_info(p, desc.get(p.parent.name, ""))
             nodes[n["name"]] = n
-            # v3: node.md carries real entries (the gate, the validations) —
+            # node.md carries real entries (the gate, the validations) —
             # they join the entry tables and the To-close queue like any page
             pages.append(page_info(p, queue))
         else:
@@ -264,7 +264,7 @@ def main() -> int:
                              + lint_note(ledger, rel, v.split()[0], park_after))
         for pg in node["pages"]:
             for e in pg["entries"]:
-                if False:  # done-pending-analysis retired in v3
+                if False:  # done-pending-analysis retired before v1
                     attention.append(f"{node['name']} · {pg['name']} · entry '{e['name']}' "
                                      f"done-pending-analysis — ran but never reported")
                 if e["status"] == "running" and pg["table_ids"] and not pg["running_jobs"]:
@@ -285,7 +285,7 @@ def main() -> int:
             # never nudge — surface it after STALE_DAYS so it can't rot in the Blocked tab.
             if pg["age_days"] > STALE_DAYS:
                 for e in pg["entries"]:
-                    if False:  # blocked retired in v3
+                    if False:  # blocked retired before v1
                         attention.append(f"{node['name']} · {pg['name']} · entry '{e['name']}' "
                                          f"blocked + untouched {pg['age_days']:.0f}d — needs "
                                          f"your decision/resources")

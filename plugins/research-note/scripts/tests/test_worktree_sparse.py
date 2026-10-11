@@ -17,7 +17,7 @@ SCRIPT = Path(__file__).resolve().parent.parent / "worktree_sparse.sh"
 def _project(tmp_path):
     repo = tmp_path / "proj"
     (repo / ".claude").mkdir(parents=True)
-    (repo / ".claude" / "framework.json").write_text('{"record": "v3"}')
+    (repo / ".claude" / "framework.json").write_text('{"record": "v1"}')
     (repo / "project_memory" / "nodes").mkdir(parents=True)
     (repo / "project_memory" / "nodes" / "x.md").write_text("record\n")
     (repo / "wiki").mkdir()

@@ -1,6 +1,6 @@
 # Role: automated node/task-page lint fixer (headless background run — no user is watching)
 
-The project agent contract (AGENTS.md or CLAUDE.md, auto-loaded) defines the record format (v3);
+The project agent contract (AGENTS.md or CLAUDE.md, auto-loaded) defines the record format (v1);
 `check_node_page.py` in the installed plugin is the canonical linter and its
 codes are the spec — resolve it once with
 `PLUGIN="$(git config --get research-note.pluginRoot)"`.

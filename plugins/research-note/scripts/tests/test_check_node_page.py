@@ -1,4 +1,4 @@
-"""Tests for check_node_page — record v3: node.md and task pages, lists of entries."""
+"""Tests for check_node_page — record v1: node.md and task pages, lists of entries."""
 
 from __future__ import annotations
 
@@ -857,7 +857,7 @@ def test_j2_suppresses_a_leak_younger_than_the_floor(tmp_path, monkeypatch):
 def _declare_language(root, lang="en"):
     (root / ".claude").mkdir(parents=True, exist_ok=True)
     (root / ".claude" / "framework.json").write_text(
-        '{"framework": "research-note", "record": "v3", "record_language": "%s"}' % lang)
+        '{"framework": "research-note", "record": "v1", "record_language": "%s"}' % lang)
 
 
 def test_m1_fires_only_where_the_project_declared_a_language(tmp_path, monkeypatch):
@@ -1077,14 +1077,14 @@ def test_fw_contract_version_line_is_checked(tmp_path, monkeypatch):
     cannot see — the contract's own `Record format:` line closes it."""
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "framework.json").write_text(
-        '{"framework": "research-note", "record": "v3"}')
+        '{"framework": "research-note", "record": "v1"}')
     (tmp_path / ".claude" / "project_memory-CLAUDE.md").write_text(
         "# project_memory\n\nold contract, no version line\n")
     monkeypatch.setattr(C, "ROOT", tmp_path)
     errs = C.record_version_check()
     assert any("FW" in e and "contract" in e for e in errs)
     (tmp_path / ".claude" / "project_memory-CLAUDE.md").write_text(
-        "# project_memory\n\nRecord format: v3\n")
+        "# project_memory\n\nRecord format: v1\n")
     assert C.record_version_check() == []
 
 # --------------------------------------------------------------------------
@@ -1546,3 +1546,13 @@ def test_e7_no_measurements_needs_a_reason_and_still_needs_evidence():
     assert any(e.startswith("E7") for e in C.entry_errors("failed", no_reason))
     no_evidence = marked.replace("[log](../../../experiments/tanner_gnn_ln/scc/logs/slurm-ln-64196217.out)", "log missing")
     assert any(e.startswith("E7") and "evidence" in e for e in C.entry_errors("failed", no_evidence))
+
+
+@pytest.mark.parametrize("marker,contract", [("v3", "v1"), ("v1", "v3"), ("v2.4", "v1")])
+def test_fw_requires_the_public_record_label(tmp_path, monkeypatch, marker, contract):
+    folder = tmp_path / ".claude"
+    folder.mkdir()
+    (folder / "framework.json").write_text('{"record": "%s"}' % marker)
+    (folder / "project_memory-CLAUDE.md").write_text("Record format: %s\n" % contract)
+    monkeypatch.setattr(C, "ROOT", tmp_path)
+    assert any(error.startswith("FW ") for error in C.record_version_check())
