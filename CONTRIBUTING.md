@@ -27,5 +27,4 @@ content and link check, not the Python suite.
 ## Releases
 
 Use `python3 tools/set_version.py VERSION`, run the relevant checks, then commit
-and tag `vVERSION`. Use a prerelease such as `0.1.1-dev.1` during development;
-keep published tags fixed.
+and tag `vVERSION`.
