@@ -29,3 +29,6 @@ bin/
 # Local (per-machine, per-project) settings — never commit
 settings.local.json
 .pytest_cache/
+
+# Local development and migration notes
+/docs/public-architecture-plan.md
