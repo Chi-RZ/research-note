@@ -1,85 +1,87 @@
 ---
 name: update
-description: Use when the user asks to update research-note in a project — fetch a release and pin this project’s Claude, Codex, hooks and scripts to it. Other projects and user-level plugin installations stay unchanged. Not for editing the plugin itself.
+description: Use when the user asks to update research-note in a project, select a release version, or test a local plugin checkout. Changes this project's Claude, Codex, hooks and scripts together; other projects keep their selections. Not for editing the plugin itself.
 ---
 
 # research-note:update
 
-Update the current project's shared framework for both agents. The project's
-`.research-note/plugin-lock.json` selects an immutable snapshot; updating an
-agent's user-level plugin is neither necessary nor part of this procedure.
+## Select the source and update
 
-## 1. Fetch and update this project
-
-Resolve `$PLUGIN` from `git config --get research-note.pluginRoot`. Read the
-current lock when present; a project without one is migrated by this update.
-Run from the main checkout (the script also resolves a worktree to its main):
+Read `.research-note/plugin-lock.json` and resolve the current plugin with
+`git config --get research-note.pluginRoot`. Worktrees use the main checkout's
+selection. Choose the command matching the request:
 
 ```bash
-bash "$PLUGIN/scripts/update_projects.sh" --latest
+# Default user request: fetch the published main branch.
+bash "$PLUGIN/scripts/update_projects.sh" --latest PROJECT_DIR
+
+# A particular release: fetch its vVERSION tag and check the manifest version.
+bash "$PLUGIN/scripts/update_projects.sh" --version 0.1.0 PROJECT_DIR
+
+# A branch, tag or commit; --repository URL selects a fork.
+bash "$PLUGIN/scripts/update_projects.sh" --ref REF PROJECT_DIR
+
+# Unpublished local edits: the directory containing the plugin manifests.
+bash "$PLUGIN/scripts/update_projects.sh" --source /path/to/repo/plugins/research-note PROJECT_DIR
 ```
 
-The command fetches the published repository into a temporary checkout and
-runs that release's updater against this project only. If the user names a
-branch, tag or commit, add `--ref REF`; a requested fork uses `--repository URL`.
-Use `--dry-run` for a requested preview. With `--latest`, the preview reports
-what would be fetched without contacting the remote. To inspect the actual
-file changes, fetch the requested source first and run its updater with
-`--dry-run PROJECT_DIR`.
+Use an explicit `--source` for local development; it installs a copy of the
+working files, including uncommitted edits. GitHub is not contacted and switching
+the clone's branch afterward does not change installed content. Once published,
+`--latest` or `--version` selects the remote content in the same way. The version
+and content digest identify what was actually installed, even when two local
+builds still carry the same manifest version. Prefer distinct prerelease versions
+for development releases.
 
-For an older installed release that lacks this flow, fetch the repository
-into a temporary directory and run the new copy's
-`plugins/research-note/scripts/update_projects.sh PROJECT_DIR`. Do not run
-`claude plugin update`, `codex plugin add`, or upgrade a shared marketplace.
-A maintainer testing unpublished edits runs the updater from the source
-checkout without `--latest`. An unpushed commit is unavailable to other users.
+Version selection requires a release whose installer understands shared
+installations. Earlier private snapshots remain usable and can migrate to a
+current release; selecting an old installer is refused before project writes.
+The initial public release tag must include the shared-install implementation.
 
-The updater checks contract conflicts before writing, stages a snapshot of
-the complete plugin, and carries over the project's existing rules and
-permissions. It updates Git hooks and templates, then binds both agents and
-`research-note.pluginRoot` to the same snapshot. Different project/release
-marketplace IDs prevent host-cache collisions. After a successful switch, the
-updater removes superseded project snapshots; Claude and Codex manage their own
-caches. A failed write restores managed project files and Git configuration and
-removes its unused staged snapshot. No user plugin registry is rewritten.
+For an installed updater lacking these options, fetch the current repository
+into a temporary directory and run its updater with the requested source and
+project. Add `--dry-run` for a preview. Remote previews report the repository/ref
+without fetching; local previews inspect the source without installing hosts.
 
-## 2. Read the result
+The updater preflights contract conflicts, installs immutable content once per
+machine, updates project contracts and Git hooks, then selects that release for
+both hosts. Projects selecting identical content share its installation and
+marketplace identity. The portable lock stays in the project; full plugin files
+live in `~/.local/share/research-note/releases/<digest>/` (or the XDG data directory).
+Legacy project runtime copies are removed only after a successful switch.
+Shared releases are retained because another project may still select them.
 
-A contract conflict stops the update before activation. Move project-specific
-text below `## Project-specific rules`; if a framework rule was intentionally
-edited, reconcile it with the new rule rather than overwriting it blindly.
-Then run the update again.
+Claude is installed with native **project scope**. Codex uses the project config
+and native discovery to populate its cache, without global `plugin add`.
+Available hosts are verified; absent hosts or an untrusted Codex project are
+reported as pending. User enablement and unrelated installations are preserved.
+Claude local marketplaces may load directly from the shared immutable source;
+Codex loads its own cache. Neither follows the mutable development checkout.
+Failure restores managed project files and the previous selection, and removes
+a newly added Claude project registration. Shared cache/source files may remain.
 
-`framework.json` is project-owned state and policy, so it is not copied. Its
-`record` value is the migration marker; `record_language` remains the project's
-language choice. A record-version mismatch still requires a separate record
-migration. HPC settings and edited submit templates also stay project-owned;
-port a changed log header manually when the report requests it. Neither
-operation is silently resolved by pinning.
+## Verify and report
 
-Doctor and both record linters report the project's state. Verify the complete
-runtime binding separately from environment or record findings:
+Reconcile contract conflicts before retrying. Preserve project-specific rules,
+permissions, record language, HPC profiles and edited submit templates. A record
+format mismatch still needs its own migration; installing a release is not that
+migration. Doctor and the two record linters report separate project findings.
 
 ```bash
-PLUGIN=$(git config --get research-note.pluginRoot)
-python3 "$PLUGIN/scripts/project_runtime.py" check
+PLUGIN="$(git config --get research-note.pluginRoot)"
+python3 "$PLUGIN/scripts/project_runtime.py" check PROJECT_DIR
 ```
 
-A zero exit confirms the pinned files and local agent bindings. It does not
-claim a running agent has reloaded them or override the host's trust policies.
+Check the selected version/hash, both project selectors and the native host
+report in `.research-note/state/host-install.json`. A successful binding check
+does not mean an already running session reloaded. If Codex is pending, resolve
+the host's project trust/diagnostics and rerun setup to complete installation.
 
-## 3. Commit and hand over the session boundary
+Stage only this update's lock, contracts and project configuration. Machine-local
+settings, state and installed content stay out of Git. Commit the requested
+project update as `agent: update research-note to <version>`; report old/new
+version and hash, affected project, commit and outstanding findings.
 
-Stage only this update's project files: the lock, changed contracts and hooks,
-and the project agent settings. Keep `.research-note/runtime/` and machine-local
-settings out of Git. Commit as `agent: update research-note to <version>`.
-
-Report the old and new version/hash, affected project, retained project rules,
-any outstanding doctor or record findings, and the commit. The project keeps
-only the snapshot selected by its lock. Claude may run `/reload-plugins` to
-switch in place; start a new Codex session for the new pin. After switching,
-check the host's plugin listing for the lock's selector.
-
-Do not update a second project or user-level plugin as a side effect. Updating
-this project's shared rules intentionally applies to both agents in this
-project, whichever agent performed the update.
+Claude can `/reload-plugins` in place; start a new Codex session. Verify the host's
+plugin listing matches the lock's selector after switching. Apply updates only
+to the requested projects, whichever host runs the command.

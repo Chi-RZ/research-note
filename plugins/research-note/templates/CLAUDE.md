@@ -194,7 +194,7 @@ Ask what they were and why before building on them or reverting them.
 | entry and objective format, lifecycle, job rules | `project_memory/CLAUDE.md` |
 | node layout, run scripts, log naming, outputs | `<experiment-root>/CLAUDE.md` |
 | what makes a wiki page publishable | `<knowledge-root>/CLAUDE.md` |
-| the linters and every other framework script | `PLUGIN="$(git config --get research-note.pluginRoot)"` — the shared Claude/Codex binding written by project setup; if it is empty the installed cache still works: `ls -d ~/.codex/plugins/cache/*/research-note/* ~/.claude/plugins/cache/*/research-note/* \| sort -V \| tail -1` |
+| the linters and every other framework script | `PLUGIN="$(git config --get research-note.pluginRoot)"` — this project's selected release, written by setup/update. If missing, restore its lock using the installed `update` skill before running project tools. |
 
 ---
 

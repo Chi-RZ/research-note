@@ -12,6 +12,13 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 
+@pytest.fixture(autouse=True)
+def isolated_releases(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEARCH_NOTE_RELEASE_STORE", str(tmp_path / "shared-releases"))
+    import host_install
+    monkeypatch.setattr(host_install, "sync_hosts", lambda *args: {})
+
+
 def runtime():
     spec = importlib.util.spec_from_file_location("project_runtime", SCRIPTS / "project_runtime.py")
     module = importlib.util.module_from_spec(spec)
@@ -46,6 +53,8 @@ def test_two_projects_keep_both_hosts_on_their_snapshot(tmp_path, monkeypatch):
     a, b = project(tmp_path, "a"), project(tmp_path, "b")
     for p in (a, b):
         m.activate(p, m.snapshot(p, src))
+    assert m.locked_root(a) == m.locked_root(b)
+    assert not (a / m.RUNTIME).exists() and not (b / m.RUNTIME).exists()
     before = files(b)
     old = m.locked_root(b)
     old_skill = (old / "skills/analyze/SKILL.md").read_bytes()
@@ -83,7 +92,8 @@ def test_local_overrides_and_unrelated_settings_are_preserved(tmp_path, monkeypa
     (p / ".claude").mkdir()
     (p / ".claude/settings.local.json").write_text(json.dumps({"autoMemoryDirectory": "keep", "enabledPlugins": {"research-note@custom": True, "other@x": True}}))
     (p / ".codex").mkdir()
-    original = '# keep comment\nmodel = "test"\n[plugins."other@x"]\nenabled = true\n'
+    original = ('# keep comment\nmodel = "test"\n[plugins."other@x"]\nenabled = true\n'
+                '[hooks.state."research-note@custom:session_start:0"]\ntrusted_hash = "keep"\n')
     (p / ".codex/config.toml").write_text(original + '[plugins."research-note@custom"]\nenabled = true\n')
     before = files(home)
     pin = m.snapshot(p, source(tmp_path))
@@ -124,11 +134,11 @@ def test_failed_activation_restores_previous_settings(tmp_path, monkeypatch):
             raise RuntimeError("installation failed")
     assert {k: v for k, v in files(p).items() if "/runtime/" not in k and "/state/" not in k} == {
         k: v for k, v in before.items() if "/runtime/" not in k and "/state/" not in k}
-    assert m.runtime_snapshots(p) == {json.loads((p / m.LOCK).read_text())["sha256"]}
+    assert m.runtime_snapshots(p) == set()
 
 
 @pytest.mark.integration
-def test_real_update_only_moves_a_prunes_its_old_runtime_and_leaves_b(tmp_path):
+def test_real_update_only_moves_a_retains_b_shared_release(tmp_path):
     from test_compat_matrix import bootstrap, sh
     m = runtime()
     home = tmp_path / "home"
@@ -147,8 +157,8 @@ def test_real_update_only_moves_a_prunes_its_old_runtime_and_leaves_b(tmp_path):
     result = sh(a, home, "bash", str(src / "scripts/update_projects.sh"), str(a))
     assert result.returncode == 0, result.stdout + result.stderr
     assert (m.locked_root(a) / "skills/analyze/SKILL.md").read_text().endswith("Release two.\n")
-    assert not a_old_root.exists()
-    assert m.runtime_snapshots(a) == {json.loads((a / m.LOCK).read_text())["sha256"]}
+    assert a_old_root.exists() and a_old_root == m.locked_root(b)
+    assert m.runtime_snapshots(a) == set()
     assert m.check(a) == []
     assert files(b) == before
     assert sh(b, home, "git", "config", "--get", "research-note.pluginRoot").stdout == b_root
@@ -178,7 +188,8 @@ def test_real_failed_update_restores_contracts_pin_and_git_config(tmp_path):
     assert (p / ".git/config").read_bytes() == git_config
     assert {k: v for k, v in files(p).items() if "/runtime/" not in k} == {
         k: v for k, v in before.items() if "/runtime/" not in k}
-    assert m.runtime_snapshots(p) == {old_sha}
+    assert json.loads((p / m.LOCK).read_text())["sha256"] == old_sha
+    assert m.runtime_snapshots(p) == set()
 
 
 @pytest.mark.integration
@@ -210,7 +221,7 @@ def test_restore_after_move_rebinds_both_hosts_without_changing_release(tmp_path
     m.restore(moved, src)
     new = json.loads((moved / m.LOCK).read_text())
     assert new["sha256"] == pin["sha256"]
-    assert new["selector"] != pin["selector"]
+    assert new["selector"] == pin["selector"]
     assert m.check(moved) == []
 
 
@@ -220,10 +231,10 @@ def test_restore_clone_requires_matching_content(tmp_path):
     src = source(tmp_path)
     m.activate(p, m.snapshot(p, src))
     pin = json.loads((p / m.LOCK).read_text())
-    shutil.rmtree(p / m.RUNTIME)
+    shutil.rmtree(m.locked_root(p).parents[1])
     m.restore(p, src)
     assert json.loads((p / m.LOCK).read_text())["sha256"] == pin["sha256"]
-    shutil.rmtree(p / m.RUNTIME)
+    shutil.rmtree(m.locked_root(p).parents[1])
     (src / "skills/analyze/SKILL.md").write_text("different")
     with pytest.raises(ValueError, match="locked content"):
         m.restore(p, src)
@@ -243,3 +254,49 @@ def test_contract_conflict_prevents_runtime_switch(tmp_path):
     assert result.returncode != 0
     assert "contract preflight failed" in result.stderr
     assert files(p) == before
+
+
+def test_host_in_use_markers_do_not_change_release_identity(tmp_path):
+    m = runtime()
+    p = project(tmp_path, "p")
+    src = source(tmp_path)
+    first = m.snapshot(p, src)
+    marker = src / ".in_use/123"
+    marker.parent.mkdir()
+    marker.write_text("temporary host lease")
+    assert m.snapshot(p, src) == first
+
+
+def test_legacy_snapshot_restore_moves_to_shared_store(tmp_path):
+    m = runtime()
+    p = project(tmp_path, "p")
+    src = source(tmp_path)
+    marker = src / ".in_use/123"
+    marker.parent.mkdir()
+    marker.write_text("legacy lease included in the old digest")
+    sha = m.digest(src, legacy=True)
+    old = p / m.RUNTIME / sha / "plugins/research-note"
+    shutil.copytree(src, old)
+    pin = {"schema": 1, "version": "0.1.0", "sha256": sha, "runtime": str(old.relative_to(p))}
+    m.write_json(p / m.LOCK, pin)
+    assert m.locked_root(p) == old
+    # No installed CLIs are needed to reconstruct portable project bindings.
+    from unittest.mock import patch
+    with patch("host_install.shutil.which", return_value=None):
+        m.restore(p, src)
+    assert m.locked_root(p) == m.release_store() / m.digest(src) / "plugins/research-note"
+    assert not (p / m.RUNTIME / sha).exists()
+
+
+def test_pre_shared_installer_is_refused_before_project_writes(tmp_path):
+    m = runtime()
+    p = project(tmp_path, "p")
+    (p / "project_memory").mkdir()
+    m.write_json(p / ".research-note/project.json", {})
+    src = source(tmp_path)
+    helper = src / "scripts/project_runtime.py"
+    helper.write_text(helper.read_text().replace("def release_store(", "def legacy_store("))
+    before = files(p)
+    with pytest.raises(ValueError, match="predates shared"):
+        m.update(p, src)
+    assert files(p) == before and not m.release_store().exists()

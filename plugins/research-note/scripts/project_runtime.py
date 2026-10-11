@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Pin both agents and the project's scripts to an immutable local snapshot.
+"""Select a project release; share immutable installations across projects.
 
-No agent CLI install/upgrade and no user configuration writes. Hosts discover
-the release marketplace through project settings on their next trusted session.
-The lock is portable provenance; runtime files and absolute bindings are local.
+Project locks and settings select a release, never the highest cache version.
+Native hosts keep their own caches; their user-level enablement is unchanged.
 """
 from __future__ import annotations
 
@@ -25,7 +24,34 @@ RUNTIME = Path(".research-note/runtime")
 BEGIN = "# BEGIN research-note project runtime"
 END = "# END research-note project runtime"
 SELECTOR_RE = re.compile(r"research-note@[A-Za-z0-9_.-]+")
-EXCLUDED = {"__pycache__", ".pytest_cache", ".git", "tests"}
+EXCLUDED = {"__pycache__", ".pytest_cache", ".git", "tests", ".in_use"}
+
+
+def release_store() -> Path:
+    override = os.environ.get("RESEARCH_NOTE_RELEASE_STORE")
+    data = Path(os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local/share"))
+    return (Path(override) if override else data / "research-note/releases").resolve()
+
+
+def pin_root(project: Path, pin: dict) -> Path:
+    sha = pin.get("sha256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", sha):
+        raise ValueError("invalid plugin lock digest")
+    if pin.get("schema") == 2:
+        if pin.get("runtime") != f"{sha}/plugins/research-note":
+            raise ValueError("invalid shared release path in plugin lock")
+        if pin.get("marketplace") != f"rn-release-{sha}" or pin.get("selector") != f"research-note@rn-release-{sha}":
+            raise ValueError("shared release identity differs from plugin lock digest")
+        return release_store() / sha / "plugins/research-note"
+    if pin.get("schema") != 1:
+        raise ValueError("unsupported plugin lock schema")
+    return project / RUNTIME / sha / "plugins/research-note"
+
+
+def shared_capable(source: Path) -> bool:
+    """The release must be able to read its own schema-2 lock after loading."""
+    script = source / "scripts/project_runtime.py"
+    return script.is_file() and "def release_store(" in script.read_text(encoding="utf-8")
 
 
 def git(project: Path, *args: str, check: bool = True) -> str:
@@ -66,10 +92,11 @@ def write_json(path: Path, value: dict) -> None:
     write(path, json.dumps(value, indent=2, ensure_ascii=True) + "\n")
 
 
-def payload(root: Path):
+def payload(root: Path, legacy: bool = False):
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
-        if any(part in EXCLUDED for part in rel.parts) or path.suffix == ".pyc":
+        excluded = EXCLUDED - {".in_use"} if legacy else EXCLUDED
+        if any(part in excluded for part in rel.parts) or path.suffix == ".pyc":
             continue
         if path.is_symlink():
             raise ValueError(f"plugin snapshot cannot contain symlinks: {rel}")
@@ -77,9 +104,9 @@ def payload(root: Path):
             yield path, rel
 
 
-def digest(root: Path) -> str:
+def digest(root: Path, legacy: bool = False) -> str:
     h = hashlib.sha256()
-    for path, rel in payload(root):
+    for path, rel in payload(root, legacy):
         h.update(str(rel).encode() + b"\0")
         h.update(str(path.stat().st_mode & 0o111).encode() + b"\0")
         h.update(hashlib.sha256(path.read_bytes()).digest())
@@ -92,7 +119,10 @@ def snapshot(project: Path, source: Path) -> dict:
     if manifest.get("name") != "research-note" or not manifest.get("version"):
         raise ValueError("source is not a versioned research-note plugin")
     content = digest(source)
-    release = project / RUNTIME / content
+    claude_manifest = json_file(source / ".claude-plugin/plugin.json")
+    if claude_manifest.get("version") != manifest["version"]:
+        raise ValueError("Claude and Codex manifest versions differ")
+    release = release_store() / content
     target = release / "plugins/research-note"
     if not target.exists():
         release.parent.mkdir(parents=True, exist_ok=True)
@@ -104,14 +134,16 @@ def snapshot(project: Path, source: Path) -> dict:
                 shutil.copy2(path, dst)
             if digest(staged / "plugins/research-note") != content:
                 raise ValueError("plugin source changed during snapshot")
-            staged.rename(release)
+            # Concurrent projects may install exactly the same release.
+            try:
+                staged.rename(release)
+            except OSError:
+                if not target.is_dir() or digest(target) != content:
+                    raise
     if digest(target) != content:
         raise ValueError("snapshot digest mismatch; restore the pinned release")
-    # Include the main checkout identity: two local clones never redirect one
-    # another's host marketplace registry, even with identical plugin contents.
-    location = hashlib.sha256(str(project.resolve()).encode()).hexdigest()[:12]
-    marketplace = f"rn-{location}-{content[:16]}"
-    catalog = {"name": marketplace, "description": "Immutable research-note release for one project",
+    marketplace = f"rn-release-{content}"
+    catalog = {"name": marketplace, "description": "Shared immutable research-note release",
                "owner": {"name": "research-note"},
                "plugins": [{"name": "research-note", "source": "./plugins/research-note"}]}
     write_json(release / ".claude-plugin/marketplace.json", catalog)
@@ -125,9 +157,10 @@ def snapshot(project: Path, source: Path) -> dict:
     if not provenance:
         provenance = {"source_commit": git(source, "rev-parse", "HEAD", check=False) or None,
                       "source_dirty": bool(git(source, "status", "--porcelain", "--", ".", check=False))}
-    write_json(release / "provenance.json", provenance)
-    return {"schema": 1, "version": manifest["version"], "sha256": content,
-            **provenance, "runtime": str((RUNTIME / content / "plugins/research-note")),
+    if not (release / "provenance.json").exists():
+        write_json(release / "provenance.json", provenance)
+    return {"schema": 2, "version": manifest["version"], "sha256": content,
+            **provenance, "runtime": f"{content}/plugins/research-note",
             "marketplace": marketplace, "selector": f"research-note@{marketplace}"}
 
 
@@ -136,11 +169,8 @@ def locked_root(project: Path) -> Path | None:
     pin = json_file(project / LOCK)
     if not pin:
         return None
-    sha = pin.get("sha256", "")
-    if not re.fullmatch(r"[0-9a-f]{64}", sha):
-        raise ValueError("invalid plugin lock digest")
-    root = project / RUNTIME / sha / "plugins/research-note"
-    if not root.is_dir() or digest(root) != sha:
+    root = pin_root(project, pin)
+    if not root.is_dir() or digest(root, legacy=pin.get("schema") == 1) != pin["sha256"]:
         raise ValueError("pinned runtime missing or digest mismatch; restore it before continuing")
     return root
 
@@ -179,7 +209,9 @@ def prune_locked_runtime(project: Path) -> list[str]:
         sha = pin.get("sha256", "")
         if not re.fullmatch(r"[0-9a-f]{64}", sha):
             raise ValueError("cannot prune project runtime without a valid plugin lock")
-        return prune_runtime(project, {sha})
+        # Shared releases can be selected by projects outside this checkout.
+        # Never prune them as a side effect of a project update.
+        return prune_runtime(project, {sha} if pin.get("schema") == 1 else set())
 
 
 def codex_text(original: str, selector: str, marketplace: str, release: Path,
@@ -206,7 +238,10 @@ def codex_text(original: str, selector: str, marketplace: str, release: Path,
             else:
                 body = f"enabled = {value}\n" + body
             section = section[:head.end()] + body
-        elif SELECTOR_RE.search(section) and not re.match(r'''\s*\[plugins\.["']research-note@[^"']+["']\.\w+''', section):
+        elif (SELECTOR_RE.search(section)
+              and (re.match(r"\s*\[plugins(?:\.|\])", section)
+                   or re.search(r"(?m)^\s*plugins\s*[.=]", section))
+              and not re.match(r'''\s*\[plugins\.["']research-note@[^"']+["']\.\w+''', section)):
             # Comments mentioning a selector are harmless.
             if any(SELECTOR_RE.search(line) for line in section.splitlines()
                    if line.strip() and not line.lstrip().startswith("#")):
@@ -228,7 +263,7 @@ def codex_text(original: str, selector: str, marketplace: str, release: Path,
 
 def activate(project: Path, pin: dict) -> None:
     """Write only THIS project's selectors; never install or enable globally."""
-    root = project / pin["runtime"]
+    root = pin_root(project, pin)
     if digest(root) != pin["sha256"]:
         raise ValueError("snapshot digest mismatch")
     release = root.parents[1]
@@ -237,8 +272,14 @@ def activate(project: Path, pin: dict) -> None:
     selector, market = pin["selector"], pin["marketplace"]
     disabled = {"research-note@research-tools", "research-note@inline", "research-note@skills-dir"}
     texts = []
-    for path in [Path.home() / ".claude/settings.json", Path.home() / ".claude/settings.local.json",
-                 Path.home() / ".claude/plugins/installed_plugins.json", Path.home() / ".codex/config.toml",
+    claude_home = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude"))
+    codex_home = Path(os.environ.get("CODEX_HOME") or str(Path.home() / ".codex"))
+    registry = json_file(claude_home / "plugins/installed_plugins.json")
+    for key, rows in registry.get("plugins", {}).items():
+        if key.startswith("research-note@") and any(not row.get("projectPath") or
+                row.get("scope") == "user" or row.get("projectPath") == str(project) for row in rows):
+            disabled.add(key)
+    for path in [claude_home / "settings.json", claude_home / "settings.local.json", codex_home / "config.toml",
                  project / ".codex/config.toml", *paths]:
         if path.is_file():
             texts.append(path.read_text(encoding="utf-8"))
@@ -252,7 +293,7 @@ def activate(project: Path, pin: dict) -> None:
         # Drop only OUR old immutable marketplace declarations in this project.
         extra = config.get("extraKnownMarketplaces", {})
         for key in list(extra):
-            if re.fullmatch(r"rn-[0-9a-f]{12}-[0-9a-f]{16}", key):
+            if re.fullmatch(r"rn-(?:[0-9a-f]{12}-[0-9a-f]{16}|release-[0-9a-f]{64})", key):
                 del extra[key]
     settings[1].setdefault("extraKnownMarketplaces", {})[market] = {
         "source": {"source": "directory", "path": str(release)}, "autoUpdate": False}
@@ -279,6 +320,8 @@ def check(project: Path) -> list[str]:
         if root is None:
             return ["project has no plugin lock"]
         pin = json_file(project / LOCK)
+        if json_file(root / ".codex-plugin/plugin.json").get("version") != pin.get("version"):
+            raise ValueError("installed version differs from project lock")
         selector = pin["selector"]
         release = root.parents[1]
         market = pin["marketplace"]
@@ -315,14 +358,24 @@ def restore(project: Path, source: Path) -> None:
     pin = json_file(project / LOCK)
     if not pin:
         raise ValueError("project has no lock to restore")
-    existing = project / RUNTIME / pin["sha256"] / "plugins/research-note"
+    existing = pin_root(project, pin)
     candidate = existing if existing.is_dir() else source
-    if digest(candidate) != pin["sha256"]:
+    if digest(candidate, legacy=pin.get("schema") == 1) != pin["sha256"]:
         raise ValueError("restore needs --source with the locked content digest; it never upgrades")
+    if not shared_capable(candidate):
+        if pin.get("schema") != 1:
+            raise ValueError("locked source predates shared installations; cannot restore a schema-2 selection")
+        # Preserve a private legacy installation rather than giving its old
+        # scripts a lock they cannot read. Explicit update performs migration.
+        subprocess.run([sys.executable, "-B", str(candidate / "scripts/project_runtime.py"),
+                        "restore", "--source", str(candidate), str(project)], check=True)
+        return
     with transaction(project):
         restored = snapshot(project, candidate)
         restored.update({k: pin.get(k) for k in ("source_commit", "source_dirty")})
         activate(project, restored)
+        from host_install import sync_hosts
+        sync_hosts(project, restored, pin_root(project, restored))
     prune_locked_runtime(project)
     print("restored both project bindings without changing the pinned content")
 
@@ -337,7 +390,8 @@ def transaction(project: Path):
         fcntl.flock(record_lock, fcntl.LOCK_EX)
         snapshots_before = runtime_snapshots(project)
         paths = [project / ".claude", project / ".codex/config.toml", project / LOCK,
-                 project / ".research-note/project.json", project / ".research-note/.gitignore"]
+                 project / ".research-note/project.json", project / ".research-note/.gitignore",
+                 project / ".research-note/state/host-install.json"]
         from project_config import load_project_config, contract_views
         paths += [project / view for views in contract_views(load_project_config(project)).values()
                   for view in views if not view.startswith(".claude/")]
@@ -383,10 +437,12 @@ def update(project: Path, source: Path, dry: bool = False) -> None:
         return
     env = {**os.environ, "RN_RUNTIME_UPDATE_INTERNAL": "1", "RESEARCH_NOTE_PROJECT_DIR": str(project),
            "CLAUDE_PROJECT_DIR": str(project), "PYTHONDONTWRITEBYTECODE": "1"}
+    if not shared_capable(source):
+        raise ValueError("requested source predates shared installations; use a current --source or a newer release. Existing project bindings were kept")
     if dry:
         subprocess.run(["bash", str(source / "scripts/update_projects.sh"), "--dry-run", "--agents", "none", str(project)],
                        check=True, env=env)
-        print("would pin Claude, Codex and scripts to one immutable project snapshot")
+        print("would select a shared release for this project's Claude, Codex and scripts")
         return
     import contracts
     findings = []
@@ -396,17 +452,19 @@ def update(project: Path, source: Path, dry: bool = False) -> None:
         raise ValueError("contract preflight failed: " + "; ".join(str(row) for row in conflicts))
     with transaction(project):
         pin = snapshot(project, source)
-        root = project / pin["runtime"]
+        root = pin_root(project, pin)
+        activate(project, pin)
         subprocess.run(["bash", str(root / "scripts/update_projects.sh"), "--agents", "none", str(project)],
                        check=True, env=env)
-        activate(project, pin)
         errors = check(project)
         if errors:
             raise ValueError("; ".join(errors))
+        from host_install import sync_hosts
+        sync_hosts(project, pin, root)
     removed = prune_locked_runtime(project)
     print(f"pinned both agents: {pin['version']} {pin['sha256'][:12]} — {project}")
     if removed:
-        print(f"removed {len(removed)} superseded project runtime snapshot(s)")
+        print(f"removed {len(removed)} legacy project runtime snapshot(s); shared releases retained")
     print("Claude can /reload-plugins to switch now; start a new Codex session for the new pin.")
 
 
@@ -416,13 +474,19 @@ def main() -> int:
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--latest", action="store_true", help="fetch the release source without upgrading a user plugin")
-    parser.add_argument("--ref", default="main", help="Git branch, tag or commit with --latest")
+    parser.add_argument("--ref", help="Git branch, tag or commit (defaults to main)")
+    parser.add_argument("--version", help="select a release tag vVERSION, or verify an explicit local source's version")
     parser.add_argument("--repository", default="https://github.com/Chi-RZ/research-note.git")
     parser.add_argument("--agents", choices=["both", "claude", "codex", "none"], default="both",
-                        help="compatibility option; both project bindings always use the same runtime")
+                        help="compatibility option; both project bindings always use the same release")
     parser.add_argument("--no-cross-agent", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("projects", nargs="*", type=Path)
     args = parser.parse_intermixed_args()
+    explicit_source = "--source" in sys.argv[1:]
+    if args.version and args.ref:
+        parser.error("choose --version or --ref")
+    if (args.latest or args.ref) and explicit_source:
+        parser.error("choose a remote release (--latest/--ref) or --source")
     projects = args.projects or [Path(os.environ.get("RESEARCH_NOTE_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or Path.cwd())]
     try:
         for project in projects:
@@ -438,25 +502,28 @@ def main() -> int:
                 else:
                     restore(project, args.source.resolve())
             else:
-                if args.latest:
+                if args.latest or args.ref or (args.version and not explicit_source):
+                    ref = args.ref or (f"v{args.version}" if args.version else "main")
                     if args.dry_run:
-                        print(f"would fetch {args.repository} at {args.ref} and update only {project}")
+                        print(f"would fetch {args.repository} at {ref} and update only {project}")
                         continue
-                    if args.ref.startswith("-"):
+                    if ref.startswith("-"):
                         raise ValueError("invalid Git ref")
                     with tempfile.TemporaryDirectory(prefix="research-note-update-") as tmp:
                         checkout = Path(tmp)
                         git(checkout, "init", "-q")
                         git(checkout, "remote", "add", "origin", args.repository)
-                        git(checkout, "fetch", "--depth", "1", "origin", args.ref)
+                        git(checkout, "fetch", "--depth", "1", "origin", ref)
                         git(checkout, "checkout", "--detach", "FETCH_HEAD")
-                        # Run the NEW updater, whose migration logic understands
-                        # the new release; the immutable source is this checkout.
-                        updater = checkout / "plugins/research-note/scripts/update_projects.sh"
-                        subprocess.run(["bash", str(updater), str(project)], check=True)
+                        source = checkout / "plugins/research-note"
+                        if args.version and json_file(source / ".codex-plugin/plugin.json").get("version") != args.version:
+                            raise ValueError("requested version differs from fetched manifest")
+                        update(project, source)
                 else:
+                    if args.version and json_file(args.source / ".codex-plugin/plugin.json").get("version") != args.version:
+                        raise ValueError("requested version differs from local manifest")
                     update(project, args.source.resolve(), args.dry_run)
-    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"project runtime: {exc}", file=sys.stderr)
         return 1
     return 0

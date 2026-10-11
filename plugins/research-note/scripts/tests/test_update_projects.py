@@ -89,36 +89,37 @@ def test_the_verify_step_runs_BOTH_linters():
     assert "check_objective_page.py" in body, body
 
 
-def _stateful_claude(home, installed_version, published_version):
-    """`_fake_claude`'s sibling for a NON-dry run: the stub remembers.
-
-    The dry-run stubs report one fixed installed version forever, which is
-    enough to test whether an update is ATTEMPTED. To test what happens after
-    one lands, `plugin list` has to answer differently once `plugin update` has
-    run — otherwise the script sees the install fail and never reaches the step
-    under test.
-    """
-    src = home / "src"
-    (src / "plugins" / "research-note" / ".claude-plugin").mkdir(parents=True)
-    (src / "plugins" / "research-note" / ".claude-plugin" / "plugin.json").write_text(
-        json.dumps({"name": "research-note", "version": published_version}))
-
+def _project_claude(home):
+    """Native CLI stand-in: register project scope and expose its actual source."""
     bin_dir = home / "bin"
     bin_dir.mkdir()
     stub = bin_dir / "claude"
-    stub.write_text(f"""#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$HOME/.calls"
-S="$HOME/.installed"
-[ -f "$S" ] || printf %s "{installed_version}" > "$S"
-case "$*" in
-  *"marketplace list --json"*)
-    echo '[{{"name":"claude-setup","url":"u","ref":"uni-plugin","installLocation":"{src}"}}]' ;;
-  *"plugin list --json"*)
-    printf '[{{"id":"research-note@claude-setup","version":"%s"}}]\\n' "$(cat "$S")" ;;
-  *"plugin update"*|*"plugin install"*)
-    printf %s "{published_version}" > "$S" ;;
-  *) echo '[]' ;;
-esac
+    stub.write_text("""#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+home = Path.home()
+project = Path.cwd()
+args = sys.argv[1:]
+with (home / '.calls').open('a') as f:
+    f.write(' '.join(args) + '\\n')
+registry = home / '.claude/plugins/installed_plugins.json'
+data = json.loads(registry.read_text())
+if args[:2] == ['plugin', 'list']:
+    print(json.dumps([dict(row, id=key) for key, rows in data['plugins'].items() for row in rows]))
+elif args[:2] == ['plugin', 'install']:
+    selector = args[2]
+    market = selector.split('@')[1]
+    local = json.loads((project / '.claude/settings.local.json').read_text())
+    release = Path(local['extraKnownMarketplaces'][market]['source']['path'])
+    root = release / 'plugins/research-note'
+    version = json.loads((root / '.claude-plugin/plugin.json').read_text())['version']
+    row = dict(scope='project', projectPath=str(project), enabled=True, version=version,
+               installPath=str(root), readFromFolder=str(root))
+    data['plugins'].setdefault(selector, []).append(row)
+    registry.write_text(json.dumps(data))
+    print('{}')
+else:
+    print('{}')
 """)
     stub.chmod(0o755)
     return bin_dir
@@ -143,14 +144,19 @@ def test_project_update_disables_old_selector_without_upgrading_user_install(tmp
     registry = home / ".claude/plugins/installed_plugins.json"
     registry.write_text(json.dumps({"plugins": {"research-note@acme-labs": [
         {"projectPath": str(proj), "version": "1.0.0"}]}}))
-    before = registry.read_bytes()
-    bin_dir = _stateful_claude(home, installed_version="99.0.0", published_version="99.0.0")
+    before = json.loads(registry.read_text())
+    bin_dir = _project_claude(home)
     result = subprocess.run(["bash", str(SCRIPT), "--agents", "claude", str(proj)],
                            env={"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/local/bin"},
                            capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert not (home / ".calls").exists(), "no agent CLI update or install"
-    assert registry.read_bytes() == before
+    calls = (home / ".calls").read_text()
+    assert "plugin install research-note@rn-release-" in calls
+    assert "--scope project" in calls
+    assert "plugin update" not in calls and "--scope user" not in calls
+    after = json.loads(registry.read_text())
+    assert after["plugins"]["research-note@acme-labs"] == before["plugins"]["research-note@acme-labs"]
+    assert all(row.get("scope") != "user" for rows in after["plugins"].values() for row in rows)
     settings = json.loads((proj / ".claude/settings.json").read_text())
     assert settings["enabledPlugins"]["research-note@acme-labs"] is False
     assert sum(settings["enabledPlugins"].values()) == 1
@@ -158,7 +164,7 @@ def test_project_update_disables_old_selector_without_upgrading_user_install(tmp
 
 # --------------------------------------------------------------------------
 # P7 — ownership-aware update: migrate once, preview, retain what is disabled,
-# leave conflicts for a person. Real runs use --agents none so no CLI is touched.
+# leave conflicts for a person. Real runs have no host CLI on PATH, so host installation is reported pending.
 # --------------------------------------------------------------------------
 
 def _project(tmp_path, name="proj", declaration=None, framework=True):

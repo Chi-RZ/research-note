@@ -134,16 +134,31 @@ and Git hooks move together. Other projects and user-level plugin installations
 are unchanged. Claude can run `/reload-plugins` to switch in place; start a new
 Codex session to use the update.
 
-The lock is `.research-note/plugin-lock.json`; local plugin snapshots live in
-`.research-note/runtime/` and stay out of Git. Setup reuses an existing pin;
-only an explicit update changes it. Project rules are preserved, contract
-conflicts stop activation, and failed updates restore the previous bindings.
-Successful updates retain only the snapshot selected by the lock; Claude and
-Codex manage their own cache copies.
-A new clone needs the pinned snapshot restored before the agents can load it:
+The lock is `.research-note/plugin-lock.json`. Installed releases live once per
+machine in `~/.local/share/research-note/releases/<digest>/`; projects selecting
+the same content share that installation. Claude uses a native project-scope
+installation; Codex selects it through project configuration and keeps its own
+cache. User-level enablement stays unchanged. Available hosts are verified;
+missing hosts or an untrusted Codex project are reported as pending.
+
+Ask for a specific version, or update from an unpublished local checkout:
+
+```bash
+bash "$PLUGIN/scripts/update_projects.sh" --version 0.1.0 PROJECT_DIR
+bash "$PLUGIN/scripts/update_projects.sh" --source /path/to/repo/plugins/research-note PROJECT_DIR
+```
+
+Setup reuses an existing selection. Updates preserve project rules, stop on
+contract conflicts and restore previous bindings on failure. Legacy project
+runtime copies are removed after migration; shared releases remain available
+for other projects. Switching a source checkout's branch does not change an
+installed release. The version and content hash show exactly which build is used.
+Version tags must include this shared-install mechanism; older private installers
+are refused before switching. Existing legacy projects can migrate explicitly.
+A new clone needs its selected release restored before the agents can load it:
 run `project_runtime.py restore --source /path/to/matching/plugin` from the
 project using a copy of the plugin with the locked content digest. For a moved
-checkout whose snapshot is still present, `restore` refreshes local paths.
+checkout whose shared release is present, `restore` refreshes local paths.
 It refuses a different version instead of silently upgrading.
 
 

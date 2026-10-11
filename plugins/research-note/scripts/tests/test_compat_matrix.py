@@ -37,7 +37,9 @@ def env_for(home: Path, **extra: str) -> dict[str, str]:
         (fake_bin / "uv").write_text("#!/bin/sh\nexit 0\n")
         (fake_bin / "uv").chmod(0o755)
     return {"HOME": str(home), "PATH": f"{fake_bin}:/usr/bin:/bin:/usr/local/bin",
-            "LANG": os.environ.get("LANG", "C.UTF-8"), **GIT_ENV, **extra}
+            "LANG": os.environ.get("LANG", "C.UTF-8"),
+            **({"RESEARCH_NOTE_RELEASE_STORE": os.environ["RESEARCH_NOTE_RELEASE_STORE"]}
+               if "RESEARCH_NOTE_RELEASE_STORE" in os.environ else {}), **GIT_ENV, **extra}
 
 
 def sh(cwd: Path, home: Path, *args: str, **kw) -> subprocess.CompletedProcess:
@@ -133,7 +135,7 @@ def test_an_empty_directory_becomes_a_local_only_project(empty, home):
     allowed = json.loads((empty / ".claude/settings.json").read_text())["permissions"]["allow"]
     assert not any("sbatch" in a or "ssh" in a for a in allowed)
     assert "· project agent bindings" in r.stdout
-    assert "Claude + Codex" in r.stdout and "pinned project runtime" in r.stdout
+    assert "Claude + Codex" in r.stdout and "shared release" in r.stdout
 
 
 def test_doctor_core_is_green_on_a_local_only_project(empty, home):

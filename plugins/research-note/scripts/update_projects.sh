@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # update_projects.sh — update explicitly selected projects to one pinned runtime.
 #
-# Usage: update_projects.sh [--dry-run] [--latest [--ref REF]] [<project-dir> ...]
+# Usage: update_projects.sh [--dry-run] [--latest | --version VERSION | --ref REF | --source PLUGIN_DIR] [<project-dir> ...]
 # With no directory, use the current project. The public wrapper snapshots the
 # source, syncs contracts and hooks transactionally, and binds BOTH agents only
 # in that project. It never upgrades either host's user installation.
@@ -14,7 +14,7 @@ set -uo pipefail
 # project update. The internal pass never updates either agent's user install.
 if [ "${RN_RUNTIME_UPDATE_INTERNAL:-}" != 1 ]; then
     runtime_here=$(cd "$(dirname "$0")" && pwd -P)
-    exec python3 "$runtime_here/project_runtime.py" update --source "$runtime_here/.." "$@"
+    exec python3 "$runtime_here/project_runtime.py" update "$@"
 fi
 
 DRY=0; AGENTS=both; declare -a WANT=()
@@ -252,17 +252,7 @@ echo "the session invoking this should now READ, to be current with $VER:"
 for f in skills/update/SKILL.md skills/analyze/SKILL.md skills/objective/SKILL.md \
          skills/hpc-submit/SKILL.md skills/plan/SKILL.md; do
     [ -f "$CACHE/$f" ] || continue
-    # Only the ones that actually changed since the version the caller may hold:
-    # git in the plugin repo knows, but the cache does not, so name the skills
-    # this update touched by comparing against the previous cached version.
-    # Siblings in THIS marketplace only: versions do not compare across
-    # marketplaces — a repository renamed and re-registered restarts its
-    # numbering, and a leftover 0.31 would outrank a current 0.2.
-    PREV=$(ls -d "$(dirname "$CACHE")"/* 2>/dev/null \
-           | grep -Fvx "$CACHE" | sort -V | tail -1)
-    if [ -n "$PREV" ] && [ "$PREV" != "$CACHE" ] && ! diff -q "$PREV/$f" "$CACHE/$f" >/dev/null 2>&1; then
-        echo "   $CACHE/$f      (changed in $VER)"
-    fi
+    echo "   $CACHE/$f"
 done
 echo "   plus any contract file listed as synced above (those cannot be reloaded at all)"
 

@@ -667,9 +667,9 @@ the project's purpose, environment choices and optional integrations. Project
 purpose belongs in `project_memory/note/` or an objective Goal, while durable
 project-specific agent rules belong in the contracts' project section.
 
-`update_projects.sh` updates the current project. It stages the new runtime,
+`update_projects.sh` updates the current project. It stages a shared release,
 checks contract conflicts, switches both host bindings and Git hooks as one
-transaction, verifies the result, then removes the superseded project runtime.
+transaction, verifies native host installation, then removes legacy project runtime copies.
 A failure restores the previous managed files and pin. Framework-owned files may
 be refreshed, project-owned files are untouched, and mixed files preserve their
 project section. Setup reuses an existing pin; update is the operation that
@@ -688,7 +688,7 @@ and rollback paths in one integration job.
 
 ---
 
-## 12. Claude and Codex use one project runtime
+## 12. Projects select shared releases
 
 The record, linters and Git gates are host-neutral. The plugin package has one
 core and two manifests because Claude and Codex keep separate registries and
@@ -699,18 +699,29 @@ contract, and their memory views point to the same shared memory. This avoids tw
 copies of project policy or learned context drifting apart.
 
 `.research-note/plugin-lock.json` records the selected version, content digest
-and source commit when available. The project keeps one immutable snapshot at
-`.research-note/runtime/<digest>/`. Both project configurations select that
-snapshot through a checkout-specific local marketplace. Host applications may
-materialize their own cache copies, but setup and update do not rewrite user
-registries or depend on a mutable global cache.
+and source commit when available. Immutable plugin content lives once per machine
+at `~/.local/share/research-note/releases/<digest>/`, respecting XDG data paths.
+Both project configurations select a content-specific marketplace; identical
+content shares the same source and host cache across projects. No full plugin
+copy lives in a new project's `.research-note/`.
+
+Claude's native registry records project scope and its cache path. For local
+marketplaces it may read directly from the immutable shared source. Codex's
+project configuration selects the marketplace and plugin; native discovery loads
+its own cache only in trusted projects. Setup/update verify available hosts and
+report missing or untrusted hosts as pending. User-level enablement is unchanged.
+The lock and configuration select a release, never the highest cache version.
 
 An explicit update changes the current project's lock and switches Claude,
 Codex, hooks and scripts together. Other projects and user-level installations
 stay unchanged. Claude can reload plugins in place; Codex uses the new pin in a
 new session. Existing sessions may keep the code they loaded at start.
 
-A new clone must restore the exact locked snapshot from matching plugin source;
+A new clone must restore the exact locked release from matching plugin source;
 it does not silently select a newer release. A moved checkout with its snapshot
-present only needs its local paths refreshed. Source changes must be committed
-and pushed before another machine can fetch them.
+present only needs its local paths refreshed. `--latest` fetches main,
+`--version VERSION` fetches a release tag, and `--source` installs local working
+files without GitHub. Installed files do not follow subsequent checkout edits.
+Versions identify releases; content digests distinguish local builds with the
+same version. Shared releases and native caches are retained independently of
+project updates because other projects may still select them.

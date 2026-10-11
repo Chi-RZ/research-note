@@ -26,8 +26,8 @@ are opt-in and the choice is saved in
 only as compatibility data; both project bindings are always prepared. Projects
 created before this configuration existed keep their integrations enabled.
 
-Both agents receive project-local bindings to one immutable runtime snapshot.
-No host CLI install or user-scope configuration change is part of setup.
+Both agents select one immutable release shared across projects on this machine.
+Available hosts prepare native project installations; user enablement is unchanged.
 --with-cross-agent remains accepted for compatibility.
 
 --remote HOST:DIR declares a remote HPC (ssh alias + project clone path on the
@@ -755,7 +755,7 @@ def main() -> int:
 
     print("\n· project agent bindings")
     say("ok", "Claude + Codex",
-        "both use the pinned project runtime; no user-scope install")
+        "both select a shared release; no user-scope enablement")
 
     print("\n· acceptance gate")
     # The gate checks the project, not the plugin: both linters over whatever
@@ -776,12 +776,19 @@ def main() -> int:
     if not dry and not any(s in {"FAIL", "CONFLICT"} for s, _, _ in report):
         try:
             with transaction(proj):
-                pin = snapshot(proj, PLUGIN)
+                from project_runtime import LOCK, json_file
+                existing = json_file(proj / LOCK)
+                # A shared artifact may have been built first by another
+                # checkout. Repeated setup keeps this project's provenance.
+                pin = existing if existing.get("schema") == 2 else snapshot(proj, PLUGIN)
                 activate(proj, pin)
+                from project_runtime import pin_root
+                from host_install import sync_hosts
+                sync_hosts(proj, pin, pin_root(proj, pin))
             prune_locked_runtime(proj)
             say("ok", "project runtime (Claude + Codex)",
                 f"{pin['version']} / {pin['sha256'][:12]}")
-        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
             say("FAIL", "project runtime", str(exc))
 
     bad = [f"{w} ({d})" if d else w for s, w, d in report if s in ("FAIL", "WARN")]

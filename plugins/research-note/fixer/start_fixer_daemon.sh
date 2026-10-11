@@ -33,8 +33,8 @@ hostname -f > "$STATE/host"
 #    plugin path: a long-lived daemon that exec'd its own start-time path would
 #    keep running the version it was launched from long after an upgrade (this
 #    happened — cron on 0.2.1 while the daemon ran 0.5.0). The stub resolves
-#    this project's pinned runtime at every tick; an installed-cache lookup is
-#    only a fallback for legacy projects without a valid pin.
+#    this project's selected release at every tick. Legacy projects without a
+#    pin use the directory this stub was written from.
 #    (Written before the lock check: rewriting it for a running daemon is what
 #    lets a plugin upgrade land without a restart.)
 # 2b. The agent that runs the repair tiers. A SESSION knows which agent it is
@@ -51,17 +51,18 @@ fi
 cat > "$STATE/run.sh" <<STUB
 #!/usr/bin/env bash
 # Resolve this project's pinned plugin at every tick. Legacy projects without
-# a valid project pin fall back to the highest installed cache, then to the
-# directory this stub was written from.
+# a project pin use the directory this stub was written from.
 ${AGENT:+export RESEARCH_NOTE_FIXER_AGENT=$AGENT}
-D="\$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)/fixer"
-if [ ! -x "\$D/run_fixer.sh" ]; then
-    D="\$(ls -d "\$HOME"/.codex/plugins/cache/*/research-note/*/fixer 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if(\$i=="research-note"){print \$(i+1)"\t"\$0;break}}' | sort -V | tail -1 | cut -f2)"
+P="\$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null)"
+if [ -n "\$P" ]; then
+    D="\$P/fixer"
+elif [ ! -f "$PROJ/.research-note/plugin-lock.json" ]; then
+    D="$HERE"
+else
+    echo "fixer: restore this project's plugin lock before running" >&2
+    exit 2
 fi
-if [ ! -x "\$D/run_fixer.sh" ]; then
-    D="\$(ls -d "\$HOME"/.claude/plugins/cache/*/research-note/*/fixer 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if(\$i=="research-note"){print \$(i+1)"\t"\$0;break}}' | sort -V | tail -1 | cut -f2)"
-fi
-[ -n "\${D:-}" ] && [ -x "\$D/run_fixer.sh" ] || D="$HERE"
+[ -x "\$D/run_fixer.sh" ] || { echo "fixer: selected plugin is missing" >&2; exit 2; }
 exec "\$D/run_fixer.sh" "$PROJ"
 STUB
 chmod +x "$STATE/run.sh"

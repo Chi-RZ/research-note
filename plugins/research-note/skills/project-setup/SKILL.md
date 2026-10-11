@@ -145,7 +145,11 @@ project:
 
 Setup preserves an existing `.research-note/plugin-lock.json`; it does not
 upgrade a project because the user-level plugin changed. The generated
-`.codex/config.toml` and Claude settings select the same immutable runtime.
+`.codex/config.toml` and Claude settings select the same immutable shared release,
+stored once per machine outside the project. Available hosts install/verify it
+natively; missing hosts or untrusted Codex projects are reported as pending.
+User-level enablement stays unchanged. See `update` for selecting a different
+release or an unpublished local checkout.
 Host trust prompts still apply. Running sessions keep their loaded version;
 Claude can `/reload-plugins`, while Codex loads the pin in a new session.
 

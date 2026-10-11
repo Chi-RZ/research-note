@@ -23,8 +23,7 @@ Resolve the plugin and the experiment roots first:
 
 ```bash
 PLUGIN="${RESEARCH_NOTE_PLUGIN:-$(git config --get research-note.pluginRoot 2>/dev/null)}"
-[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
-[ -d "$PLUGIN" ] || PLUGIN=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/* 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+[ -d "$PLUGIN" ] || { echo "Restore this project’s plugin lock before running tools" >&2; exit 2; }
 python3 "$PLUGIN/scripts/project_config.py" role experiments   # <experiment-root>
 ```
 

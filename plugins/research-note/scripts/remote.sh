@@ -475,8 +475,8 @@ submit)
     # an exit 3 no retry may follow.
     if [ "${ENTRY:-none}" != none ]; then
         RS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/record_submit.py"
-        [ -f "$RS" ] || RS=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
-        [ -f "$RS" ] || RS=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+        SELECTED_PLUGIN=$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null || true)
+        [ -f "$RS" ] || RS="$SELECTED_PLUGIN/scripts/record_submit.py"
         if [ -f "$RS" ]; then
             RPAGE=${ENTRY%%:*}; RNAME=${ENTRY#*:}; RNAME=${RNAME# }
             python3 "$RS" --check "$RPAGE" "$RNAME" ${BIND[@]+"${BIND[@]}"} >&2 \
@@ -601,8 +601,8 @@ submit)
     # ENTRY="<node>/<page>: <entry name>"; ENTRY=none for a deliberate probe.
     if [ "${ENTRY:-none}" != none ]; then
         RS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/record_submit.py"
-        [ -f "$RS" ] || RS=$(ls -d "$HOME"/.codex/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
-        [ -f "$RS" ] || RS=$(ls -d "$HOME"/.claude/plugins/cache/*/research-note/*/scripts/record_submit.py 2>/dev/null | awk -F/ '{for(i=1;i<NF;i++)if($i=="research-note"){print $(i+1)"\t"$0;break}}' | sort -V | tail -1 | cut -f2)
+        SELECTED_PLUGIN=$(git -C "$PROJ" config --get research-note.pluginRoot 2>/dev/null || true)
+        [ -f "$RS" ] || RS="$SELECTED_PLUGIN/scripts/record_submit.py"
         if [ ! -f "$RS" ]; then
             echo "remote.sh submit: job $JID@$REMOTE_HOST LAUNCHED but record_submit.py not found —" >&2
             echo "  record it on '$ENTRY' by hand now." >&2
