@@ -405,11 +405,26 @@ def transaction(project: Path):
                 exists = path.exists() or path.is_symlink()
                 present.append(exists)
                 if exists:
-                    copy_path(path, backup / str(i))
+                    copy_path(path, backup / str(i), skip_worktrees=path == project / ".claude")
             try:
                 yield
             except BaseException:
                 for i, path in enumerate(paths):
+                    if path == project / ".claude" and path.is_dir() and not path.is_symlink():
+                        # Worktrees can contain active agents and gigabytes of
+                        # research data. They are outside this transaction.
+                        for child in path.iterdir():
+                            if child.name == "worktrees":
+                                continue
+                            if child.is_symlink() or not child.is_dir():
+                                child.unlink()
+                            else:
+                                shutil.rmtree(child)
+                        if present[i]:
+                            shutil.copytree(backup / str(i), path, symlinks=True, dirs_exist_ok=True)
+                        elif not any(path.iterdir()):
+                            path.rmdir()
+                        continue
                     if path.is_symlink() or path.is_file():
                         path.unlink()
                     elif path.is_dir():
@@ -420,12 +435,13 @@ def transaction(project: Path):
                 raise
 
 
-def copy_path(source: Path, dest: Path) -> None:
+def copy_path(source: Path, dest: Path, *, skip_worktrees: bool = False) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if source.is_symlink():
         dest.symlink_to(os.readlink(source))
     elif source.is_dir():
-        shutil.copytree(source, dest, symlinks=True)
+        ignore = (lambda directory, names: ["worktrees"] if Path(directory) == source else []) if skip_worktrees else None
+        shutil.copytree(source, dest, symlinks=True, ignore=ignore)
     else:
         shutil.copy2(source, dest)
 

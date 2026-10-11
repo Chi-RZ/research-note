@@ -1,6 +1,7 @@
 """Project isolation includes both hosts' plugins, not just script lookup."""
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -135,6 +136,32 @@ def test_failed_activation_restores_previous_settings(tmp_path, monkeypatch):
     assert {k: v for k, v in files(p).items() if "/runtime/" not in k and "/state/" not in k} == {
         k: v for k, v in before.items() if "/runtime/" not in k and "/state/" not in k}
     assert m.runtime_snapshots(p) == set()
+
+
+def test_transaction_never_copies_or_replaces_active_worktrees(tmp_path):
+    m = runtime()
+    p = project(tmp_path, "p")
+    active = p / ".claude/worktrees/active"
+    active.mkdir(parents=True)
+    sentinel = active / "research.txt"
+    sentinel.write_text("active agent's data\n")
+    inode = active.stat().st_ino
+    # A FIFO cannot be copied as a regular snapshot file. It also represents
+    # a resource an active process could hold inside the excluded directory.
+    os.mkfifo(active / "running.fifo")
+    settings = p / ".claude/settings.json"
+    settings.write_text('{"keep": true}\n')
+    with pytest.raises(RuntimeError, match="installation failed"):
+        with m.transaction(p):
+            settings.write_text('{"new": true}\n')
+            (p / ".claude/new-config.json").write_text("{}")
+            sentinel.write_text("concurrent agent's new data\n")
+            raise RuntimeError("installation failed")
+    assert settings.read_text() == '{"keep": true}\n'
+    assert not (p / ".claude/new-config.json").exists()
+    assert active.stat().st_ino == inode
+    assert sentinel.read_text() == "concurrent agent's new data\n"
+    assert (active / "running.fifo").is_fifo()
 
 
 @pytest.mark.integration
