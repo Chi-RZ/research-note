@@ -136,8 +136,7 @@ You can also ask for a version (such as `0.1.0`) or an update from a local
 checkout. Local updates include uncommitted plugin edits. The update reports
 which version and build were selected.
 
-See [local development and releases](tools/README.md#local-development-and-releases)
-for maintainer commands, or [installation details](DESIGN.md#12-projects-select-shared-releases)
-for shared caches and restoring a cloned project.
+See [installation details](DESIGN.md#12-projects-select-shared-releases) for
+shared caches and restoring a cloned project.
 
 MIT licensed.
