@@ -3,7 +3,7 @@
 [![tests](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml/badge.svg)](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**[Project homepage](https://chi-rz.github.io/research-note/)** ·
+[![Project homepage ↗](docs/project-homepage.svg)](https://chi-rz.github.io/research-note/) ·
 **[3×3 TFIM example](examples/tfim-simple-update/)**
 
 A record framework for agent-assisted computational research, for **Claude
