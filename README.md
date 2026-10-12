@@ -3,8 +3,8 @@
 [![tests](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml/badge.svg)](https://github.com/Chi-RZ/research-note/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[![Homepage ↗](docs/project-homepage.svg)](https://chi-rz.github.io/research-note/)
-[![Example ↗](docs/project-example.svg)](examples/tfim-simple-update/)
+[![Homepage](docs/project-homepage.svg)](https://chi-rz.github.io/research-note/)
+[![Example](docs/project-example.svg)](examples/tfim-simple-update/)
 
 A record framework for agent-assisted computational research, for **Claude
 Code** and **Codex**. It records numerical results faithfully, and distils

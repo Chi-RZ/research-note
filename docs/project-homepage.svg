@@ -1,11 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="150" height="36" viewBox="0 0 150 36" role="img" aria-labelledby="title">
-  <title id="title">Homepage ↗</title>
-  <rect x="0.5" y="0.5" width="149" height="35" rx="6" fill="#555555" stroke="#707070"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="36" viewBox="0 0 128 36" role="img" aria-labelledby="title">
+  <title id="title">Homepage</title>
+  <rect x="0.5" y="0.5" width="127" height="35" rx="6" fill="#555555" stroke="#707070"/>
   <g fill="none" stroke="#E8E8E8" stroke-width="1.3">
     <circle cx="23" cy="18" r="8"/>
     <ellipse cx="23" cy="18" rx="3.5" ry="8"/>
     <path d="M15 18h16"/>
   </g>
   <text x="42" y="23" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600">Homepage</text>
-  <path d="M124 23l10-10m-8 0h8v8" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
