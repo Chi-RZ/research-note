@@ -57,6 +57,9 @@ def commit_msg(repo: Path, staged: list[str], message: str) -> subprocess.Comple
     (["project_memory/nodes/n/page.md"], "memory: no trailer", False),
     (["project_memory/nodes/n/page.md"], "memory: entry\n\nEntry: 07.005", True),
     (["project_memory/nodes/n/page.md"], "memory: correction\n\nCorrect: 07.005", True),
+    # a node past entry 999 carries four-digit ids
+    (["project_memory/nodes/n/page.md"], "memory: entry\n\nEntry: 07.1005", True),
+    (["project_memory/nodes/n/page.md"], "memory: correction\n\nCorrect: 07.1005", True),
     (["project_memory/objectives/o.md"], "memory: no trailer", False),
     (["project_memory/objectives/o.md"], "memory: route\n\nObjective: O03", True),
     (["project_memory/objectives/o.md"], "memory: wrong kind\n\nEntry: 07.005", False),

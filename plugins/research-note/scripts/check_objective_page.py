@@ -72,7 +72,7 @@ ENTRY_REF_RE = re.compile(r"\]\(([^)]+?\.md)#entry-([\w-]+)\)")
 MOTIV_RE = re.compile(r"^- \*\*Motivation:\*\*(.*(?:\n(?!\s*- \*\*).*)*)", re.M)
 FIG_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 #: An entry line's backticked id, sitting right after the link.
-LINK_ID_RE = re.compile(r"\]\(([^)]+?\.md)#entry-([\w-]+)\)\s*`(\d{2}\.\d{3})`")
+LINK_ID_RE = re.compile(r"\]\(([^)]+?\.md)#entry-([\w-]+)\)\s*`(\d{2}\.\d{3,})`")
 DATE_TAIL_RE = re.compile(r"\((\d{4}-\d{2}-\d{2})\)\s*$")
 
 

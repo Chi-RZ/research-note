@@ -156,7 +156,7 @@ def main() -> int:
               "is its own commit. Split it, or SKIP_PREFIX_CHECK=1.",
               file=sys.stderr)
         return 1
-    if nodes and not re.search(r"^(Entry|Correct): \d{2}\.\d{3}\b", body, re.M):
+    if nodes and not re.search(r"^(Entry|Correct): \d{2}\.\d{3,}\b", body, re.M):
         print("commit-msg: a nodes/ commit carries an `Entry: <nn>.<mmm>` "
               "trailer (a correction: `Correct: <id>`). SKIP_PREFIX_CHECK=1 "
               "to override.", file=sys.stderr)

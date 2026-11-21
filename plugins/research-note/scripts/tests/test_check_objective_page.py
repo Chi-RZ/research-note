@@ -538,3 +538,9 @@ def test_o8_generated_count_is_deduplicated_and_preserves_verdict(obj):
     S.sync_count(obj)
     assert "0 entries await review" in obj.read_text()
     assert not any(e.startswith("O8") for e in O.lint(obj))
+
+
+def test_link_id_reads_four_digit_sequence():
+    plan = "  - [a probe](../nodes/n/page.md#entry-a-probe) `05.1000`\n  - [b](../nodes/n/p.md#entry-b) `05.023`"
+    assert O.LINK_ID_RE.findall(plan) == [("../nodes/n/page.md", "a-probe", "05.1000"),
+                                          ("../nodes/n/p.md", "b", "05.023")]

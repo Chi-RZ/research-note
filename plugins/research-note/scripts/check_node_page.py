@@ -761,7 +761,8 @@ def entry_logs_state(body: str, page: Path | None = None) -> str | None:
 
 LEGAL_ENTRY_STATUS = {"open", "running", "analyzed", "closed"}
 CONCLUDED = {"analyzed", "closed"}
-ID_RE = re.compile(r"^\d{2}\.\d{3}$")
+#: node number, then a per-node sequence of three digits — four (and on) once a node passes 999
+ID_RE = re.compile(r"^\d{2}\.\d{3,}$")
 DATE_LINE_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 CODE_RE = re.compile(r"[\w.-]+@[0-9a-f]{7,40}")
 #: `record_submit` appends this line; it is evidence, and evidence lives in the Facts
@@ -851,10 +852,10 @@ def entry_errors(name: str, body: str) -> list[str]:
     eid = field(body, "Id")
     if not eid:
         errs.append(f"E1 entry '{name}' missing `Id:` — `<nn>.<mmm>`, node number "
-                    f"then per-node sequence, assigned at creation")
+                    f"then per-node sequence (a fourth digit once a node passes 999), assigned at creation")
     elif not ID_RE.match(eid):
         errs.append(f"E1 entry '{name}' `Id: {eid}` is not `<nn>.<mmm>` "
-                    f"(both zero-padded)")
+                    f"(both zero-padded; the sequence takes a fourth digit past 999)")
 
     status = field(body, "Status")
     if status not in LEGAL_ENTRY_STATUS:

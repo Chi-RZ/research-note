@@ -168,6 +168,11 @@
    "bytes": 14559,
    "sha256": "d6929b792ecf32c1ef4b39cd570cd0c2928cffd2767334fa640171859a9f92a4",
    "commit": "79a0fe5"
+  },
+  {
+   "bytes": 14652,
+   "sha256": "10135ea5f8539d3de75991985414904a152ff63fba8d0c256fcd7b8f99dec681",
+   "commit": "worktree"
   }
  ],
  "wiki-CLAUDE.md": [

@@ -211,6 +211,21 @@ def test_e1_malformed_id(tmp_path, monkeypatch):
     assert any(e.startswith("E1") and "7.1" in e for e in C.lint_page(p))
 
 
+def test_e1_four_digit_sequence(tmp_path, monkeypatch):
+    # a node past entry 999 continues at four digits; the id stays unique and stable
+    p = write_page(tmp_path, "tanner_gnn_ln", "grid",
+                   PAGE.replace("- **Id:** 07.001", "- **Id:** 07.1000"))
+    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
+    assert not any(e.startswith("E1") and "07.1000" in e for e in C.lint_page(p))
+
+
+def test_e1_short_sequence_still_malformed(tmp_path, monkeypatch):
+    p = write_page(tmp_path, "tanner_gnn_ln", "grid",
+                   PAGE.replace("- **Id:** 07.001", "- **Id:** 07.12"))
+    monkeypatch.setattr(C, "NODES_DIR", tmp_path)
+    assert any(e.startswith("E1") and "07.12" in e for e in C.lint_page(p))
+
+
 def _second_entry(id_, date):
     return (f"\n### Entry: a second probe\n"
             f"- **Id:** {id_}\n- **Status:** open\n- **Date:** {date}\n"
