@@ -62,8 +62,7 @@ Header fields are `- **Key:** value`, one spelling only (E10). Field rules:
 - **Id** (E1): node number from `_index.md`, then a per-node sequence, unique
   across the complete `project_memory/nodes/` tree and never reused.
   Both zero-padded, assigned at creation, never reused or renumbered to match
-  dates; backfilled records may have earlier dates. The sequence has three
-  digits until a node passes 999, then continues at four (`05.1000`).
+  dates; backfilled records may have earlier dates.
 - **Status** (E2): the four states, nothing else. **Date** (E3): creation,
   never changes.
 - **Code** (E4): the newest commit at submission touching `<library-root>`, the node's
